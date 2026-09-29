@@ -259,6 +259,7 @@ HOME="$PWD/.sb-home" npx supabase <命令>
 | 授权（RLS） | **36** | 以 `authenticated` 身份执行，按**受影响行数**判定 |
 | 约束（UNIQUE / CHECK / 触发器） | **11** | 按是否报错判定 |
 | 匿名访问 | **14** | 未登录读每张表都必须被拒绝 |
+| 频率限制 | **9** | 按 `consume_rate_limit` 的返回值判定 |
 
 关键设计点：RLS 对 SELECT/UPDATE/DELETE 的拒绝方式是**静默过滤（0 行）而不是报错**，
 因此判定必须看**受影响行数**；只有 INSERT 才抛错。把"没有报错"当成"允许"是本项目
@@ -273,6 +274,7 @@ HOME="$PWD/.sb-home" npx supabase <命令>
 | 命令 | 检查内容 |
 |---|---|
 | `npm run check:no-third-party` | 构建产物与 SSR HTML 中不得出现 Google Fonts / 公共 CDN 等境外资源 |
+| `npm run check:browser-no-auth-service` | 浏览器端产物中不得出现任何认证调用或认证服务路径；并**反向确认**服务端产物中存在这些调用（避免检查空转） |
 | `npm run check:server-only` | 故意让客户端组件引用 `lib/supabase/admin.ts`，断言构建**失败**（若构建成功则说明 service-role 防护失效） |
 
 `check:server-only` 特别注意：探针目录名**不能**以 `_` 开头，否则 Next.js 会把它当作私有目录而不编译，测试会误报通过。

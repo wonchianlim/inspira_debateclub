@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>确认你的 INSPIRA 邮箱</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 24px;
+      background: #f5f5f5;
+      font-family:
+        -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;,
+        &quot;Microsoft YaHei&quot;, Helvetica, Arial, sans-serif;
+      color: #171717;
+    "
+  >
+    <!--
+      注册确认邮件。与 recovery.html 同理：链接必须指向自有域名（ADR-0007）。
+
+      本地开发时 config.toml 的 auth.email.enable_confirmations = false，
+      因此注册流程**不会**发送这封邮件；它是为生产环境准备的。
+      这样做的原因：本地每次注册都要求收邮件会显著拖慢开发与测试。
+
+      模板内不得引用任何外部资源（图片、字体、样式表）。
+    -->
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px"
+    >
+      <tr>
+        <td style="padding: 32px 28px">
+          <h1 style="margin: 0 0 16px; font-size: 20px; line-height: 1.4">确认你的邮箱</h1>
+
+          <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.7">
+            欢迎加入 INSPIRA 辩论俱乐部。请点击下面的按钮确认这个邮箱地址。
+          </p>
+
+          <p style="margin: 0 0 24px">
+            <a
+              href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email"
+              style="
+                display: inline-block;
+                padding: 12px 20px;
+                background: #171717;
+                color: #ffffff;
+                border-radius: 8px;
+                text-decoration: none;
+                font-size: 15px;
+              "
+            >
+              确认邮箱
+            </a>
+          </p>
+
+          <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.7; color: #666666">
+            如果按钮无法点击，请把下面这个地址完整复制到浏览器打开：
+          </p>
+          <p
+            style="
+              margin: 0 0 24px;
+              font-size: 13px;
+              line-height: 1.7;
+              word-break: break-all;
+              color: #666666;
+            "
+          >
+            {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email
+          </p>
+
+          <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #666666">
+            如果这不是你本人的操作，可以忽略这封邮件。
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p
+      style="
+        max-width: 560px;
+        margin: 16px auto 0;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #999999;
+        text-align: center;
+      "
+    >
+      INSPIRA 辩论俱乐部管理系统
+    </p>
+  </body>
+</html>

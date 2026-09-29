@@ -18,6 +18,8 @@ const VALID_ENV: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-placeholder",
   SUPABASE_SERVICE_ROLE_KEY: "super-secret-service-role-value",
   NEXT_PUBLIC_APP_URL: "https://app.example.com",
+  // 频率限制用的盐：至少 32 位
+  RATE_LIMIT_SALT: "0123456789abcdef0123456789abcdef",
 };
 
 let saved: Record<string, string | undefined>;

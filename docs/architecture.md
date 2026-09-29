@@ -410,6 +410,7 @@ Supabase 默认的"重置密码"邮件链接指向 Supabase 自己的域名。�
 | `EMAIL_FROM` | 发件人 | 仅服务器 |
 | `NEXT_PUBLIC_APP_URL` | 自有域名，用于邮件回跳 | 浏览器可见 |
 | `JOB_DISPATCH_SECRET` | 定时任务调用接口的共享密钥 | **仅服务器** |
+| `RATE_LIMIT_SALT` | 频率限制计数键的哈希盐（见 ADR-0012） | **仅服务器** |
 
 规则：
 

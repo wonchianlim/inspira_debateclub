@@ -349,6 +349,7 @@ CREATE UNIQUE INDEX ballot_templates_one_active
 | `...091100_ops` | |
 | `...091200_indexes` | |
 | `...091300_rls` | |
+| `...091400_rate_limiting`（P1-8 新增，见 ADR-0012） | |
 
 实测：从空库重建后得到 **14 张表、32 条策略、14 张启用 RLS 的表、40 个索引、19 个函数**，
 并且 27 条 RLS 授权用例全部通过（`npm run db:rls-smoke`）。

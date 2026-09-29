@@ -242,6 +242,26 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# ---------------------------------------------------------------------------
+# 自定义邮件模板（INSPIRA）
+#
+# 为什么必须自定义（ADR-0007）：Supabase 默认模板使用 {{ .ConfirmationURL }}，
+# 其主机是**认证服务本身**。本地实测为 127.0.0.1:54321，生产环境会是
+# <项目>.supabase.co —— 一个未经大陆测试的境外域名，邮件里的链接可能打不开。
+# 主规格第 5.4 节明确要求生产浏览器体验不得依赖这类域名。
+#
+# 因此改用 {{ .TokenHash }}，把链接指向自有域名，由 app/auth/confirm/route.ts 校验。
+#
+# 注意：site_url 必须设置为真实的应用地址，生产环境要改成正式域名。
+# ---------------------------------------------------------------------------
+[auth.email.template.recovery]
+subject = "重置你的 INSPIRA 密码"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.confirmation]
+subject = "确认你的 INSPIRA 邮箱"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

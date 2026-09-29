@@ -229,7 +229,26 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-8 认证流程
+### P1-8 认证流程 ✅ 已完成（2026-09-29）
+
+> **实际结果：** 八项 JS 检查全部退出码 0，**98 个测试通过**；数据库测试 **70 条**全部通过（授权 36 + 约束 11 + 匿名 14 + 限流 9）。
+>
+> **落地文件：** `lib/auth/actions.ts`（注册/登录/登出/找回/重置）、`lib/auth/rate-limit.ts`、`lib/validation/auth.ts`、`app/auth/confirm/route.ts`、四个认证页面与表单、`supabase/templates/`（自定义邮件模板）、迁移 `091400_rate_limiting`。
+>
+> **实测验证（端到端，用真实 HTTP 与真实邮件）：**
+> 1. **默认邮件链接指向认证服务**——触发一次重置后从 Mailpit 读出链接，主机是 `127.0.0.1:54321`（生产会是 `<项目>.supabase.co`）。这正是 ADR-0007 担心的情况，**不是推测**。
+> 2. 换成自定义模板后，链接主机变为**我们自己的域名** `127.0.0.1:3000/auth/confirm`，主题也改为中文。
+> 3. 访问 `?token_hash=<真实值>&type=recovery` → **307** 跳转 `/reset-password` 且**下发了会话 cookie**（`sb-127-auth-token`）。
+> 4. 无效 token → 307 到 `/login?error=link-expired`；缺参数 → `/login?error=invalid-link`。
+> 5. 带会话访问 `/reset-password` 渲染出表单；不带会话则提示"需要先通过邮件链接进入"。
+> 6. 带会话访问 `/dashboard` 显示已登录邮箱。
+> 7. **浏览器端产物中：认证调用 0 处、Supabase 域名 0 处**；服务端产物中同样模式命中 5 / 4 个文件（反向确认，避免检查空转）。已固化为 `npm run check:browser-no-auth-service`，**并用一次真实注入验证它会失败**。
+>
+> **限流：** 采用数据库固定窗口计数器（`consume_rate_limit`），同时按 **IP 与邮箱**两个维度计数；数据库只保存加盐 SHA-256 摘要，不存明文 IP。登录 10 次/5 分钟，找回密码 5 次/小时。设计取舍见 [ADR-0012](./decisions/0012-rate-limiting.md)。
+>
+> **⚠️ 一处未覆盖，如实说明：** 限流只验证到"机制正确 + 动作确实按正确顺序调用它"，**没有**完成"通过真实 Server Action 请求触发限流"的端到端验证——Next.js 的 Server Action 需要精确的 RSC 负载编码，手工构造会失败（实测返回 `digest` 错误）。建议在浏览器中手工确认一次。
+>
+> **过程中踩到的三个坑：** `now()` 返回事务开始时间、在同一事务内不推进（已改用 `clock_timestamp()`）；`system_settings` 的外键要求清理顺序正确；生成类型早于新迁移会导致 typecheck 失败（需重跑 `npm run db:types`）。
 
 **做什么：** 实现注册、登录、登出、忘记密码、重置密码，全部经 Server Action；实现 `app/auth/confirm/route.ts`；配置认证服务的邮件模板指向自有域名；实现新账号的默认角色分配。
 

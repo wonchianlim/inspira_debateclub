@@ -181,6 +181,19 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"rate_limit_counters": {
+                  Row: {
+                    "bucket": string,"count": number,"created_at": string,"subject_hash": string,"updated_at": string,"window_start": string
+                  }
+                  Insert: {
+                    "bucket": string,"count"?: number,"created_at"?: string,"subject_hash": string,"updated_at"?: string,"window_start": string
+                  }
+                  Update: {
+                    "bucket"?: string,"count"?: number,"created_at"?: string,"subject_hash"?: string,"updated_at"?: string,"window_start"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"registration_format_preferences": {
                   Row: {
                     "created_at": string,"format_id": string,"id": string,"preference_rank": number,"registration_id": string
@@ -331,7 +344,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "current_profile_id":
+            "consume_rate_limit":
+{ Args: { "p_bucket": string,"p_max": number,"p_subject_hash": string,"p_window_seconds": number }; Returns: boolean
+                           },
+"current_profile_id":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "has_role":
@@ -372,6 +388,9 @@ isOneToOne: false
                            },
 "my_student_id":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"prune_rate_limit_counters":
+{ Args: { "p_keep_days"?: number }; Returns: number
                            }
           }
           Enums: {

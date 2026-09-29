@@ -37,6 +37,10 @@ delete from public.registrations;
 delete from public.event_formats;
 delete from public.events;
 delete from public.student_format_profiles;
+-- system_settings 通过 updated_by 外键指向 profiles，因此必须在删除测试账号之前清掉，
+-- 否则会撞上外键约束（这是实测踩到过的顺序问题）。
+delete from public.system_settings
+  where updated_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.user_roles
   where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.student_profiles
@@ -356,7 +360,93 @@ end
 $anon$;
 
 -- =============================================================================
--- 四、清理虚构数据
+-- 四、频率限制（consume_rate_limit）
+--
+-- 这是应用层限流的**实际机制**所在（见 supabase/migrations 的
+-- 20260929091400_rate_limiting.sql）。按返回值判定，不依赖 HTTP 层。
+--
+-- 说明：这里验证的是"限流机制本身正确"。至于"登录/找回密码确实调用了它"，
+-- 由 tests/unit/auth-actions-wiring.test.ts 从源码层面守住（两者合起来覆盖整条链路）。
+-- =============================================================================
+
+drop table if exists rl_results;
+create temp table rl_results (label text, expected boolean, actual boolean);
+
+do $rl_populate$
+declare
+  i int;
+  v boolean;
+begin
+  delete from public.rate_limit_counters;
+
+  -- 1) 限额内允许，超出后拒绝（max = 3）
+  for i in 1..3 loop
+    v := public.consume_rate_limit('test.a', 'subject-1', 3, 300);
+  end loop;
+  insert into rl_results values ('前 3 次在限额内', true, v);
+
+  v := public.consume_rate_limit('test.a', 'subject-1', 3, 300);
+  insert into rl_results values ('第 4 次被拒绝', false, v);
+
+  -- 2) 不同 subject 各自计数（换个人不该被前一个人的用量影响）
+  v := public.consume_rate_limit('test.a', 'subject-2', 3, 300);
+  insert into rl_results values ('另一个 subject 不受影响', true, v);
+
+  -- 3) 不同 bucket 各自计数（登录用满了不该影响找回密码）
+  v := public.consume_rate_limit('test.b', 'subject-1', 3, 300);
+  insert into rl_results values ('另一个 bucket 不受影响', true, v);
+
+  -- 4) 计数确实在累加（若每次都从 0 开始，上面第 4 次就不会被拒绝）
+  v := public.consume_rate_limit('test.a', 'subject-1', 10, 300);
+  insert into rl_results values ('提高上限后同窗口内可继续（证明计数在累加）', true, v);
+
+  -- 5) 跨窗口后重新计数（用 1 秒窗口）
+  delete from public.rate_limit_counters;
+  v := public.consume_rate_limit('test.window', 'subject-w', 1, 1);
+  insert into rl_results values ('窗口内第 1 次允许', true, v);
+  v := public.consume_rate_limit('test.window', 'subject-w', 1, 1);
+  insert into rl_results values ('同窗口第 2 次拒绝', false, v);
+  perform pg_sleep(1.2);
+  v := public.consume_rate_limit('test.window', 'subject-w', 1, 1);
+  insert into rl_results values ('跨窗口后重新允许', true, v);
+
+  -- 6) 非法参数必须报错（否则限流可能被静默地"永不触发"）
+  begin
+    perform public.consume_rate_limit('test.bad', 'subject-x', 0, 300);
+    insert into rl_results values ('max=0 应报错', true, false);
+  exception when others then
+    insert into rl_results values ('max=0 应报错', true, true);
+  end;
+
+  delete from public.rate_limit_counters;
+end
+$rl_populate$;
+
+do $rl_judge$
+declare
+  r record;
+  fails int := 0;
+  passes int := 0;
+begin
+  for r in select * from rl_results loop
+    if r.actual = r.expected then
+      passes := passes + 1;
+      raise notice '[限流] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[限流] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+
+  raise notice '[限流] ---- 通过 % 条，失败 % 条 ----', passes, fails;
+  if fails > 0 then
+    raise exception '频率限制用例失败 % 条', fails;
+  end if;
+end
+$rl_judge$;
+
+-- =============================================================================
+-- 五、清理虚构数据
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;

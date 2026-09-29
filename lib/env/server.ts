@@ -28,6 +28,7 @@ const REQUIRED_KEYS = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "NEXT_PUBLIC_APP_URL",
+  "RATE_LIMIT_SALT",
 ] as const;
 
 /** 暂时可选、实现对应功能后才变成必需的变量。 */
@@ -42,6 +43,9 @@ const serverSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.url({
     error: "必须是完整网址，例如 https://app.example.com 或 http://localhost:3000",
   }),
+  RATE_LIMIT_SALT: z
+    .string()
+    .min(32, { error: "至少 32 个字符（可用 openssl rand -hex 32 生成）" }),
 
   // 可选：允许完全缺失，但一旦提供就不能是空字符串以外的无效值
   RESEND_API_KEY: z.string().min(1).optional(),

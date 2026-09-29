@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "check:no-third-party": "node scripts/check-no-third-party.mjs",
     "check:server-only": "node scripts/check-server-only-guard.mjs",
+    "check:browser-no-auth-service": "node scripts/check-browser-no-auth-service.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:no-third-party",
     "db:start": "supabase start",
     "db:stop": "supabase stop",

@@ -44,6 +44,7 @@
 | [0009](0009-owner-confirmed-defaults.md) | 产品负责人确认的默认决策（2026-09-29） | 已接受 |
 | [0010](0010-dependency-version-fallbacks.md) | 依赖版本回退（TypeScript 6.0.3、ESLint 9.39.5）与四项基础约定 | 已接受 |
 | [0011](0011-ui-layer-and-third-party-guards.md) | UI 层选型（shadcn/ui）与境外资源的自动化防护 | 已接受 |
+| [0012](0012-rate-limiting.md) | 应用层频率限制采用数据库固定窗口计数器 | 已接受 |
 
 > ADR-0001 至 0008 于 2026-09-29 经产品负责人确认，状态由"提议"转为"已接受"。
 > ADR-0009 是这次确认的唯一权威记录，同时列出了**仍然未决**、不在确认范围内的事项。
