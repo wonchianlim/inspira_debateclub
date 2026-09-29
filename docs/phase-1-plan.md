@@ -149,7 +149,7 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 > **实际结果：** 落地 **10 个迁移**（编号 090000–090600、091100–091300）。从空库 `supabase db reset` 退出码 0，随后立即运行 RLS 测试同样通过。
 >
-> **实测产出：** **14 张表、32 条策略、14 张启用 RLS 的表、40 个索引、19 个函数**；种子数据为 5 种赛制 + 12 个位置代号。
+> **实测产出：** **15 张表、32 条策略、15 张启用 RLS 的表、41 个索引、22 个函数、15 个触发器**；种子数据为 5 种赛制 + 12 个位置代号。
 >
 > **RLS 授权验证（`npm run db:rls-smoke`）：27 条用例全部通过**，连续运行三次结果一致且自动清理测试数据。用例同时覆盖"允许"与"拒绝"两个方向，包括：
 > `F-STU-02` 读他人评分、`F-STU-07` 自授超管、`F-STU-08` 改自己状态、`F-STU-16` 改运营备注、`F-STU-18` 报名已关闭活动、`F-STU-19` 替他人报名、`F-COA-01` 教练授角色、`F-MGR-01` 管理员授超管、`F-MGR-02`/`F-ALL-01` 改删审计日志等。
@@ -389,7 +389,17 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-13 文档更新与完成报告
+### P1-13 文档更新与完成报告 ✅ 已完成（2026-09-29）
+
+> **完成报告：** [`docs/phase-1-completion-report.md`](./phase-1-completion-report.md)
+>
+> **本步做了什么：**
+> - 写了 Phase 1 完成报告（变更内容、交付物、决策与偏差、真实命令结果、手工验证步骤、已知限制、开放事项）；
+> - **更正了陈旧数据**：`schema.md` 与 `phase-1-plan.md` 原本写"14 张表 / 40 个索引 / 19 个函数"——那是 P1-5 时点的值。实测当前为 **15 张表 / 41 个索引 / 22 个函数 / 15 个触发器**（P1-8 新增 `rate_limit_counters` 与两个限流函数）；
+> - `requirements-traceability.md` 新增 **§0.4 阶段 1 实际验证对照**，说明计划中的测试文件布局与实际落地方式的差异，并给出完整证据清单；
+> - 重写 `OWNER_GUIDE.md` 第二、四、五、九节与 `NEXT_STEP.md`（改为面向非技术负责人的当前状态与可执行步骤）。
+>
+> **⚠️ 顺带发现并记录：** 追溯表中部分**未来阶段**的行仍引用计划中的测试文件名（如 `tests/integration/rls/*.rls.test.ts`），这些阶段尚未实施。已在 §0.4 说明，实施时应改为实际文件名。
 
 **做什么：** 更新 `docs/architecture.md`、`docs/schema.md`、`docs/permissions.md`、`docs/testing.md`、`docs/requirements-traceability.md` 使其与实现一致；更新 `OWNER_GUIDE.md` 与 `NEXT_STEP.md`；按 `AGENTS.md` 格式给出完成报告。
 

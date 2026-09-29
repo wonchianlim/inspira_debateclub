@@ -66,6 +66,78 @@
 
 ---
 
+## 0.4 阶段 1 实际验证对照（P1-13 补充）
+
+> **为什么需要这一节。** 本表在 Phase 0 编写时，"验证方式"一列填的是**计划中**的测试文件
+> （主要是 `tests/integration/rls/*.rls.test.ts`）。实际实现时因为本机没有 `psql`，
+> 把全部权限断言改放进了 `scripts/db-tests.sql`，通过 `docker exec` 执行。
+> **能力没有减少，但文件名对不上。** 这一节说明计划与实际的差异，并给出实际证据清单。
+> 表中其余行仍保留计划值，待对应阶段实施时改为实际文件名。
+
+### 0.4.1 计划与实际的差异
+
+| 计划中的验证方式 | 实际落地方式 | 差异原因 |
+|---|---|---|
+| `tests/integration/rls/anonymous.rls.test.ts` | `scripts/db-tests.sql` 的「匿名」段（14 条） | 无需 Node 侧数据库驱动，直接用容器内 `psql` |
+| `tests/integration/rls/student.rls.test.ts` 等五个角色文件 | `scripts/db-tests.sql` 的「授权」段（36 条，含 14 条允许 + 22 条拒绝） | 同上；五个角色用同一套断言框架，比五个文件更难漏测 |
+| `tests/integration/rls/serviceRoleBoundary.test.ts` | `npm run check:server-only`（构建期真实失败） | 构建期检查比运行时断言更强：代码根本编译不过 |
+| `tests/integration/actions/*.test.ts`（Zod 校验、CSRF） | `tests/unit/auth-actions-wiring.test.ts` + `tests/unit/env.test.ts` + 源码级顺序断言 | Phase 1 的 Server Action 数量少，源码级断言已足够；Phase 9 补真实集成测试 |
+| 迁移断言"每张暴露表均已 ENABLE ROW LEVEL SECURITY" | `scripts/db-tests.sql` 的匿名段 + 实测 15/15 张表启用 | 等价 |
+
+### 0.4.2 阶段 1 的实际证据清单
+
+**A. 自动化检查（`npm run ci`，退出码 0）**
+
+| 证据 | 证明什么 | 覆盖的需求 |
+|---|---|---|
+| `tests/unit/dependency-pinning.test.ts`（35 条） | 依赖版本被精确锁定，无浮动范围 | SEC-20、架构规则 |
+| `tests/unit/no-third-party-assets.test.ts`（10 条） | 代码与产物中无境外资源引用 | 5.1、5.4 |
+| `npm run check:no-third-party` | **构建产物**（浏览器实际下载的 JS/CSS）与 SSR HTML 中无禁用域名；且**反向确认**检查未空转 | 5.1、5.4 |
+| `npm run check:browser-no-auth-service` | 浏览器端产物中**零**认证调用、**零** Supabase 域名；服务端有（反向确认） | ADR-0007、5.2 |
+| `npm run check:server-only` | 客户端组件引用 service-role 客户端会让**构建失败** | SEC-10、SEC-18 |
+| `tests/unit/env.test.ts`（16 条） | 缺必需变量时启动失败且不打印变量值；`.env.example` 只含变量名 | SEC-19、SEC-20 |
+| `tests/unit/middleware-matcher.test.ts`（15 条） | 中间件不拦截静态资源，拦截受保护前缀 | RT-* |
+| `tests/unit/roles.test.ts`（11 条） | 角色→落地页与区域权限的映射一致（不能跳到进不去的区域） | PERM-*、§4 |
+| `tests/unit/auth-actions-wiring.test.ts`（5 条） | 限流在调用认证服务**之前**执行（顺序断言） | SEC-16 |
+| `tests/unit/app-shell.test.tsx` / `state-panel.test.tsx`（20 条） | 地标结构、跳过导航、五种状态、`role="alert"` | §13 可访问性 |
+
+**B. 数据库断言（`npm run db:verify`，退出码 0，共 70 条）**
+
+| 段落 | 条数 | 覆盖的需求 |
+|---|---:|---|
+| 授权（允许 14 + 拒绝 22） | 36 | SEC-01…SEC-11、PERM-01、PERM-D* |
+| 约束（UNIQUE / CHECK / 触发器 / 外键） | 11 | 数据完整性、边界情况 |
+| 匿名访问（逐表拒绝） | 14 | SEC-01、F-ALL-05 |
+| 频率限制 | 9 | SEC-16 |
+
+> 拒绝用例的编号（`F-STU-*`、`F-COA-*`、`F-MGR-*`、`F-ALL-*`、`C*`）与
+> `docs/permissions.md` 第 6 节逐条对应，覆盖状态见该文档 §6.0。
+
+**C. 端到端实测（手工执行，结果见完成报告第 5.3 节）**
+
+| 验证 | 结果 |
+|---|---|
+| 角色访问矩阵（五种角色 × 六个区域，真实会话） | 30 条断言**全部通过** |
+| 未登录访问六个受保护前缀 | 真正的 **307 → /login** |
+| 认证邮件链接 | 指向**自有域名**；真实 token → 307 + 会话 cookie |
+| 容器内健康检查 | **200**，`database: ok` |
+| 容器内带会话访问 `/dashboard` | **307 → /student** |
+| 六项"故意制造错误"的门禁反向验证 | 门禁**全部按预期失败**，还原后恢复 |
+
+### 0.4.3 阶段 1 尚未覆盖的需求行
+
+阶段 1 只交付地基，因此本表中大量行属于**后续阶段**。阶段 1 结束时**尚未覆盖**的主要是：
+
+- 所有与 `participations`、`partner_requests`、`matches`、`ballots`、`coach_notes`、
+  `judge_event_availability`、`judge_assignments`、`match_roster_snapshots`、`email_jobs`
+  相关的行——这些表尚未创建（Phase 3–9）。
+- 与事件生命周期、配对、选票生命周期、通知相关的流程行。
+
+逐条状态见 `docs/permissions.md` §6.0（38 条拒绝用例中 15 条已覆盖、23 条待覆盖）
+与 `docs/phase-1-completion-report.md` 第 7 节的 L-4。
+
+---
+
 ## 1. 成功标准（来源：1.1）
 
 | 需求编号 | 需求描述 | 来源章节 | 交付阶段 | 验证方式 |
