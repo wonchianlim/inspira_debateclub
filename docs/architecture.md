@@ -148,7 +148,9 @@ components/
   ui/                         # shadcn/ui 基础组件
   domain/                     # 领域组件（配对表格、 ballots 表单等）
 lib/
-  env.ts                      # 启动时校验环境变量
+  env/
+    server.ts                 # 服务端变量：启动时用 Zod 校验（含 server-only 保护）
+    client.ts                 # 浏览器可见变量：逐项字面量读取，只放公开值
   auth/                       # 会话读取、角色读取、requireCapability()
   permissions/                # 能力定义与检查（服务端）
   supabase/
@@ -412,9 +414,13 @@ Supabase 默认的"重置密码"邮件链接指向 Supabase 自己的域名。�
 规则：
 
 - 仓库里只提交 `.env.example`（只有变量名，**没有**真实值）；
-- `lib/env.ts` 在服务端启动时用 Zod 校验必需变量，缺失就直接启动失败（避免上线后才发现配置漏了）；
-- `NEXT_PUBLIC_` 前缀的变量会被打包进浏览器代码，**永远不要**把密钥放进去；
-- 真实密钥只存在服务器环境与本地 `.env.local`（`.env.local` 必须写进 `.gitignore`）。
+- **必需 / 可选分开**：现在就需要的是 Supabase 三项加 `NEXT_PUBLIC_APP_URL`；`RESEND_API_KEY`、`EMAIL_FROM`、`JOB_DISPATCH_SECRET` 在实现对应功能前保持可选（邮件服务商尚未定，见 A-4）；
+- `lib/env/server.ts` 用 Zod 校验服务端变量，`lib/env/client.ts` 校验浏览器可见变量。两者都是**惰性校验 + 缓存**，避免 import 阶段就抛错；
+- 服务端校验在 `instrumentation.ts` 的 `register()` 中于**启动时**触发（构建阶段刻意跳过，这样 CI 没有密钥也能构建）；
+- **实测发现**：Next.js 会捕获 `instrumentation` 中抛出的异常，只打印 `Failed to prepare server` 然后**继续运行**（甚至会先打印 `✓ Ready`）。这会让容器看起来是健康的。因此校验失败时会显式 `process.exit(1)`，让服务真正停止。已验证：缺变量时退出码为 1，变量齐全时正常服务（HTTP 200）；
+- `lib/env/client.ts` 必须逐项写成字面量 `process.env.NEXT_PUBLIC_X`——Next.js 只静态替换这种写法，裸的 `process.env` 在浏览器里是空对象；
+- `NEXT_PUBLIC_` 前缀的变量会被打包进浏览器代码，**永远不要**把密钥放进去。已有测试强制该规则；
+- 真实密钥只存在服务器环境与本地 `.env.local`（`.env.local` 已在 `.gitignore` 中，且经 `git check-ignore` 验证）。
 
 ---
 

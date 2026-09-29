@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // `server-only` 在非服务端上下文会抛错（这是它在生产构建里的保护作用）。
+      // 单元测试跑在普通 Node 环境，因此替换为空模块，详见该文件内的说明。
+      "server-only": fileURLToPath(new URL("./tests/stubs/server-only.ts", import.meta.url)),
       "@": fileURLToPath(new URL("./", import.meta.url)),
     },
   },
