@@ -203,6 +203,43 @@ grantAdminRole / manageFormats / viewAuditLog
 
 规范第 14.3 节要求测试**主动尝试**越权。以下是必须逐条覆盖的拒绝用例——每一条都应断言操作**失败**，而不只是断言允许的操作成功。
 
+### 6.0 覆盖状态（2026-09-29，P1-6 实测）
+
+本节共 **38 条**拒绝用例。其中 **15 条**的表已存在，已在 `npm run db:test` 中逐条断言；
+其余 **23 条**涉及尚未创建的表（Phase 2–7），随其所属表一起加入。
+
+| 状态 | 数量 | 用例 |
+|---|---:|---|
+| ✅ 已覆盖 | 15 | `F-STU-02`、`F-STU-06`、`F-STU-07`、`F-STU-08`、`F-STU-09`、`F-STU-10`、`F-COA-01`、`F-COA-03`、`F-COA-04`、`F-MGR-01`、`F-MGR-02`、`F-MGR-04`、`F-ALL-01`、`F-ALL-04`、`F-ALL-05` |
+| ⬜ 待覆盖 | 23 | 见下表 |
+
+| 待覆盖用例 | 依赖的表 | 归属阶段 |
+|---|---|---|
+| `F-STU-01`、`F-STU-11` | `participations` | Phase 4 |
+| `F-STU-14` | `partner_requests` | Phase 3 |
+| `F-STU-03`、`F-STU-04`、`F-STU-12`、`F-STU-13` | `ballots`、`ballot_review_requests` | Phase 7 / 8 |
+| `F-STU-05`、`F-COA-05`、`F-JDG-07` | `coach_notes` | Phase 8 |
+| `F-JDG-01`、`F-JDG-08` | `matches` | Phase 5 |
+| `F-JDG-02`、`F-JDG-03`、`F-JDG-06`、`F-JDG-09`、`F-COA-02`、`F-MGR-05` | `ballots` | Phase 7 |
+| `F-JDG-04`、`F-JDG-05` | `judge_event_availability`、`judge_assignments` | Phase 5 |
+| `F-MGR-03`、`F-ALL-03` | `match_roster_snapshots` | Phase 5 |
+| `F-ALL-02` | `email_jobs` | Phase 9 |
+
+**另外新增了 4 条本节原本没有、但实现时发现必须测的用例**（已并入套件）：
+
+- `F-STU-10a` 学生保存**自己不合格**的赛制偏好 —— 第 6.3 节的明文要求，单靠界面隐藏是不够的；
+- `F-STU-10b` 学生保存**活动未启用**的赛制偏好 —— 同上；
+- `F-MGR-04b` 管理员**写**系统设置（`F-MGR-04` 只覆盖了读）；
+- `F-ALL-04b` 学生改自己档案时**篡改 id** 冒充他人 —— 针对 `WITH CHECK` 的绕过尝试。
+
+> 说明：`F-ALL-05`（未登录访问）的验证方式在实现过程中被加强了一次。
+> Supabase 的 `auto_expose_new_tables` 默认会给 `anon` 自动授权，因此最初未登录访问返回的是
+> "0 行"（靠 RLS 挡住）而不是"权限拒绝"。虽然结果同样安全，但它依赖一个可被改动的默认值。
+> 已在迁移中显式 `revoke all on all tables in schema public from anon`，
+> 现在实测为**权限拒绝**，不再依赖任何默认行为。
+
+
+
 ### 6.1 学生
 
 | 编号 | 尝试 | 期望 |

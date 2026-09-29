@@ -78,6 +78,44 @@ as $$
   );
 $$;
 
+-- 某个赛制对该报名是否"可选"
+--
+-- 第 6.3 节明确要求：
+--   "Only formats that are enabled for the event and eligible for the student may be saved."
+-- （只能保存"该活动已启用 **且** 该学生合格"的赛制。）
+--
+-- ⚠️ 这条规则光靠界面限制是不够的：界面可以隐藏下拉项，但请求可以伪造。
+-- 因此必须落到数据库层。否则学生可以给自己保存一个自己并不合格的赛制，
+-- 而配对算法会把它当成真实偏好。
+create or replace function public.is_format_selectable_for_registration(
+  target_registration uuid,
+  target_format uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.registrations r
+    join public.event_formats ef
+      on ef.event_id = r.event_id
+     and ef.format_id = target_format
+     and ef.enabled
+    join public.student_format_profiles sfp
+      on sfp.student_id = r.student_id
+     and sfp.format_id = target_format
+     and sfp.eligible
+    where r.id = target_registration
+      and r.student_id = public.my_student_id()
+  );
+$$;
+
+comment on function public.is_format_selectable_for_registration(uuid, uuid) is
+  '该赛制是否对该学生的这条报名可选（活动已启用 + 学生已合格）。第 6.3 节要求。';
+
 -- =============================================================================
 -- 二、学生档案的运营字段保护
 --
@@ -133,6 +171,16 @@ grant usage on schema public to anon, authenticated, service_role;
 
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant all on all tables in schema public to service_role;
+
+-- 显式撤销 anon（未登录）的表权限。
+--
+-- 为什么必须显式写：Supabase 的 `auto_expose_new_tables` 默认为 true，
+-- 会给 anon / authenticated / service_role **自动授权**新建的 public 表。
+-- 实测确认了这一点——撤销前，未登录用户查询各表返回的是"0 行"（靠 RLS 挡住），
+-- 而不是"权限拒绝"。虽然结果同样安全，但这依赖一个可被改动的默认值：
+-- 将来若有人写了 `to anon` 或 `to public` 的策略，权限会立刻敞开。
+-- 显式撤销后，未登录访问在任何层面上都无法发生。
+revoke all on all tables in schema public from anon;
 
 -- =============================================================================
 -- 五、策略
@@ -282,12 +330,15 @@ create policy registration_format_preferences_select on public.registration_form
   for select to authenticated
   using (public.is_my_registration(registration_id) or public.is_staff());
 
--- 只能写自己报名的偏好，且报名窗口仍然开放
+-- 只能写自己报名的偏好，且报名窗口仍然开放，且所选赛制对该学生是"可选"的
 create policy registration_format_preferences_write_own
   on public.registration_format_preferences
   for all to authenticated
   using (public.is_my_registration_open(registration_id))
-  with check (public.is_my_registration_open(registration_id));
+  with check (
+    public.is_my_registration_open(registration_id)
+    and public.is_format_selectable_for_registration(registration_id, format_id)
+  );
 
 create policy registration_format_preferences_manage
   on public.registration_format_preferences
@@ -335,7 +386,8 @@ declare
     'public.my_judge_id()',
     'public.is_event_registration_open(uuid)',
     'public.is_my_registration(uuid)',
-    'public.is_my_registration_open(uuid)'
+    'public.is_my_registration_open(uuid)',
+    'public.is_format_selectable_for_registration(uuid, uuid)'
   ];
   triggers text[] := array[
     'public.set_updated_at()',
