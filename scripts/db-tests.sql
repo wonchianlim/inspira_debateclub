@@ -830,7 +830,68 @@ end
 $audit_judge$;
 
 -- =============================================================================
--- 六、清理虚构数据
+-- 六、报名窗口与活动状态（跨层一致性）
+--
+-- 为什么需要这一节：应用层有一份"哪些状态允许报名"的纯逻辑
+-- （lib/domain/registration.ts 的 isEventStatusOpenForRegistration），
+-- 数据库里另有一份 `is_event_registration_open()`。
+-- **两份规则必须一致**，否则会出现"界面说能报名、数据库却拒绝"
+-- （用户看到英文错误）或者反过来的情况（界面挡住、数据库其实允许）。
+--
+-- 这条测试把**九个状态逐个**跑一遍数据库函数，与应用层的清单对照。
+-- 若有人只改了其中一边，这里会立刻失败。
+-- =============================================================================
+do $window$
+declare
+  st public.event_status;
+  expected_open boolean;
+  actual_open boolean;
+  v_starts timestamptz := now() + interval '3 day';
+  v_id uuid;
+  failures int := 0;
+  passed int := 0;
+  -- 与 lib/domain/registration.ts 的 EVENT_STATUSES_BLOCKING_REGISTRATION 一致
+  blocking public.event_status[] := array['draft','cancelled','archived','completed']::public.event_status[];
+begin
+  for st in select unnest(enum_range(null::public.event_status)) loop
+    insert into public.events
+      (title, event_date, timezone, registration_opens_at, registration_closes_at,
+       check_in_opens_at, warning_at, starts_at, ends_at, status, created_by)
+    values
+      ('窗口测试-' || st::text,
+       (v_starts at time zone 'Asia/Shanghai')::date,
+       'Asia/Shanghai',
+       -- 报名窗口刻意包含当前时刻，这样"能不能报名"只由**状态**决定
+       now() - interval '1 day',
+       now() + interval '1 day',
+       now(), now(), v_starts, v_starts + interval '1 hour',
+       st, 'aaaaaaaa-0000-0000-0000-000000000001')
+    returning id into v_id;
+
+    actual_open := public.is_event_registration_open(v_id);
+    expected_open := not (st = any(blocking));
+
+    if actual_open = expected_open then
+      passed := passed + 1;
+      raise notice '[报名窗口] PASS  % → 可报名=%', st, actual_open;
+    else
+      failures := failures + 1;
+      raise notice '[报名窗口] FAIL  % → 期望=% 实际=%', st, expected_open, actual_open;
+    end if;
+
+    -- 立刻清掉，避免影响后续用例（events 被多张表引用，因此只建了活动本身）
+    delete from public.events where id = v_id;
+  end loop;
+
+  raise notice '[报名窗口] ---- 通过 % 条，失败 % 条 ----', passed, failures;
+  if failures > 0 then
+    raise exception '报名窗口与活动状态一致性用例失败 % 条', failures;
+  end if;
+end
+$window$;
+
+-- =============================================================================
+-- 七、清理虚构数据
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
