@@ -540,44 +540,61 @@ RLS 的拒绝在不同操作上表现出不同形态，测试必须分别断言�
 
 ## 8. CI 质量门禁
 
-对应主规格第 14.1 节（"CI must run deterministic checks on every pull request"）与第 16 节 Definition of Done。
+**原则：逻辑放在 npm scripts，YAML 只负责调用。** 本地与 CI 执行同一批命令，
+因此不会出现"本地过了、CI 挂了"。换 CI 服务商只需要重写 YAML 这层包装。
 
-### 8.1 每次代码变更（每个 Pull Request）必须通过
+### 8.1 两个 job
 
-| 顺序 | 检查 | 命令（计划） | 失败意味着 |
-|---:|---|---|---|
-| 1 | 格式检查 | `pnpm format:check` | 代码风格不一致，先修格式再谈逻辑 |
-| 2 | 静态检查 | `pnpm lint` | 存在可疑写法（未使用变量、可能的 bug 模式） |
-| 3 | 类型检查 | `pnpm typecheck` | 类型不匹配，可能在运行时崩溃 |
-| 4 | 单元测试 | `pnpm test:unit` | 纯逻辑算错了 |
-| 5 | 数据库/集成/RLS 测试 | `pnpm test:integration` | 迁移、约束、权限或审计出问题 |
-| 6 | 生产构建 | `pnpm build` | 代码无法打包成可部署版本 |
+| job | 内容 | 大致耗时 | 是否需要密钥 |
+|---|---|---|---|
+| `quality` | `npm run ci` | 约 1 分钟 | **不需要** |
+| `database` | `supabase start` → `npm run db:verify` | 数分钟（需拉取镜像） | **不需要** |
 
-### 8.2 主分支 / 每日 / 发布前追加
+### 8.2 `npm run ci` 展开
 
-- 端到端测试 `pnpm test:e2e`（Playwright 较慢，放在主分支或每日运行；Phase 10 必须在发布前全量运行）。
-- 从**空数据库**重跑全部迁移 + 种子数据（14.3）。
-- 中国大陆连通性矩阵（**人工**，见第 6 节）。
+```bash
+npm run format:check          # 格式
+npm run lint                  # 静态检查（--max-warnings=0，warning 也算失败）
+npm run typecheck             # 类型
+npm run test                  # 单元测试
+npm run build                 # 生产构建
+npm run check:no-third-party          # 浏览器产物不得引用境外资源
+npm run check:browser-no-auth-service # 浏览器不得直连认证服务
+npm run check:server-only             # service-role 客户端不得进入客户端组件
+```
 
-### 8.3 阶段完成门禁（对应第 16 节）
+**顺序不可随意调整：** 后三项检查依赖构建产物，必须排在 `build` 之后；
+`check:server-only` 会临时改文件并重新构建，因此放在最后。
 
-只有下列全部满足，一个阶段才允许宣布完成，并向产品负责人提交完成报告：
+### 8.3 `npm run db:verify` 展开
 
-1. 该阶段商定的验收标准已实现；
-2. 迁移能从空数据库应用成功；
-3. 新增的数据与动作都有 RLS 与服务器端授权覆盖；
-4. 自动化测试包含**正常、错误、被禁止、边界**四类情形；
-5. 格式检查、lint、类型检查、相关测试、构建全部通过；
-6. 人工验收已执行并记录；
-7. 无障碍基本项已验证；
-8. 相关处已包含审计与通知行为；
-9. 源码、日志、fixture 中没有密钥与个人信息；
-10. 相关文档与需求追溯表已更新；
-11. 已提交完成报告、更新 `OWNER_GUIDE.md` 与 `NEXT_STEP.md`，并**停下等待批准**。
+```bash
+supabase db reset    # 从空库重放全部迁移 + 灌入种子数据
+npm run db:test      # 70 条数据库用例
+```
 
-**任何一项未通过都不得宣布阶段完成。** 如果某项因环境原因无法运行，必须在完成报告中如实说明"未运行"及原因，不得写成"通过"（14.6、`AGENTS.md`）。
+这条命令直接对应主规格第 16 章"迁移必须能从空数据库一次性执行成功"。
 
----
+### 8.4 门禁本身也被验证过
+
+只写一个从没失败过的门禁是没有意义的。以下"故意制造错误 → 门禁必须失败"的验证都**实际执行过**：
+
+| 故意引入的问题 | 期望门禁 | 实测退出码 |
+|---|---|---|
+| `primaryRole` 返回类型改成 `number` | `typecheck` / `ci` | 1（报出 TS2367、TS7053） |
+| 追加一行格式混乱的代码 | `format:check` | 1 |
+| 追加一个未使用的导出常量 | `lint` | 1 |
+
+还原后三者均回到 0。
+
+### 8.5 干净环境验证
+
+CI 的关键前提是"在一个没装过依赖、也没有本地环境变量的机器上也能通过"。
+已验证方式：在 `node:24-alpine` 容器里，**不挂载**宿主的 `node_modules`，
+并**排除 `.env.local`**，执行 `npm ci` + `npm run ci`，退出码 0。
+
+> ⚠️ 本仓库目前没有远程仓库，因此 workflow **没有在 GitHub 上真正执行过**；
+> 上述容器验证用的是与 workflow 完全相同的命令。
 
 ## 9. 手工验收流程（manual verification）
 

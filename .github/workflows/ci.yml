@@ -1,0 +1,89 @@
+# =============================================================================
+# CI 质量门禁（主规格第 14.1 节）
+#
+# 设计原则：**逻辑放在 npm scripts 里，YAML 只负责调用**。
+#   - 本地跑 `npm run ci` 与 CI 跑的完全是同一批命令，不会出现"我这里过了"；
+#   - 换 CI 服务商（GitLab / Jenkins / 自建）只需要重写这一层包装，逻辑不动。
+#
+# ⚠️ 本流程**不需要任何密钥**：
+#   构建阶段刻意跳过运行时环境变量校验（见 instrumentation.ts），
+#   因此 CI 不必持有生产密钥 —— 少一处泄漏面。
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# 同一分支连续推送时，取消上一次仍在运行的流程，避免排队浪费
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 质量门禁：格式化、静态检查、类型、单元测试、生产构建、三项防护检查
+  # ---------------------------------------------------------------------------
+  quality:
+    name: 质量门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # 用 npm ci 而不是 npm install：严格按 lockfile 安装，保证可复现
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      # 一条命令覆盖全部门禁，与本地完全一致
+      - name: 运行质量门禁
+        run: npm run ci
+
+  # ---------------------------------------------------------------------------
+  # 数据库门禁：从**空库**重放全部迁移，再跑权限与约束测试
+  #
+  # 为什么单独一个 job：它需要 Docker 与数 GB 的 Supabase 镜像，
+  # 放在同一个 job 里会拖慢反馈速度。质量门禁应当先给出快速信号。
+  # ---------------------------------------------------------------------------
+  database:
+    name: 数据库迁移与权限
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # 与服务端依赖中锁定的版本保持一致，避免本地与 CI 行为不同
+          version: 2.118.0
+
+      # 启动本地 Supabase（首次运行需要拉取镜像，约数 GB）
+      - name: 启动本地数据库
+        run: supabase start
+
+      # db:verify = 从空库重放全部迁移 + 跑数据库测试套件
+      # 这正是"迁移必须能从空数据库一次性执行成功"（主规格第 16 章）的验证方式
+      - name: 从空库重放迁移并运行数据库测试
+        run: npm run db:verify
+
+      # 无论成功失败都清理，避免占用 runner 资源
+      - name: 停止本地数据库
+        if: always()
+        run: supabase stop --no-backup
