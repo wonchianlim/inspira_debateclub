@@ -204,7 +204,21 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-7 三种客户端与中间件
+### P1-7 三种客户端与中间件 ✅ 已完成（2026-09-29）
+
+> **实际结果：** 全部七项检查退出码 0（含新增的 `check:server-only`），**92 个测试通过**（新增 15 个 middleware 测试）。
+>
+> **落地文件：** `lib/supabase/server.ts`（默认，以用户身份运行、受 RLS 限制）、`lib/supabase/admin.ts`（service-role，`server-only` 保护）、`lib/supabase/client.ts`（浏览器端，仅公开变量）、`middleware.ts`（会话刷新）、`lib/supabase/database.types.ts`（由 `npm run db:types` 生成，已排除格式检查与 lint）。
+>
+> **"客户端误用即构建失败"已实测确认有效**，并且新增了可重复运行的 `npm run check:server-only` 把它变成自动检查。
+>
+> **⚠️ 过程中踩到并修正的两个坑（都很隐蔽）：**
+> 1. **探针目录名不能以 `_` 开头。** Next.js 把 `app/_xxx` 视为**私有目录**、排除在任何路由之外，因此第一版探针根本没被编译，构建当然成功——测试**误报"防护失效"**。改用 `app/server-only-guard-probe` 后，构建如预期失败（`You're importing a module that depends on "server-only"`，退出码 1）。
+> 2. **验证"启动缺少变量会失败"时必须临时移走 `.env.local`。** Next.js 启动时会自行加载 `.env.local`，因此 `env -u VAR` 不起作用——第一次测得"服务器正常启动"，看似是我的代码坏了，实际是测试方法错了。移走 `.env.local` 后实测退出码 **1** 并打印中文说明。
+>
+> **顺带修掉一个真实构建警告：** `instrumentation.ts` 里的 `process.exit` 会被 Turbopack 打进 Edge 运行时的包并报警（Edge 没有该 API）。已改为经由 `globalThis` 间接调用，警告归零，同时实测确认"缺变量即退出码 1"的行为没有改变。
+>
+> **另已验证：** 干净的构建产物中**不出现** `service_role` 字样，且真实密钥值不出现在任何前端产物中；`.next/static` 中不含任何外部地址。
 
 **做什么：** 实现 `lib/supabase/server.ts`（默认）、`lib/supabase/admin.ts`（`server-only` 保护）、`lib/supabase/client.ts`；实现 `middleware.ts` 会话刷新（使用 `getUser()`）。
 

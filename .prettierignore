@@ -12,3 +12,6 @@ package-lock.json
 # 面向非技术负责人的中文文档：手工排版，避免 Prettier 重排表格与中文段落
 *.md
 docs/
+
+# Supabase CLI 生成的类型文件：由工具生成，不手工格式化
+lib/supabase/database.types.ts

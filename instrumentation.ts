@@ -29,6 +29,12 @@ export async function register(): Promise<void> {
     // 与"启动失败"的目标不符。因此这里显式退出，让失败真正可见。
     console.error("\n" + (error as Error).message + "\n");
     console.error("应用已停止：请修好环境变量后重新启动。");
-    process.exit(1);
+
+    // 刻意经由 globalThis 间接调用，而不是直接写 `process.exit(1)`：
+    // Turbopack 会把 instrumentation 一并打进 Edge 运行时的包，而 Edge 没有
+    // process.exit，直接写会产生构建警告（实测出现过）。
+    // 上面的 NEXT_RUNTIME 判断已经保证这段代码只在 Node 下执行，因此行为不变。
+    const runtimeProcess = globalThis.process;
+    runtimeProcess?.exit?.(1);
   }
 }

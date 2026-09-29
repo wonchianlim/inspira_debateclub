@@ -268,6 +268,15 @@ HOME="$PWD/.sb-home" npx supabase <命令>
 只测"拒绝"会漏掉**策略过严**的问题，因此套件同时覆盖 14 条"必须允许"的用例——
 其中 `A06 学生保存自己合格且已启用的赛制偏好` 专门用于证明收紧后的偏好策略没有误伤。
 
+另有两个独立的防护检查（不放进 `npm run check`，因为都要跑完整构建）：
+
+| 命令 | 检查内容 |
+|---|---|
+| `npm run check:no-third-party` | 构建产物与 SSR HTML 中不得出现 Google Fonts / 公共 CDN 等境外资源 |
+| `npm run check:server-only` | 故意让客户端组件引用 `lib/supabase/admin.ts`，断言构建**失败**（若构建成功则说明 service-role 防护失效） |
+
+`check:server-only` 特别注意：探针目录名**不能**以 `_` 开头，否则 Next.js 会把它当作私有目录而不编译，测试会误报通过。
+
 覆盖状态（38 条拒绝用例中已覆盖 15 条，其余 23 条随其所属表加入）见
 [`docs/permissions.md`](./permissions.md) 第 6.0 节。
 

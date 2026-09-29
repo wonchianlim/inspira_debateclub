@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Supabase CLI 生成的类型文件：不手工修改，也不参与代码检查
+    "lib/supabase/database.types.ts",
   ]),
 ]);
 
