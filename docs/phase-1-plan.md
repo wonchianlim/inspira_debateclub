@@ -263,7 +263,33 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-9 角色感知路由与仪表盘外壳
+### P1-9 角色感知路由与仪表盘外壳 ✅ 已完成（2026-09-29）
+
+> **实际结果：** 八项 JS 检查全部退出码 0，**112 个测试通过**（新增 14 个角色映射测试）；数据库 70 条全部通过。
+>
+> **落地文件：** `lib/auth/roles.ts`（角色 → 落地页 / 区域权限 / 导航）、`lib/auth/session.ts`（`requireSession` / `requireAnyRole`）、`app/(app)/layout.tsx`（受保护区域入口）、`app/(app)/dashboard/page.tsx`（按角色跳转）、五个区域各一份 layout + 首页、`app/forbidden.tsx`（真正的 403）、`components/layout/role-nav.tsx`。
+>
+> **端到端实测（真实会话 + 真实邮件链接，共 30 条断言全部通过）：**
+>
+> | 角色 | /dashboard 落地 | /student | /judge | /coach | /manage | /admin |
+> |---|---|---|---|---|---|---|
+> | student | 307 → /student | 200 | 403 | 403 | 403 | 403 |
+> | judge | 307 → /judge | 403 | 200 | 403 | 403 | 403 |
+> | coach | 307 → /coach | 403 | 403 | 200 | 403 | 403 |
+> | club_manager | 307 → /manage | 403 | 403 | 403 | 200 | 403 |
+> | super_admin | 307 → /admin | 403 | 403 | 403 | 200 | 200 |
+>
+> 另外：**未登录访问六个受保护前缀一律返回真正的 307 → /login**；公开路径（`/`、`/login`、`/register`、`/forgot-password`）不受影响。超级管理员可进入 `/manage` 与第 4 节矩阵一致。
+>
+> **⚠️ 过程中发现一个非常隐蔽的问题（值得记住）：**
+> 最初所有受保护路径都返回 **200**，而页面上却出现了正确的 403 文案。诊断后确认根因是**根级的 `app/loading.tsx`**：
+> 它建立的 Suspense 边界会先**流式发送**页面外壳，HTTP 头一旦发出，Next 就无法再返回 307/403，只能退化成在 HTML 里插入
+> `<meta http-equiv="refresh" content="1;url=/login">` 并返回 **200**。浏览器仍会跳转（用户无感），但状态码是错的，监控与日志无法据此判断。
+>
+> 解决：**移除根级 `app/loading.tsx`**，并把"未登录拦截"放到**中间件**（它在任何渲染之前运行，能返回真正的 307）；布局里的 `requireSession()` 保留为第二道防线。
+> 已验证：移除后 30 条断言全部通过（307 与 403 都是真的）。
+>
+> **由此得出的一条约束（已写入架构文档）：** 在受保护区域**上方**不要放 `loading.tsx`，否则会静默破坏 `redirect()` 与 `forbidden()` 的状态码。需要加载态时，请在**不涉及鉴权跳转**的叶子路由上使用，或在页面内部用 `StatePanel variant="loading"`。
 
 **做什么：** 实现 `/dashboard` 按角色跳转；受保护路由；未授权时返回 403 或跳转，且不泄漏记录是否存在。
 

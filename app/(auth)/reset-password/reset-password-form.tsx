@@ -6,7 +6,8 @@ import { FormField, describedBy } from "@/components/domain/form-field";
 import { FormMessage } from "@/components/domain/form-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { INITIAL_AUTH_STATE, updatePasswordAction } from "@/lib/auth/actions";
+import { INITIAL_AUTH_STATE } from "@/lib/auth/form-state";
+import { updatePasswordAction } from "@/lib/auth/actions";
 
 export function ResetPasswordForm() {
   const [state, formAction, pending] = useActionState(updatePasswordAction, INITIAL_AUTH_STATE);

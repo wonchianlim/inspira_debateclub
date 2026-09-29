@@ -5,6 +5,7 @@ import type { z } from "zod";
 
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
+import type { AuthFormState } from "@/lib/auth/form-state";
 import { RATE_LIMITS, consumeRateLimit, enforceIpRateLimit } from "@/lib/auth/rate-limit";
 import {
   requestPasswordResetSchema,
@@ -24,14 +25,6 @@ import {
  * 返回值的形状是为 `useActionState` 设计的：表单可以显示行内错误并保留已填内容
  * （主规格第 13 节要求）。
  */
-
-export type AuthFormState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-export const INITIAL_AUTH_STATE: AuthFormState = { status: "idle" };
 
 /** 把 Zod 的校验结果转成表单可用的字段错误。 */
 function toFieldErrors(error: z.ZodError): Record<string, string[]> {

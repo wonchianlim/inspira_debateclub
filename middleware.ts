@@ -48,10 +48,45 @@ export async function middleware(request: NextRequest) {
   );
 
   // 必须调用：它会校验会话，并在需要时触发上面的 setAll 刷新 cookie。
-  // 这里刻意**不使用**返回值做任何跳转决策——未登录该看到什么由页面自己决定。
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  /*
+   * 未登录访问受保护区域 → 在这里直接重定向。
+   *
+   * ⚠️ 为什么必须放在中间件，而不能只靠布局里的 `redirect()`：
+   *    实测发现，布局里调用 `redirect()` 时，由于根级 `app/loading.tsx` 建立了
+   *    Suspense 边界，页面外壳会**先被流式发送**出去；HTTP 头一旦发出，
+   *    Next 就无法再返回 307，只能退化为在 HTML 里插入
+   *    `<meta http-equiv="refresh" content="1;url=/login">` 并返回 **200**。
+   *    浏览器仍会跳转（用户无感），但状态码不是重定向，
+   *    爬虫、监控与日志都无法据此判断"未登录"，而且会先闪一下加载态。
+   *
+   *    中间件在**任何渲染开始之前**运行，因此能返回真正的 307。
+   *
+   * 布局里的 `requireSession()` 仍然保留，作为第二道防线（万一中间件被绕过）。
+   */
+  if (!user && isProtectedPath(request.nextUrl.pathname)) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return response;
+}
+
+/**
+ * 需要登录才能访问的路径前缀（规范第 8 节）。
+ *
+ * 认证相关页面（/login、/register、/forgot-password、/reset-password）
+ * 与公开首页不在其中。
+ */
+const PROTECTED_PREFIXES = ["/dashboard", "/student", "/judge", "/coach", "/manage", "/admin"];
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 /**

@@ -15,17 +15,51 @@ export type NavItem = {
  * - `<header>` / `<nav>` / `<main>` / `<footer>` 构成地标结构；
  * - 首个可聚焦元素是"跳到主要内容"，键盘用户可跳过导航；
  * - 所有可聚焦元素的焦点样式由 `focus-visible:ring-*` 显式给出，不依赖浏览器默认；
- * - 导航项目前仅使用已存在的路由，避免产生死链。
+ * - 导航只使用已存在的路由，避免产生死链。
+ *
+ * 不传导航时不渲染 `<nav>`：认证页面等场景本来就没有可跳转的入口，
+ * 渲染一个空的导航地标反而会干扰屏幕阅读器用户。
  */
-const DEFAULT_NAV: NavItem[] = [{ href: "/", label: "首页", current: true }];
-
 export function AppShell({
   children,
-  navItems = DEFAULT_NAV,
+  navItems,
+  nav,
+  userSlot,
 }: {
   children: React.ReactNode;
+  /** 静态导航项。若需要依据当前路径高亮，改用 `nav` 传入客户端组件。 */
   navItems?: NavItem[];
+  /** 自定义导航节点（例如带 aria-current 的客户端导航）。优先于 navItems。 */
+  nav?: React.ReactNode;
+  /** 右上角区域，例如用户名与登出按钮。 */
+  userSlot?: React.ReactNode;
 }) {
+  const resolvedNav =
+    nav ??
+    (navItems && navItems.length > 0 ? (
+      <nav aria-label="主导航">
+        <ul className="flex flex-wrap items-center gap-1">
+          {navItems.map((item) => (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={item.current ? "page" : undefined}
+                className={cn(
+                  // min-h-11 保证触控目标高度不低于 44px（移动端可点性）
+                  "focus-visible:ring-ring/50 inline-flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:outline-none",
+                  item.current
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    ) : null);
+
   return (
     <div className="flex min-h-full flex-col">
       <a
@@ -36,7 +70,7 @@ export function AppShell({
       </a>
 
       <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
+        <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1">
           <Link
             href="/"
             className="focus-visible:ring-ring/50 rounded-md text-sm font-semibold tracking-tight focus-visible:ring-3 focus-visible:outline-none"
@@ -44,27 +78,10 @@ export function AppShell({
             INSPIRA 辩论俱乐部
           </Link>
 
-          <nav aria-label="主导航">
-            <ul className="flex flex-wrap items-center gap-1">
-              {navItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={item.current ? "page" : undefined}
-                    className={cn(
-                      // min-h-11 保证触控目标高度不低于 44px（移动端可点性）
-                      "focus-visible:ring-ring/50 inline-flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:outline-none",
-                      item.current
-                        ? "bg-muted text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {resolvedNav}
+            {userSlot}
+          </div>
         </div>
       </header>
 
