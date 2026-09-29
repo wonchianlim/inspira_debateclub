@@ -31,8 +31,7 @@ const ADMIN_SECTIONS = [
     href: "/admin/settings",
     title: "系统设置",
     description: "维护系统级键值（例如默认报名时间偏移）。",
-    ready: false,
-    phase: "P2-9",
+    ready: true,
   },
   {
     href: "/admin/audit",
