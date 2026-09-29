@@ -334,6 +334,31 @@ CREATE UNIQUE INDEX ballot_templates_one_active
 
 **每个迁移都必须能从空数据库一次性执行成功**（规范第 16 章）。
 
+**实施状态（2026-09-29，P1-5）：** 下列 16 条中已有 **10 条落地**，对应 Phase 1 的范围
+（身份、角色、赛制、资格、事件、报名、审计基础）：
+
+| 已实施 | 留待后续阶段 |
+|---|---|
+| `...090000_extensions_and_helpers` | `...090700_participation_teams`（Phase 4） |
+| `...090100_enums` | `...090800_matches`（Phase 5） |
+| `...090200_identity` | `...090900_judges`（Phase 5） |
+| `...090300_formats` | `...091000_ballots`（Phase 7） |
+| `...090400_qualifications` | `...091400_workflow_functions`（随各工作流阶段） |
+| `...090500_events` | `...091500_audit_triggers`（随各特权操作） |
+| `...090600_registration` | |
+| `...091100_ops` | |
+| `...091200_indexes` | |
+| `...091300_rls` | |
+
+实测：从空库重建后得到 **14 张表、32 条策略、14 张启用 RLS 的表、40 个索引、19 个函数**，
+并且 27 条 RLS 授权用例全部通过（`npm run db:rls-smoke`）。
+
+两点与本文早前描述的差异，均已实测确认：
+
+1. **`btree_gist` 扩展尚未创建。** 它只被 `judge_assignments` 的排他约束需要，属于 Phase 5。
+   提前创建会违反 `AGENTS.md` 的 Scope Discipline。
+2. **本阶段只创建了 6 个枚举**，而不是第 3 节列出的全部。其余枚举随其所属表一起创建。
+
 ```text
 20260929090000_extensions_and_helpers.sql
      -- btree_gist 扩展；updated_at 自动更新触发器函数；

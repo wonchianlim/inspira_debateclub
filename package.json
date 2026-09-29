@@ -21,7 +21,8 @@
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
+    "db:rls-smoke": "docker exec -i supabase_db_inspira psql -U postgres -d postgres -q -f - < scripts/rls-smoke.sql"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
