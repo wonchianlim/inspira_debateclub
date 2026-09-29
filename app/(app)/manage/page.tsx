@@ -28,8 +28,8 @@ const MANAGE_SECTIONS: ManageSection[] = [
   {
     title: "通知管理",
     description: "发布面向全体、某个活动、某个角色或某个赛制的通知。",
-    ready: false,
-    phase: "P2-8",
+    ready: true,
+    href: "/manage/notices",
   },
   {
     title: "报名管理",

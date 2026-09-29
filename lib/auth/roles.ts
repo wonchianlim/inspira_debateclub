@@ -70,7 +70,12 @@ export type RoleNavItem = { href: string; label: string };
  * 直接输入地址仍然要到服务端的区域布局去校验（见 app/(app)/ 下各区域的 layout.tsx）。
  */
 export function navForRoles(roles: readonly AppRole[]): RoleNavItem[] {
-  const items: RoleNavItem[] = [{ href: "/dashboard", label: "概览" }];
+  // 概览、活动、通知是所有已登录用户都有的入口
+  const items: RoleNavItem[] = [
+    { href: "/dashboard", label: "概览" },
+    { href: "/events", label: "活动" },
+    { href: "/notifications", label: "通知" },
+  ];
 
   if (roles.includes("student")) items.push({ href: "/student", label: "学生" });
   if (roles.includes("judge")) items.push({ href: "/judge", label: "裁判" });

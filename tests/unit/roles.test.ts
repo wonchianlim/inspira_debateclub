@@ -64,18 +64,23 @@ describe("角色映射", () => {
 });
 
 describe("按角色生成导航", () => {
-  it("始终包含概览入口", () => {
-    expect(navForRoles([])).toEqual([{ href: "/dashboard", label: "概览" }]);
+  it("始终包含概览、活动与通知入口（这三个所有已登录用户都有）", () => {
+    expect(navForRoles([])).toEqual([
+      { href: "/dashboard", label: "概览" },
+      { href: "/events", label: "活动" },
+      { href: "/notifications", label: "通知" },
+    ]);
   });
 
-  it("学生只看到概览与学生区域", () => {
+  it("学生看到公共入口加学生区域", () => {
     const hrefs = navForRoles(["student"]).map((item) => item.href);
-    expect(hrefs).toEqual(["/dashboard", "/student"]);
+    expect(hrefs).toEqual(["/dashboard", "/events", "/notifications", "/student"]);
   });
 
   it("每个角色的导航项都与其可访问区域一致", () => {
     for (const role of APP_ROLES) {
-      const items = navForRoles([role]).filter((item) => item.href !== "/dashboard");
+      const publicHrefs = ["/dashboard", "/events", "/notifications"];
+      const items = navForRoles([role]).filter((item) => !publicHrefs.includes(item.href));
       for (const item of items) {
         const area = item.href.slice(1);
         expect(
@@ -89,12 +94,19 @@ describe("按角色生成导航", () => {
 
   it("超级管理员看到最完整的导航", () => {
     const hrefs = navForRoles(["super_admin"]).map((item) => item.href);
-    expect(hrefs).toEqual(["/dashboard", "/manage", "/admin"]);
+    expect(hrefs).toEqual(["/dashboard", "/events", "/notifications", "/manage", "/admin"]);
   });
 
   it("多角色时合并各自的入口，不重复", () => {
     const hrefs = navForRoles(["student", "judge", "coach"]).map((item) => item.href);
-    expect(hrefs).toEqual(["/dashboard", "/student", "/judge", "/coach"]);
+    expect(hrefs).toEqual([
+      "/dashboard",
+      "/events",
+      "/notifications",
+      "/student",
+      "/judge",
+      "/coach",
+    ]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 });

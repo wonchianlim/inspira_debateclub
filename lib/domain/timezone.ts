@@ -13,6 +13,15 @@
  *    因此在任何机器（无论系统时区是上海还是纽约）上结果都一致。
  */
 
+/**
+ * 俱乐部的默认时区。
+ *
+ * 用途：有些地方需要一个"输入本地时间但没有单独时区字段"的默认值，
+ * 例如通知的定时发布时间（`notices.published_at` 是 timestamptz，
+ * 表里没有时区列）。活动有自己的 `timezone` 列，不使用这个默认值。
+ */
+export const CLUB_DEFAULT_TIMEZONE = "Asia/Shanghai";
+
 const MS_PER_MINUTE = 60_000;
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
