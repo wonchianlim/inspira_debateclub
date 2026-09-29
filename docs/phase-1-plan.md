@@ -45,8 +45,23 @@
 | D | Phase 0 大陆连通性验证完成，数据库/认证方案已定（托管 Supabase 新加坡 / 同区域托管 PostgreSQL / 自托管） | **待完成，阻塞 P1-12** |
 | E | 产品负责人批准任何付费资源 | **待批准，阻塞 P1-12** |
 | F | 邮件服务商选定（影响 P1-8 的密码重置邮件投递） | **待完成** |
+| G | npm 缓存目录问题已解决（见下） | **待确认（阻塞 P1-1 第一步）** |
+| H | `docs/dependencies.md` 的版本提案已确认 | **待确认** |
 
 **重要：** P1-1 到 P1-11 中除部署外的部分，**不依赖**前置条件 D 与 E，可以在本地完成。只有 P1-12（非生产部署 + 大陆冒烟测试）需要它们。这允许在等待网络测试结果的同时推进开发。
+
+### 前置条件 G 的详细说明（已复现的环境阻塞）
+
+在 P1-1 之前必须解决：本机运行任何 `npm` 命令都会失败：
+
+```text
+npm error code EPERM
+npm error path /Users/chianlim/.npm/_cacache/tmp/***
+```
+
+**已核实的原因：** 不是文件权限问题，而是文件沙箱限制——npm 默认将缓存写入工作区之外的 `~/.npm`，该目录被禁止写入（实测 `touch` 返回 `Operation not permitted`，且该目录下没有 root 拥有的文件）。
+
+**已实测可行的解决办法：** 在项目中放置 `.npmrc`，把缓存指向项目内（例如 `cache=.npm-cache`），并将 `.npm-cache/` 加入 `.gitignore`。详见 `docs/dependencies.md` 第 4.5 节。
 
 ---
 
@@ -56,10 +71,12 @@
 
 ### P1-1 项目脚手架与仓库规范
 
-**做什么：** 用 Next.js App Router + TypeScript（`strict: true`）初始化项目；配置 ESLint、Prettier；写 `.gitignore`（必须包含 `.env.local`、`.next`、`node_modules`、Supabase 本地临时文件）；定义 npm scripts（`dev`、`build`、`lint`、`typecheck`、`test`、`test:e2e`、`format`）。
+**做什么：** 先放置 `.npmrc` 解决前置条件 G（把 npm 缓存指向项目内，否则任何安装命令都会 EPERM 失败）；然后用 Next.js App Router + TypeScript（`strict: true`）初始化项目；按 `docs/dependencies.md` 写入精确版本（去掉 `^`/`~`）；配置 ESLint、Prettier；写 `.gitignore`（必须包含 `.env.local`、`.next`、`node_modules`、`.npm-cache`、Supabase 本地临时文件）；定义 npm scripts（`dev`、`build`、`lint`、`typecheck`、`test`、`test:e2e`、`format`）。
 
 **验收标准：**
+- `.npmrc` 生效后 `npm` 命令不再报 EPERM（需实际运行验证）；
 - `npm run build`、`npm run lint`、`npm run typecheck` 三条命令全部通过（需实际运行并记录输出）；
+- `docs/dependencies.md` 第 4.1–4.3 节的三个新大版本风险已用**实际运行结果**判定；若有回退，已新增 ADR 记录；
 - 仓库中不存在任何真实密钥或个人数据；
 - 精确版本写入 `package.json`，`package-lock.json` 已提交。
 

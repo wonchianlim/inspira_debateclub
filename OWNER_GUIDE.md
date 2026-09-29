@@ -34,6 +34,7 @@ INSPIRA 辩论俱乐部管理系统，是一个**网页**（不需要安装 App�
 | `docs/requirements-traceability.md` | 需求对照表：每条需求由哪个阶段做、怎么验证。 |
 | `docs/decisions/` | 8 条重要决定的记录，写了为什么这么选。 |
 | `docs/deployment-regions.md` | 服务器放哪里、大概多少钱、大陆能不能正常访问。 |
+| `docs/dependencies.md` | 要用哪些软件库、每个的确切版本，以及安装时可能遇到的坑。 |
 | `docs/phase-1-plan.md` | 下一个阶段要做的 13 件事，每件都有验收标准。 |
 
 **注意：** 现在**还没有**任何可以打开的网址，也**没有**任何代码。这是正常的，规范要求先设计再动手。
