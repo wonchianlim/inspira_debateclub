@@ -199,6 +199,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"partner_requests": {
+                  Row: {
+                    "created_at": string,"event_id": string,"format_id": string | null,"id": string,"requested_student_id": string,"requester_student_id": string,"status": Database["public"]['Enums']["partner_request_status"],"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"event_id": string,"format_id"?: string | null,"id"?: string,"requested_student_id": string,"requester_student_id": string,"status"?: Database["public"]['Enums']["partner_request_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"event_id"?: string,"format_id"?: string | null,"id"?: string,"requested_student_id"?: string,"requester_student_id"?: string,"status"?: Database["public"]['Enums']["partner_request_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "partner_requests_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "partner_requests_format_id_fkey"
+      columns: ["format_id"]
+isOneToOne: false
+      referencedRelation: "debate_formats"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "partner_requests_requested_student_id_fkey"
+      columns: ["requested_student_id"]
+isOneToOne: false
+      referencedRelation: "student_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "partner_requests_requester_student_id_fkey"
+      columns: ["requester_student_id"]
+isOneToOne: false
+      referencedRelation: "student_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string,"email": string,"first_name": string,"id": string,"last_name": string,"phone": string | null,"status": Database["public"]['Enums']["profile_status"],"updated_at": string
@@ -431,7 +468,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","check_in_method": "self"|"admin","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show"
+            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","check_in_method": "self"|"admin","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","partner_request_status": "pending"|"accepted"|"unavailable"|"replaced"|"cancelled","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -551,7 +588,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"check_in_method": ["self", "admin"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"]
+            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"check_in_method": ["self", "admin"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"partner_request_status": ["pending", "accepted", "unavailable", "replaced", "cancelled"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"]
           }
         }
 } as const

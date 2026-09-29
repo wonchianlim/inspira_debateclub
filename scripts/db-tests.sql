@@ -34,6 +34,9 @@
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+-- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
+-- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.partner_requests;
 delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
@@ -72,9 +75,13 @@ insert into public.user_roles (profile_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000004','student'),
  ('aaaaaaaa-0000-0000-0000-000000000005','student');
 
-insert into public.student_profiles (profile_id, school) values
- ('aaaaaaaa-0000-0000-0000-000000000004','虚构中学A'),
- ('aaaaaaaa-0000-0000-0000-000000000005','虚构中学B');
+-- 刻意给固定 id：学生**看不到**别人的 student_profiles 行（RLS 正确地隐藏了），
+-- 因此用例里不能用子查询去取"另一个学生"的 id —— 那样取到的是 NULL，
+-- 插入会以"违反 RLS"的形式失败，看起来像是策略写错了，实际是测试写法不对。
+-- 这是实测踩到的：A23 一开始就是这么写的。
+insert into public.student_profiles (id, profile_id, school) values
+ ('eeeeeeee-0000-0000-0000-000000000004','aaaaaaaa-0000-0000-0000-000000000004','虚构中学A'),
+ ('eeeeeeee-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000005','虚构中学B');
 
 -- 只有 PF 是"已合格"，WSDC 刻意保持不合格（用于测试 F-STU-10）
 insert into public.student_format_profiles (student_id, format_id, eligible, rating, updated_by)
@@ -313,7 +320,30 @@ insert into authz_cases (label, sub, want, sql) values
  $q$with x as (insert into public.judge_format_qualifications (judge_id, format_id, approved, approved_by)
       select jp.id, f.id, true, 'aaaaaaaa-0000-0000-0000-000000000004'
       from public.judge_profiles jp, public.debate_formats f
-      where jp.profile_id='aaaaaaaa-0000-0000-0000-000000000003' and f.code='BP' returning 1) select count(*) from x$q$);
+      where jp.profile_id='aaaaaaaa-0000-0000-0000-000000000003' and f.code='BP' returning 1) select count(*) from x$q$),
+
+-- ==================== 搭档请求（Phase 3 / P3-1 新增）====================
+('A23 学生以自己名义发起搭档请求','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$with x as (insert into public.partner_requests (event_id, requester_student_id, requested_student_id)
+      values ('bbbbbbbb-0000-0000-0000-000000000001', public.my_student_id(),
+              'eeeeeeee-0000-0000-0000-000000000005')
+      returning 1) select count(*) from x$q$),
+('A24 学生读自己发起的搭档请求','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.partner_requests where requester_student_id = public.my_student_id()$q$),
+('A25 被请求方能看到发给自己的请求','aaaaaaaa-0000-0000-0000-000000000005','allow',
+ $q$select count(*) from public.partner_requests$q$),
+('F-STU-26 学生以他人名义发起搭档请求','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.partner_requests (event_id, requester_student_id, requested_student_id)
+      values ('bbbbbbbb-0000-0000-0000-000000000001',
+              (select id from public.student_profiles where profile_id='aaaaaaaa-0000-0000-0000-000000000005'),
+              'eeeeeeee-0000-0000-0000-000000000005')
+      returning 1) select count(*) from x$q$),
+('F-STU-27 学生读与自己无关的搭档请求','aaaaaaaa-0000-0000-0000-000000000005','deny',
+ $q$select count(*) from public.partner_requests
+      where requester_student_id <> public.my_student_id()
+        and requested_student_id <> public.my_student_id()$q$),
+('F-COA-07 教练读搭档请求','aaaaaaaa-0000-0000-0000-000000000003','deny',
+ $q$select count(*) from public.partner_requests$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -457,7 +487,20 @@ insert into constraint_cases (label, expect, sql) values
     select '结束倒置', (now() at time zone 'Asia/Shanghai')::date,
            now(), now() + interval '1 hour', now(), now(),
            now() + interval '4 day', now() + interval '3 day',
-           'aaaaaaaa-0000-0000-0000-000000000001'$q$);
+           'aaaaaaaa-0000-0000-0000-000000000001'$q$),
+
+-- ==================== 搭档请求约束（Phase 3 / P3-1 新增）====================
+('C22 搭档请求自己被 CHECK 拒绝','error',
+ $q$insert into public.partner_requests (event_id, requester_student_id, requested_student_id)
+    values ('bbbbbbbb-0000-0000-0000-000000000001',
+            'eeeeeeee-0000-0000-0000-000000000004',
+            'eeeeeeee-0000-0000-0000-000000000004')$q$),
+('C23 同一活动重复有效搭档请求被部分唯一索引拒绝','error',
+ $q$insert into public.partner_requests (event_id, requester_student_id, requested_student_id)
+    select 'bbbbbbbb-0000-0000-0000-000000000001',
+           'eeeeeeee-0000-0000-0000-000000000004',
+           'eeeeeeee-0000-0000-0000-000000000005'
+    from public.partner_requests limit 1$q$);
 
 do $constraints$
 declare
@@ -500,7 +543,8 @@ declare
   tables text[] := array['profiles','user_roles','student_profiles','judge_profiles',
     'debate_formats','format_positions','student_format_profiles',
     'judge_format_qualifications','events','event_formats','registrations',
-    'registration_format_preferences','audit_logs','system_settings','notices'];
+    'registration_format_preferences','audit_logs','system_settings','notices',
+      'partner_requests'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -790,6 +834,9 @@ $audit_judge$;
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+-- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
+-- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.partner_requests;
 delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
