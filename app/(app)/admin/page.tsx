@@ -25,8 +25,7 @@ const ADMIN_SECTIONS = [
     href: "/admin/judges",
     title: "裁判审批",
     description: "审批裁判申请、维护裁判的各赛制资格。",
-    ready: false,
-    phase: "P2-5",
+    ready: true,
   },
   {
     href: "/admin/settings",

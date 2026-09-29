@@ -45,6 +45,11 @@ delete from public.system_settings
   where updated_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.user_roles
   where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
+delete from public.judge_format_qualifications
+  where judge_id in (select id from public.judge_profiles
+                     where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%');
+delete from public.judge_profiles
+  where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.student_profiles
   where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.profiles
@@ -77,6 +82,11 @@ select sp.id, f.id, true, 7, 'aaaaaaaa-0000-0000-0000-000000000001'
 from public.student_profiles sp
 join public.debate_formats f on f.code = 'PF'
 where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000004';
+
+-- 裁判档案：刻意保持"待审批"，用于测试审批状态只有超管能改。
+-- 学生 0004 是学生，0003 是教练，这里让他同时拥有一份裁判档案。
+insert into public.judge_profiles (profile_id, approval_status)
+values ('aaaaaaaa-0000-0000-0000-000000000003', 'pending');
 
 -- 活动：一个正在报名（只启用 PF），一个报名已关闭
 with t as (select now() as base, (now() + interval '2 day' + interval '30 min') as starts_at)
@@ -276,7 +286,34 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-MGR-08 管理员授予学生角色（非超管角色也不行）','aaaaaaaa-0000-0000-0000-000000000002','deny',
  $q$with x as (insert into public.user_roles (profile_id, role) values ('aaaaaaaa-0000-0000-0000-000000000004','judge') returning 1) select count(*) from x$q$),
 ('F-MGR-09 管理员撤销他人角色','aaaaaaaa-0000-0000-0000-000000000002','deny',
- $q$with x as (delete from public.user_roles where profile_id='aaaaaaaa-0000-0000-0000-000000000003' and role='coach' returning 1) select count(*) from x$q$);
+ $q$with x as (delete from public.user_roles where profile_id='aaaaaaaa-0000-0000-0000-000000000003' and role='coach' returning 1) select count(*) from x$q$),
+
+-- ==================== 裁判审批与赛制资格（Phase 2 / P2-5 新增）====================
+-- 目的：证明"只有超管能改审批状态、只有超管能授予赛制资格"由**数据库**保证。
+-- ⚠️ 拒绝类用例必须确保失败原因是**权限**，而不是撞上别的约束。
+--    例如 F-MGR-11 刻意用一个该裁判尚未拥有的赛制（WSDC），
+--    否则可能因为 UNIQUE 冲突而"被拒绝"，那样测的就不是权限了。
+('A21 超管批准裁判','aaaaaaaa-0000-0000-0000-000000000001','allow',
+ $q$with x as (update public.judge_profiles set approval_status='approved'
+      where profile_id='aaaaaaaa-0000-0000-0000-000000000003' returning 1) select count(*) from x$q$),
+('A22 超管授予裁判赛制资格','aaaaaaaa-0000-0000-0000-000000000001','allow',
+ $q$with x as (insert into public.judge_format_qualifications (judge_id, format_id, approved, approved_by)
+      select jp.id, f.id, true, 'aaaaaaaa-0000-0000-0000-000000000001'
+      from public.judge_profiles jp, public.debate_formats f
+      where jp.profile_id='aaaaaaaa-0000-0000-0000-000000000003' and f.code='PF' returning 1) select count(*) from x$q$),
+('F-MGR-10 管理员修改裁判审批状态','aaaaaaaa-0000-0000-0000-000000000002','deny',
+ $q$with x as (update public.judge_profiles set approval_status='suspended'
+      where profile_id='aaaaaaaa-0000-0000-0000-000000000003' returning 1) select count(*) from x$q$),
+('F-MGR-11 管理员授予裁判赛制资格','aaaaaaaa-0000-0000-0000-000000000002','deny',
+ $q$with x as (insert into public.judge_format_qualifications (judge_id, format_id, approved, approved_by)
+      select jp.id, f.id, true, 'aaaaaaaa-0000-0000-0000-000000000002'
+      from public.judge_profiles jp, public.debate_formats f
+      where jp.profile_id='aaaaaaaa-0000-0000-0000-000000000003' and f.code='WSDC' returning 1) select count(*) from x$q$),
+('F-STU-25 学生授予自己裁判赛制资格','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.judge_format_qualifications (judge_id, format_id, approved, approved_by)
+      select jp.id, f.id, true, 'aaaaaaaa-0000-0000-0000-000000000004'
+      from public.judge_profiles jp, public.debate_formats f
+      where jp.profile_id='aaaaaaaa-0000-0000-0000-000000000003' and f.code='BP' returning 1) select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -731,6 +768,11 @@ delete from public.events;
 delete from public.student_format_profiles;
 delete from public.system_settings where key = 'test.key';
 delete from public.user_roles
+  where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
+delete from public.judge_format_qualifications
+  where judge_id in (select id from public.judge_profiles
+                     where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%');
+delete from public.judge_profiles
   where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.student_profiles
   where profile_id::text like 'aaaaaaaa-0000-0000-0000-0000000000%';

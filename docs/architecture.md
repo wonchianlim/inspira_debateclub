@@ -235,7 +235,10 @@ INSPIRA_DEEPSEEK_MASTER_SPEC.md
 
 纯业务规则放在 `lib/domain/`，**不碰数据库、不碰界面、不发请求**。
 
-第一条落地的是活动生命周期 `lib/domain/event-lifecycle.ts`（规范第 9.1 节的九种状态与合法跳转）。
+目前已落地的有：
+
+- `lib/domain/event-lifecycle.ts` —— 规范第 9.1 节的活动九种状态与合法跳转；
+- `lib/domain/judge-eligibility.ts` —— 裁判能否被指派到某赛制（账号状态 × 审批状态 × 赛制资格，Phase 5 排赛时直接调用）。
 
 这样做的直接好处是**可以穷举测试**：9×9 = 81 种组合逐一断言，而不是只测几条常见路径。
 一旦领域逻辑里混入数据库访问，就再也做不到这一点。
