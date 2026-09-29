@@ -122,17 +122,19 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-4 本地开发数据库 ⚠️ 部分完成（2026-09-29，等待 Docker）
+### P1-4 本地开发数据库 ✅ 已完成（2026-09-29）
 
-> **已完成：** 安装并锁定 Supabase CLI `2.118.0`（devDependency）；`supabase init` 生成 `supabase/config.toml`；建立 `supabase/migrations/` 与 `supabase/seed.sql`；新增 `db:start` / `db:stop` / `db:status` / `db:reset` / `db:types` 五个脚本；六项检查全部退出码 0（**77 个测试通过**）。
+> **实际结果：** 完整的 Supabase 本地环境已成功启动（`supabase start` 退出码 0，12 个容器健康）；六项检查全部退出码 0（**77 个测试通过**）。
 >
-> **未完成：** 实际启动本地数据库。**两个阻塞项：**
-> 1. **Docker 守护进程未运行** —— 本机 Docker 由 OrbStack 提供，但应用未启动，`/var/run/docker.sock` 不存在。实测 `npm run db:start` 报 `failed to connect to the docker API`。**需要产品负责人启动 OrbStack。**
-> 2. **Supabase CLI 无法写 `~/.supabase`**（工作区之外，被文件沙箱拒绝）。已实测可行绕开方式：`HOME="$PWD/.sb-home" npx supabase ...`。
+> **已验证：** PostgreSQL 17.6；`auth` schema 与 `auth.uid()` 存在；`anon`/`authenticated`/`service_role` 角色存在；`supabase db reset` 退出码 0；`.env.local` 由 `supabase status -o env` 生成且已被 gitignore；**用真实本地凭据启动应用返回 HTTP 200**。
 >
-> **另需注意：** 完整 `supabase start` 需拉取数 GB 镜像，而本机实测吞吐约 200 KB/s 且多次超时，这一步可能非常慢。详见 [`docs/testing.md`](./testing.md) 第 3.0 节。
+> **过程中解决/发现的四件事：**
+> 1. Docker 守护进程原本未运行 —— 产品负责人启动 OrbStack 后可用；
+> 2. Supabase CLI 无法写 `~/.supabase`（沙箱）—— 用 `HOME="$PWD/.sb-home"` 绕过，已实测；
+> 3. **Docker Hub 不可达（超时/502），但 Supabase 镜像所在的 `public.ecr.aws` 可达且很快** —— 这解释了为何 `supabase start` 反而能成功；
+> 4. ⚠️ **迁移文件必须命名为 `<时间戳>_<名称>.sql`**，否则被静默跳过。`docs/schema.md` 原写的 `0001_*.sql` 会被全部跳过，已修正为时间戳前缀。
 >
-> **不受阻塞的后续工作：** 迁移文件（P1-5）可以先行编写，只有"执行迁移"需要数据库。
+> 另记录：本地栈绑定 `0.0.0.0` 且 Studio/pgMeta 无身份验证，只可放虚构数据。详见 [`docs/testing.md`](./testing.md) 第 3.0 节。
 
 **做什么：** 配置 Supabase CLI 本地环境；建立 `supabase/migrations/` 目录与 `seed.sql`；在 CI 与本地统一使用 `supabase db reset` 重建。
 

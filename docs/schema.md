@@ -324,58 +324,66 @@ CREATE UNIQUE INDEX ballot_templates_one_active
 
 ## 5. 迁移顺序
 
-Supabase 迁移文件按时间戳顺序命名，**必须能从空数据库一次性执行成功**（规范第 16 章）。
+**命名规则（P1-4 实测得出的硬性要求）：** Supabase CLI 只识别 `<时间戳>_<名称>.sql` 形式的文件名。
+不符合的文件会被**跳过并只打印一行警告**——实测中一个 `.gitkeep` 就触发了
+`Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")`。
+
+⚠️ 因此本文件早期版本里写的 `0001_enums.sql` 这种命名**不会被 Supabase 执行**。
+下面已改为时间戳前缀；时间部分刻意按 100 秒递增，这样既满足 CLI 要求，
+又能让人一眼看出先后顺序，且排序稳定（不依赖文件创建时间）。
+
+**每个迁移都必须能从空数据库一次性执行成功**（规范第 16 章）。
 
 ```text
-0001_extensions_and_helpers.sql
+20260929090000_extensions_and_helpers.sql
      -- btree_gist 扩展；updated_at 自动更新触发器函数；
      -- current_profile_id()、has_role()、is_manager()、is_super_admin()
 
-0002_enums.sql
+20260929090100_enums.sql
      -- 第 3 节列出的全部枚举类型
 
-0003_identity.sql
+20260929090200_identity.sql
      -- profiles, user_roles, student_profiles, judge_profiles
 
-0004_formats.sql
+20260929090300_formats.sql
      -- debate_formats, format_positions（S-6）
 
-0005_qualifications.sql
+20260929090400_qualifications.sql
      -- student_format_profiles, judge_format_qualifications
 
-0006_events.sql
+20260929090500_events.sql
      -- events, event_formats, notices(+notice_reads, S-17f)
 
-0007_registration.sql
+20260929090600_registration.sql
      -- registrations, registration_format_preferences, partner_requests
 
-0008_participation_teams.sql
+20260929090700_participation_teams.sql
      -- participations, teams, team_members
 
-0009_matches.sql
+20260929090800_matches.sql
      -- matches, match_teams, match_roster_snapshots, match_motions
 
-0010_judges.sql
+20260929090900_judges.sql
      -- judge_event_availability, judge_assignments（含 S-4 排他约束）
 
-0011_ballots.sql
+20260929091000_ballots.sql
      -- ballot_score_types（S-13）, ballot_templates, ballots,
      -- ballot_scores, ballot_feedback, ballot_review_requests
 
-0012_ops.sql
+20260929091100_ops.sql
      -- coach_notes, notifications, email_jobs, audit_logs, system_settings（S-7）
 
-0013_indexes.sql
+20260929091200_indexes.sql
      -- 第 6.8 节要求的全部索引 + 第 4 节新增的部分唯一索引
 
-0014_rls.sql
+20260929091300_rls.sql
      -- 对每张暴露的表 ENABLE ROW LEVEL SECURITY，并建立策略（见 docs/permissions.md）
      -- audit_logs 显式 REVOKE UPDATE/DELETE/TRUNCATE（S-15）
 
-0015_workflow_functions.sql
+20260929091400_workflow_functions.sql
      -- 第 7 节列出的原子操作函数（SECURITY DEFINER + 固定 search_path）
 
-0016_audit_triggers.sql
+20260929091500_audit_triggers.sql
      -- 需要自动审计的动作触发器
 
 seed.sql

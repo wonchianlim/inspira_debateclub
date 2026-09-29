@@ -205,27 +205,53 @@ Fixture 必须提供**五种格式、评分相同、奇数人数、已接受搭�
 
 对应主规格第 7 节、第 14.3 节，以及 `AGENTS.md` 的 Database and Security Rules。
 
-### 3.0 本地数据库环境的前置条件（P1-4 实测记录）
+### 3.0 本地数据库环境（P1-4 实测记录，已完成）
 
-要在本机跑数据库测试，需要两件事，**都尚未满足**：
+**结论：完整的 Supabase 本地环境已在 2026-09-29 成功启动并通过验证。**
 
-| 前置条件 | 状态 | 说明 |
-|---|---|---|
-| Docker 守护进程在运行 | ❌ **未运行** | 本机通过 OrbStack 提供 Docker，但 OrbStack 应用没有启动，`/var/run/docker.sock` 不存在。实测 `npm run db:start` 报 `failed to connect to the docker API`。**需要人工启动 OrbStack。** |
-| Supabase CLI 能写它的配置目录 | ⚠️ 需变通 | CLI 默认写 `~/.supabase`，该目录在工作区之外，被 DSH 文件沙箱拒绝（`FileSystem.makeDirectory (/Users/chianlim/.supabase)`）。 |
+#### 已确认可用
 
-**已实测可行的绕开方式（仅本机开发需要）：** 把 `HOME` 指向工作区内的目录，再运行 CLI：
+| 项目 | 状态 |
+|---|---|
+| Docker 守护进程 | ✅ OrbStack 29.4.0（由产品负责人启动应用后可用） |
+| Supabase 本地栈 | ✅ 12 个容器全部健康（`supabase start` 退出码 0） |
+| PostgreSQL | ✅ 17.6（与 `config.toml` 的 `major_version = 17` 一致） |
+| `auth` schema | ✅ 存在（`auth.users`、`auth.identities` 等），RLS 所依赖的 `auth.uid()` 函数存在 |
+| RLS 所需角色 | ✅ `anon`、`authenticated`、`service_role`、`supabase_auth_admin` 均已存在 |
+| `supabase db reset` | ✅ 退出码 0，可重建 |
+
+本地地址：API `http://127.0.0.1:54321`、数据库 `127.0.0.1:54322`、Studio `http://127.0.0.1:54323`、Mailpit（假邮件箱）`http://127.0.0.1:54324`。
+
+#### 两个必须知道的操作事实
+
+**1. Supabase CLI 需要 `HOME` 变通（仅本机沙箱需要）。**
+CLI 默认写 `~/.supabase`，该目录在工作区之外，被 DSH 文件沙箱拒绝（`FileSystem.makeDirectory`）。已实测可行方式：
 
 ```bash
 HOME="$PWD/.sb-home" npx supabase <命令>
 ```
 
-已实测：`HOME="$PWD/.sb-home" npx supabase --version` → `2.118.0`（不加则报 `PlatformError`）。
-`.sb-home/` 已加入 `.gitignore`。
+`.sb-home/` 已加入 `.gitignore`。这只是本机沙箱的限制；普通终端与 CI 里 `HOME` 正常，因此 `package.json` 的 `db:*` 脚本保持普通写法。
 
-> 说明：这**只是本机沙箱的限制**。在普通终端或 CI（Linux）里 `HOME` 正常，不需要这个变通；因此 `package.json` 中的 `db:*` 脚本保持普通写法，不硬编码 `HOME`。
+**2. Docker Hub 不可达，但 Supabase 镜像可用。**
+实测：`registry-1.docker.io` 与 `auth.docker.io` **连接超时**，直接 `docker pull postgres:17-alpine` 报 502 Bad Gateway。而 **`public.ecr.aws`（Supabase 官方镜像所在）可达且速度良好**——约 4.9 GB 镜像在数分钟内拉完。
 
-**另需注意的容量风险：** 完整的 `supabase start` 会拉取多个容器镜像（通常数 GB）。本机到 npm/镜像源的实测吞吐约 200 KB/s 且曾多次超时，因此这一步可能非常慢。若确实无法完成，备选方案见 `docs/decisions/` 中关于本地数据库方案的 ADR（待补）。
+这解释了为什么 `supabase start` 能成功：它使用的是 `public.ecr.aws/supabase/*`，不经过 Docker Hub。
+如果将来需要拉取 Docker Hub 上的镜像（例如自建 PostgreSQL、或 CI 中的其他镜像），需要另行配置镜像源；已实测 `docker.m.daocloud.io` 可用（通过它拉取后再 `docker tag` 重命名即可）。
+
+#### ⚠️ 本地环境的安全注意（CLI 自己的提示）
+
+`supabase start` 会明确警告：
+
+- 所有服务绑定在 `0.0.0.0`，**同一局域网内的其他设备也能访问**，不只是本机；
+- API key 与 JWT secret 都是**公开的共用默认值**，绝不可用于生产；
+- **Studio、pgMeta 与 analytics 没有身份验证**——任何能访问该端口的人都能读写数据库。
+
+因此：本地库里**只放虚构数据**；不要在公共 Wi-Fi 下运行本地栈；用完可 `npm run db:stop` 停止。
+
+#### 迁移文件命名（实测得出的硬性要求）
+
+CLI 只识别 `<时间戳>_<名称>.sql`。不符合的文件会被**静默跳过**（只打一行警告）。完整说明与已修正的迁移清单见 [`docs/schema.md`](./schema.md) 第 5 节。
 
 ### 3.1 最重要的一条原则：必须尝试"被禁止"的操作
 
