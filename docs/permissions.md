@@ -308,6 +308,8 @@ grantAdminRole / manageFormats / viewAuditLog
 
 ## 9. 需要产品负责人确认的问题
 
+> ✅ **本节已于 2026-09-29 确认。** 产品负责人同意下表中每一条"建议默认值"（D-1 至 D-8 全部）。权威记录见 [`docs/decisions/0009-owner-confirmed-defaults.md`](./decisions/0009-owner-confirmed-defaults.md)。
+
 | 编号 | 问题 | 建议默认 | 影响 |
 |---|---|---|---|
 | D-1 | 新注册账号的默认角色是什么？（规范未说明） | 默认为 `student`；裁判注册后进入 `pending` 等待批准 | **直接决定 Phase 1 认证流程与多张表的策略** |

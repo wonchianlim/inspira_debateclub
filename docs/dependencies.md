@@ -143,6 +143,8 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ## 6. 需要产品负责人确认的事项
 
+> ✅ **本节已于 2026-09-29 确认（DEP-1 至 DEP-3 全部同意）。** 权威记录见 [`docs/decisions/0009-owner-confirmed-defaults.md`](./decisions/0009-owner-confirmed-defaults.md)。
+
 | 编号 | 事项 | 建议 |
 |---|---|---|
 | DEP-1 | 同意本版本提案 | 同意 |

@@ -33,13 +33,15 @@
 
 | 编号 | 决策 | 状态 |
 |---|---|---|
-| [0001](0001-auth-and-profile-identity.md) | 认证服务与档案身份合并为一个 UUID | 提议 |
-| [0002](0002-migrations-and-data-access.md) | 结构变更只走迁移；数据访问分三种客户端 | 提议 |
-| [0003](0003-ballot-templates.md) | Ballot 采用共享表 + 按赛制版本化模板 | 提议 |
-| [0004](0004-background-email-processing.md) | 邮件采用事务内入队 + 定时投递 | 提议 |
-| [0005](0005-pairing-determinism.md) | 配对与裁判推荐使用确定性启发式算法 | 提议 |
-| [0006](0006-roster-snapshots.md) | 开赛即锁定并快照名单 | 提议 |
-| [0007](0007-auth-through-own-domain.md) | 认证调用经自有域名转发 | 提议 |
-| [0008](0008-package-manager.md) | 使用 npm 作为包管理器 | 提议 |
+| [0001](0001-auth-and-profile-identity.md) | 认证服务与档案身份合并为一个 UUID | 已接受 |
+| [0002](0002-migrations-and-data-access.md) | 结构变更只走迁移；数据访问分三种客户端 | 已接受 |
+| [0003](0003-ballot-templates.md) | Ballot 采用共享表 + 按赛制版本化模板 | 已接受 |
+| [0004](0004-background-email-processing.md) | 邮件采用事务内入队 + 定时投递 | 已接受 |
+| [0005](0005-pairing-determinism.md) | 配对与裁判推荐使用确定性启发式算法 | 已接受 |
+| [0006](0006-roster-snapshots.md) | 开赛即锁定并快照名单 | 已接受 |
+| [0007](0007-auth-through-own-domain.md) | 认证调用经自有域名转发 | 已接受 |
+| [0008](0008-package-manager.md) | 使用 npm 作为包管理器 | 已接受 |
+| [0009](0009-owner-confirmed-defaults.md) | 产品负责人确认的默认决策（2026-09-29） | 已接受 |
 
-> 所有 ADR 在 Phase 0 结束时状态为"提议"，需要产品负责人在批准 Phase 0 时一并确认。
+> ADR-0001 至 0008 于 2026-09-29 经产品负责人确认，状态由"提议"转为"已接受"。
+> ADR-0009 是这次确认的唯一权威记录，同时列出了**仍然未决**、不在确认范围内的事项。

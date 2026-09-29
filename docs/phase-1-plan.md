@@ -267,6 +267,9 @@ P1-4 → P1-5 → P1-6 → P1-7 → P1-8 → P1-9
 
 ## 6. 需要产品负责人现在决定的事项
 
+> ✅ **第 2–6 项已于 2026-09-29 确认。** 权威记录见 [`docs/decisions/0009-owner-confirmed-defaults.md`](./decisions/0009-owner-confirmed-defaults.md)。
+> ⚠️ **第 1 项（是否批准本计划并开始 Phase 1）仍未决** —— 按 `AGENTS.md`，需要产品负责人明确批准后才能开始 Phase 1。
+
 | 编号 | 事项 | 建议 |
 |---|---|---|
 | 1 | 是否批准本计划并开始 Phase 1 | — |
