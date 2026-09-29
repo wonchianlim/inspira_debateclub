@@ -89,7 +89,12 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-2 界面基础与可访问外壳
+### P1-2 界面基础与可访问外壳 ✅ 已完成（2026-09-29）
+
+> **实际结果：** 六项检查全部退出码 0（`format:check`、`lint`、`typecheck`、`test`、`build`、`check:no-third-party`），**61 个测试通过**。
+> `shadcn init` 默认注入了 `next/font/google` 的 Geist 字体（违反规范第 5.4 节），已移除；同时修正了 P1-1 遗留的字体变量循环引用。
+> 新增两层自动化防护（源码单元测试 + 构建后 HTML/产物检查），并**用两个真实违规探针验证其确实会失败**。
+> ⚠️ **响应式视觉验证（375px / 1440px）尚未完成** —— 需要安装 Playwright 浏览器或人工查看。详见 [ADR-0011](./decisions/0011-ui-layer-and-third-party-guards.md)。
 
 **做什么：** 配置 Tailwind 与 shadcn/ui；实现三栏以内的响应式外壳；**自托管字体**（不使用 Google Fonts）；建立语义化结构与跳转到主内容的链接。
 
