@@ -122,7 +122,17 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-4 本地开发数据库
+### P1-4 本地开发数据库 ⚠️ 部分完成（2026-09-29，等待 Docker）
+
+> **已完成：** 安装并锁定 Supabase CLI `2.118.0`（devDependency）；`supabase init` 生成 `supabase/config.toml`；建立 `supabase/migrations/` 与 `supabase/seed.sql`；新增 `db:start` / `db:stop` / `db:status` / `db:reset` / `db:types` 五个脚本；六项检查全部退出码 0（**77 个测试通过**）。
+>
+> **未完成：** 实际启动本地数据库。**两个阻塞项：**
+> 1. **Docker 守护进程未运行** —— 本机 Docker 由 OrbStack 提供，但应用未启动，`/var/run/docker.sock` 不存在。实测 `npm run db:start` 报 `failed to connect to the docker API`。**需要产品负责人启动 OrbStack。**
+> 2. **Supabase CLI 无法写 `~/.supabase`**（工作区之外，被文件沙箱拒绝）。已实测可行绕开方式：`HOME="$PWD/.sb-home" npx supabase ...`。
+>
+> **另需注意：** 完整 `supabase start` 需拉取数 GB 镜像，而本机实测吞吐约 200 KB/s 且多次超时，这一步可能非常慢。详见 [`docs/testing.md`](./testing.md) 第 3.0 节。
+>
+> **不受阻塞的后续工作：** 迁移文件（P1-5）可以先行编写，只有"执行迁移"需要数据库。
 
 **做什么：** 配置 Supabase CLI 本地环境；建立 `supabase/migrations/` 目录与 `seed.sql`；在 CI 与本地统一使用 `supabase db reset` 重建。
 

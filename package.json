@@ -16,7 +16,12 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check:no-third-party": "node scripts/check-no-third-party.mjs",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:no-third-party"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run check:no-third-party",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
@@ -47,6 +52,7 @@
     "jsdom": "30.1.1",
     "prettier": "3.9.9",
     "prettier-plugin-tailwindcss": "0.8.1",
+    "supabase": "2.118.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vitest": "5.0.2"

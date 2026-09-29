@@ -1,0 +1,9 @@
+-- INSPIRA 种子数据
+--
+-- 本文件由 `supabase db reset` 在迁移执行完毕后自动运行（见 supabase/config.toml 的
+-- [db.seed] 配置）。它只放**稳定不变**的基础数据，例如五种辩论赛制。
+--
+-- 具体内容在 Phase 1 第 P1-5 步写入（迁移 0004_formats.sql 之后）：
+--   PF / JWSD / WSDC / BP / ONE_V_ONE 及其 format_positions。
+--
+-- 注意：这里**只能**使用虚构数据。绝不放入真实学生信息（AGENTS.md 硬性规则）。

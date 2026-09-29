@@ -205,6 +205,28 @@ Fixture 必须提供**五种格式、评分相同、奇数人数、已接受搭�
 
 对应主规格第 7 节、第 14.3 节，以及 `AGENTS.md` 的 Database and Security Rules。
 
+### 3.0 本地数据库环境的前置条件（P1-4 实测记录）
+
+要在本机跑数据库测试，需要两件事，**都尚未满足**：
+
+| 前置条件 | 状态 | 说明 |
+|---|---|---|
+| Docker 守护进程在运行 | ❌ **未运行** | 本机通过 OrbStack 提供 Docker，但 OrbStack 应用没有启动，`/var/run/docker.sock` 不存在。实测 `npm run db:start` 报 `failed to connect to the docker API`。**需要人工启动 OrbStack。** |
+| Supabase CLI 能写它的配置目录 | ⚠️ 需变通 | CLI 默认写 `~/.supabase`，该目录在工作区之外，被 DSH 文件沙箱拒绝（`FileSystem.makeDirectory (/Users/chianlim/.supabase)`）。 |
+
+**已实测可行的绕开方式（仅本机开发需要）：** 把 `HOME` 指向工作区内的目录，再运行 CLI：
+
+```bash
+HOME="$PWD/.sb-home" npx supabase <命令>
+```
+
+已实测：`HOME="$PWD/.sb-home" npx supabase --version` → `2.118.0`（不加则报 `PlatformError`）。
+`.sb-home/` 已加入 `.gitignore`。
+
+> 说明：这**只是本机沙箱的限制**。在普通终端或 CI（Linux）里 `HOME` 正常，不需要这个变通；因此 `package.json` 中的 `db:*` 脚本保持普通写法，不硬编码 `HOME`。
+
+**另需注意的容量风险：** 完整的 `supabase start` 会拉取多个容器镜像（通常数 GB）。本机到 npm/镜像源的实测吞吐约 200 KB/s 且曾多次超时，因此这一步可能非常慢。若确实无法完成，备选方案见 `docs/decisions/` 中关于本地数据库方案的 ADR（待补）。
+
 ### 3.1 最重要的一条原则：必须尝试"被禁止"的操作
 
 主规格第 7 节原文要求：**"Security tests must attempt forbidden reads and writes, not merely confirm allowed operations."**（安全测试必须尝试被禁止的读和写，而不只是确认允许的操作。）
