@@ -69,7 +69,12 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 每一步都是可独立审查的小块，完成后停下报告，不等同于阶段完成。
 
-### P1-1 项目脚手架与仓库规范
+### P1-1 项目脚手架与仓库规范 ✅ 已完成（2026-09-29）
+
+> **实际结果：** 五项必查全部退出码 0（`format:check`、`lint`、`typecheck`、`test`、`build`）。
+> 期间发现并解决了两个新大版本不兼容问题（TypeScript 7、ESLint 10），已回退并记录为 [ADR-0010](./decisions/0010-dependency-version-fallbacks.md)。
+> 同时移除了脚手架默认的 `next/font/google`（规范第 5.4 节禁止），改用系统字体。
+> 详细证据见 ADR-0010 末尾的"证据"表。
 
 **做什么：** 先放置 `.npmrc` 解决前置条件 G（把 npm 缓存指向项目内，否则任何安装命令都会 EPERM 失败）；然后用 Next.js App Router + TypeScript（`strict: true`）初始化项目；按 `docs/dependencies.md` 写入精确版本（去掉 `^`/`~`）；配置 ESLint、Prettier；写 `.gitignore`（必须包含 `.env.local`、`.next`、`node_modules`、`.npm-cache`、Supabase 本地临时文件）；定义 npm scripts（`dev`、`build`、`lint`、`typecheck`、`test`、`test:e2e`、`format`）。
 

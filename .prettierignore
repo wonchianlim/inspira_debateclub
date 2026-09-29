@@ -1,0 +1,14 @@
+# 依赖与构建产物
+node_modules/
+.next/
+out/
+build/
+coverage/
+.npm-cache/
+
+# 锁文件由 npm 生成，不手工格式化
+package-lock.json
+
+# 面向非技术负责人的中文文档：手工排版，避免 Prettier 重排表格与中文段落
+*.md
+docs/

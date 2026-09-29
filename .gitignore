@@ -30,3 +30,10 @@ test-results/
 # 日志
 *.log
 npm-debug.log*
+
+# npm 缓存（放在项目内，绕开 ~/.npm 的沙箱限制）
+.npm-cache/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+/.next

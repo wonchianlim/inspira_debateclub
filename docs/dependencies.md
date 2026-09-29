@@ -20,6 +20,19 @@
 
 ## 2. 建议的精确版本
 
+> ⚠️ **本节已由实测结果取代，请以 [`docs/decisions/0010-dependency-version-fallbacks.md`](./decisions/0010-dependency-version-fallbacks.md) 为准。**
+>
+> P1-1 实际安装并运行检查后，发现两个新大版本与 lint 工具链不兼容，已按 `DEP-2` 的授权回退：
+>
+> | 包 | 本节原提案 | **实际采用** | 原因 |
+> |---|---|---|---|
+> | `typescript` | 7.0.2 | **6.0.3** | `typescript-eslint` 要求 `<6.1.0` |
+> | `eslint` | 10.11.0 | **9.39.5** | `eslint-plugin-react` 要求 `<=9.7` |
+> | `react` / `react-dom` | 19.3.0 | **19.2.8** | Next 16.3.7 的官方测试组合 |
+> | `@types/node` | 26.6.3 | **24.19.0** | 类型主版本须跟随 Node 运行时（本机为 Node 24） |
+>
+> 下方表格保留为**原始提案**，仅用于说明决策过程。
+
 以下版本来自 npm 官方 registry，核实日期 **2026-09-29**。写入 `package.json` 时**不带** `^` 或 `~`。
 
 ### 2.1 运行时依赖
@@ -79,6 +92,10 @@
 
 ### 4.1 ⚠ TypeScript 7.0.2 是一个全新的大版本
 
+> ✅ **已由实测判定（2026-09-29）：确实不兼容，已回退到 TypeScript 6.0.3。**
+> 实际报错：`typescript-eslint does not support TS 7.0.`（lint 退出码 2）。
+> 注意 `typecheck` 在 TS 7.0.2 下**是通过的**，问题只在 lint 一侧。详见 [ADR-0010](./decisions/0010-dependency-version-fallbacks.md)。
+
 `typescript` 的最新稳定版是 **7.x**，这是一个重大的架构换代。生态里的工具（ESLint 的 TypeScript 插件、Vitest、Next.js 的类型插件）不一定都已完全支持。
 
 **应对：** 在 P1-1 实际运行 `typecheck`、`lint`、`test`、`build` 四条命令。
@@ -94,6 +111,12 @@ Tailwind 4 改为以 CSS 为中心的配置方式。`shadcn/ui` 支持 v4，但*
 **应对：** 只参考 shadcn/ui 与 Tailwind 官方当前文档；P1-2 完成后确认样式真的生效（而不是"看起来没报错但其实没加载"）。
 
 ### 4.3 ⚠ ESLint 10 是新大版本
+
+> ✅ **已由实测判定（2026-09-29）：确实不兼容，已回退到 ESLint 9.39.5。**
+> 实际报错：`TypeError: Error while loading rule 'react/display-name': contextOrFilename.getFilename is not a function`。
+> 根因：`eslint-plugin-react@7.37.5` 的 peer 为 `eslint ^3||…||^9.7`，不支持 ESLint 10。
+>
+> **附带发现：** 默认的 `eslint .` 在只有 warning 时**退出码仍是 0**，门禁形同虚设；已将 lint 脚本改为 `eslint . --max-warnings=0`，并用探针文件验证其确实会失败。详见 [ADR-0010](./decisions/0010-dependency-version-fallbacks.md)。
 
 `eslint` 最新为 10.x，需要确认 `eslint-config-next@16.3.7` 确实支持它。
 
