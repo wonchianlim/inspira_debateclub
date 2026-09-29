@@ -428,7 +428,36 @@ insert into constraint_cases (label, expect, sql) values
 ('C17 通知过期时间早于发布时间被 CHECK 拒绝','error',
  $q$insert into public.notices (title,body,audience_type,published_at,expires_at,created_by)
     values ('x','正文','global', now(), now() - interval '1 hour',
-            'aaaaaaaa-0000-0000-0000-000000000001')$q$);
+            'aaaaaaaa-0000-0000-0000-000000000001')$q$),
+
+-- ==================== 活动时间约束（Phase 2 / P2-6 新增）====================
+-- 这四条与界面校验一一对应（见 lib/validation/events.ts）。
+-- 界面给的提示更好懂，但**真正保证**数据正确的是这里的数据库约束，
+-- 因此必须逐条验证它们确实会拒绝，而不是以为"界面上拦住了就够了"。
+('C18 报名开放晚于截止被 CHECK 拒绝','error',
+ $q$insert into public.events (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,created_by)
+    select '报名窗口倒置', (now() at time zone 'Asia/Shanghai')::date,
+           now() + interval '2 day', now() + interval '1 day', now(), now(),
+           now() + interval '3 day', now() + interval '4 day',
+           'aaaaaaaa-0000-0000-0000-000000000001'$q$),
+('C19 签到开放晚于活动开始被 CHECK 拒绝','error',
+ $q$insert into public.events (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,created_by)
+    select '签到倒置', (now() at time zone 'Asia/Shanghai')::date,
+           now(), now() + interval '1 hour', now() + interval '5 day', now(),
+           now() + interval '3 day', now() + interval '4 day',
+           'aaaaaaaa-0000-0000-0000-000000000001'$q$),
+('C20 警示时间晚于活动开始被 CHECK 拒绝','error',
+ $q$insert into public.events (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,created_by)
+    select '警示倒置', (now() at time zone 'Asia/Shanghai')::date,
+           now(), now() + interval '1 hour', now(), now() + interval '5 day',
+           now() + interval '3 day', now() + interval '4 day',
+           'aaaaaaaa-0000-0000-0000-000000000001'$q$),
+('C21 结束早于开始被 CHECK 拒绝','error',
+ $q$insert into public.events (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,created_by)
+    select '结束倒置', (now() at time zone 'Asia/Shanghai')::date,
+           now(), now() + interval '1 hour', now(), now(),
+           now() + interval '4 day', now() + interval '3 day',
+           'aaaaaaaa-0000-0000-0000-000000000001'$q$);
 
 do $constraints$
 declare

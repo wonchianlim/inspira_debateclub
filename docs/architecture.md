@@ -239,6 +239,10 @@ INSPIRA_DEEPSEEK_MASTER_SPEC.md
 
 - `lib/domain/event-lifecycle.ts` —— 规范第 9.1 节的活动九种状态与合法跳转；
 - `lib/domain/judge-eligibility.ts` —— 裁判能否被指派到某赛制（账号状态 × 审批状态 × 赛制资格，Phase 5 排赛时直接调用）。
+- `lib/domain/timezone.ts` —— 时区换算（本地时间 ↔ UTC、取本地日期）。**全项目的时间显示都经过它**，
+  已覆盖夏令时切换。规范要求 `event_date` 等于 `starts_at` 在活动时区下的日期，靠它保证。
+- `lib/domain/event-schedule.ts` —— 由活动开始时间推算报名/签到/警示时间的默认值。
+- `lib/domain/event-clone.ts` —— 克隆活动时的时间整体平移。
 
 这样做的直接好处是**可以穷举测试**：9×9 = 81 种组合逐一断言，而不是只测几条常见路径。
 一旦领域逻辑里混入数据库访问，就再也做不到这一点。
