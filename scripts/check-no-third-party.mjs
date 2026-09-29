@@ -41,8 +41,13 @@ function walk(dir, filter = () => true) {
   }
   for (const entry of entries) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...walk(full, filter));
-    else if (filter(full)) out.push(full);
+    if (statSync(full).isDirectory()) {
+      // 跳过 node_modules：开启 output:"standalone" 后，Next 自身的服务端源码
+      // 也会被复制到 .next/standalone/node_modules 下，而其中含有 unpkg.com 之类的
+      // 文档链接。那些代码只在服务器上运行、从不发给浏览器，扫它只会产生误报。
+      if (entry === "node_modules") continue;
+      out.push(...walk(full, filter));
+    } else if (filter(full)) out.push(full);
   }
   return out;
 }
@@ -54,9 +59,16 @@ if (!statSync(nextDir, { throwIfNoEntry: false })) {
 
 const failures = [];
 
-// 检查 1：任何构建产物都不得引用 Google Fonts 等禁用的域名
+// 检查 1：**会发给浏览器**的产物不得引用 Google Fonts 等禁用的域名
+//
+// 只扫两类：.next/static（浏览器真正下载的 JS/CSS）与 SSR 产出的 HTML。
+// 刻意不扫整个 .next —— 服务端产物里含第三方库的源码与文档链接，与浏览器无关。
 const bannedPattern = new RegExp(FORBIDDEN_HOSTS.map((h) => h.replace(/\./g, "\\.")).join("|"));
-for (const file of walk(nextDir, (f) => /\.(js|css|html|json)$/.test(f))) {
+const browserFacingFiles = [
+  ...walk(join(nextDir, "static"), (f) => /\.(js|css|html|json)$/.test(f)),
+  ...walk(join(nextDir, "server"), (f) => f.endsWith(".html")),
+];
+for (const file of browserFacingFiles) {
   const content = readFileSync(file, "utf8");
   const hit = content.match(bannedPattern);
   if (hit) failures.push(`禁用的第三方域名 "${hit[0]}" 出现在 ${relative(projectRoot, file)}`);

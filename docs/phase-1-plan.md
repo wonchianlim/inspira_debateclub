@@ -301,7 +301,27 @@ npm error path /Users/chianlim/.npm/_cacache/tmp/***
 
 ---
 
-### P1-10 Docker 生产构建
+### P1-10 Docker 生产构建 ✅ 已完成（2026-09-29）
+
+> **实际结果：** `docker build` 退出码 0，镜像 **295 MB**；容器启动后 `HEALTHCHECK` 判定为 **healthy**。
+>
+> **实测证据：**
+> | 项目 | 结果 |
+> |---|---|
+> | `GET /api/health`（容器 → 宿主机数据库） | **200**，`{"status":"ok","database":"ok","latencyMs":19}` |
+> | 首页 / 登录页 | 200 / 200 |
+> | 未登录访问 `/dashboard` | **307 → /login**（中间件在容器内可用） |
+> | 带真实会话访问 `/dashboard` | **307 → /student** —— 说明中间件在**容器内**成功向 Supabase 校验了会话 |
+> | 运行用户 | `uid=1001(nextjs) gid=1001(nodejs)` —— **非 root** |
+> | 镜像内是否有 `.env*` / `supabase/` / 源码 `app/` | 均**不存在**（只有 standalone 产物） |
+>
+> **落地文件：** `Dockerfile`（三阶段：deps → builder → runner）、`.dockerignore`、`docker-compose.yml`（app + cron）、`app/api/health/route.ts`、`next.config.ts` 加入 `output: "standalone"`。
+>
+> **本机的两个环境变通（仅本机沙箱需要，普通终端不需要）：**
+> 1. **Docker Hub 不可达** —— `node:24-alpine` 无法直接拉取。已实测可行：先 `docker pull docker.m.daocloud.io/library/node:24-alpine`，再 `docker tag` 为 `node:24-alpine`。
+> 2. **`docker build` 需要 `DOCKER_CONFIG` 指向工作区** —— 否则 buildx 会尝试写 `~/.docker/buildx` 而被文件沙箱拒绝。同时要把 `docker-buildx` / `docker-compose` 插件软链到 `$DOCKER_CONFIG/cli-plugins/`，否则 BuildKit 会报"buildx 组件缺失"。
+>
+> **顺带修正一处我自己的检查缺陷：** 开启 `output: "standalone"` 后，Next 自身的服务端源码被复制进 `.next/standalone/node_modules`，其中含 `unpkg.com` 之类的文档链接，导致 `check:no-third-party` 误报。已把该检查**收窄到"会发给浏览器"的产物**（`.next/static` 与 SSR HTML），并跳过 `node_modules`；随后用真实注入再次验证它仍会失败。
 
 **做什么：** 多阶段 `Dockerfile`，Next.js `output: 'standalone'`，非 root 用户运行；`docker compose` 定义 `app` 与 `cron` 两个服务。
 

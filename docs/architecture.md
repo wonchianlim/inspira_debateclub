@@ -454,6 +454,28 @@ Supabase 默认的"重置密码"邮件链接指向 Supabase 自己的域名。�
 - **静态资源**：CSS/JS/图标/字体全部由应用自身提供，自托管字体。生产页面**不得**加载 Google Fonts、公共 CDN、Google Analytics、reCAPTCHA 等未经大陆测试的资源（规范第 5.4 节）。
 - **备份**：数据库备份策略与存放位置必须写入数据位置清单。
 
+### 17.1 Docker 构建与运行的实测要点（P1-10）
+
+- **镜像构成**：三阶段构建（deps → builder → runner）。运行层只带 `.next/standalone`、
+  `.next/static` 与 `public/`，**没有源码、没有 devDependencies、没有任何 `.env` 文件**。
+  实测镜像 295 MB，以 `uid=1001(nextjs)` 非 root 运行。
+- **构建期不需要密钥**：`instrumentation.ts` 会跳过构建期的环境变量校验，
+  因此 CI 在没有密钥的环境里也能构建（这也避免把密钥塞进构建环境）。
+- **运行期需要数据库可达**：`GET /api/health` 会真的查一次数据库，因此
+  "healthy" 意味着应用与数据库都通。实测容器内经 `host.docker.internal`
+  连到宿主机的本地 Supabase，返回 `database: ok`。
+- **中间件在容器内可用**：实测带真实会话访问 `/dashboard` 得到 `307 → /student`，
+  说明中间件确实在容器内向认证服务校验了会话，而不是只做了本地判断。
+- ⚠️ **本机 Docker Hub 不可达**。构建前需要先从可用镜像源拉取基础镜像并重打标签：
+  ```bash
+  docker pull docker.m.daocloud.io/library/node:24-alpine
+  docker tag  docker.m.daocloud.io/library/node:24-alpine node:24-alpine
+  ```
+  若将来 CI 也遇到同样问题，应在 CI 中配置镜像源，而不是把镜像源写进 `Dockerfile`
+  （写进去会让镜像不可移植）。
+- ⚠️ **本机运行 `docker build` 需要指定 `DOCKER_CONFIG`**（文件沙箱限制，普通终端不需要）：
+  把配置目录指向工作区，并把 buildx/compose 插件软链进去，否则 BuildKit 不可用。
+
 ---
 
 ## 18. 时区

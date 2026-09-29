@@ -40,3 +40,6 @@ next-env.d.ts
 
 # Supabase CLI 的本地 HOME 覆盖（DSH 文件沙箱要求，见 docs/testing.md）
 .sb-home/
+
+# Docker CLI 配置目录（DSH 文件沙箱要求）
+.docker-home/

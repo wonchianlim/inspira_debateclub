@@ -1,0 +1,71 @@
+# =============================================================================
+# INSPIRA 本地/生产编排
+#
+# 两个服务共用同一个镜像（docs/architecture.md 第 17 节、ADR-0004）：
+#   app  —— 对外提供 Web 服务
+#   cron —— 定时任务（Phase 9 实现邮件投递接口后开始真正工作）
+#
+# ⚠️ 本文件**不包含任何密钥**。真实值通过 `.env.docker`（已被 .gitignore 忽略）
+#    或部署平台的密钥管理注入。参考 `.env.example` 的变量清单。
+#
+# 本地验证用法：
+#   docker compose build
+#   docker compose up -d app
+#   curl http://127.0.0.1:3000/api/health
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: inspira-app:local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # 容器内访问宿主机上的本地 Supabase。
+      # 在真实部署里这些值应指向正式的数据库与认证服务地址。
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?请在 .env.docker 中设置}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?请在 .env.docker 中设置}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?请在 .env.docker 中设置}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?请在 .env.docker 中设置}
+      RATE_LIMIT_SALT: ${RATE_LIMIT_SALT:?请在 .env.docker 中设置}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # 定时任务
+  #
+  # 现在只做一件事：定期打印心跳并确认自己能解析出应用地址。
+  # Phase 9 会把它改成调用受保护的 POST /api/jobs/dispatch-email（ADR-0004）。
+  #
+  # 之所以现在就建起来：部署形态（"同镜像 + 独立容器"）是 Phase 0 已确认的决策，
+  # 提前把它跑通可以尽早暴露编排问题，而不是等 Phase 9 才发现。
+  # ---------------------------------------------------------------------------
+  cron:
+    image: inspira-app:local
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    # 覆盖默认命令：不启动 Web 服务，而是运行一个最小的定时循环
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[cron] 定时任务容器已启动。邮件投递接口将在 Phase 9 实现。"
+        while true; do
+          sleep 60
+          echo "[cron] 心跳 $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        done
+    environment:
+      NODE_ENV: production

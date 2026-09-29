@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * 产出独立运行目录（`.next/standalone`）。
+   *
+   * 依据 docs/architecture.md 第 17 节：Docker 镜像只带运行时真正需要的文件，
+   * 而不是把整个 `node_modules` 塞进去。这样镜像更小、攻击面更少。
+   */
+  output: "standalone",
+
   experimental: {
     /**
      * 启用 `forbidden()` / `unauthorized()`（next/navigation）。
