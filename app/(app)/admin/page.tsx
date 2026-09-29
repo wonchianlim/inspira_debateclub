@@ -14,7 +14,17 @@ export const dynamic = "force-dynamic";
  * 只列出**已经可用**的功能，未完成的明确标出所属阶段 ——
  * 不给"点进去发现是空的"的链接，也不假装已经做完。
  */
-const ADMIN_SECTIONS = [
+/**
+ * 显式声明成员类型：这样"未建设"的分支（带 `phase`）在类型上仍然存在，
+ * 将来加入尚未完成的入口时不需要改动渲染逻辑。
+ * 若不加这个注解，TypeScript 会把数组推断成一个不含 `phase` 的联合类型，
+ * 于是 `section.phase` 报错 —— 本次就是这样被类型检查抓到的。
+ */
+type AdminSection =
+  | { title: string; description: string; ready: true; href: string }
+  | { title: string; description: string; ready: false; phase: string };
+
+const ADMIN_SECTIONS: AdminSection[] = [
   {
     href: "/admin/users",
     title: "用户管理",
@@ -36,11 +46,10 @@ const ADMIN_SECTIONS = [
   {
     href: "/admin/audit",
     title: "审计日志",
-    description: "查看谁在什么时候改了什么。",
-    ready: false,
-    phase: "P2-10",
+    description: "查看谁在什么时候改了什么。只读，不可修改或删除。",
+    ready: true,
   },
-] as const;
+];
 
 export default function AdminHomePage() {
   return (
@@ -49,7 +58,7 @@ export default function AdminHomePage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {ADMIN_SECTIONS.map((section) => (
-          <Card key={section.href}>
+          <Card key={section.title}>
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                 {section.title}
