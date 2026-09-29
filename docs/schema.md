@@ -351,7 +351,7 @@ CREATE UNIQUE INDEX ballot_templates_one_active
 | `...091300_rls` | |
 | `...091400_rate_limiting`（P1-8 新增，见 ADR-0012） | |
 
-实测：从空库重建后得到 **16 张表、37 条策略、16 张启用 RLS 的表、48 个索引、25 个函数、28 个触发器（含 12 个审计触发器）**（**2026-09-29 最终值**；P1-5 时点为 14/32/14/40/19；P1-8 新增 `rate_limit_counters` 与两个限流函数；**P2-1 新增 `notices`**；**P2-2 新增 3 个审计函数与 12 个审计触发器**），
+实测：从空库重建后得到 **17 张表、41 条策略、17 张启用 RLS 的表、54 个索引、25 个函数、31 个触发器（含 14 个审计触发器）、7 个枚举**（**2026-09-29 最终值**；P1-5 时点为 14/32/14/40/19；P1-8 新增 `rate_limit_counters` 与两个限流函数；**P2-1 新增 `notices`**；**P2-2 新增 3 个审计函数与 12 个审计触发器**；**P3-1 新增 `partner_requests` 表与 `partner_request_status` 枚举，并给 `registrations` 与 `partner_requests` 补上审计触发器**），
 并且 27 条 RLS 授权用例全部通过（`npm run db:rls-smoke`）。
 
 两点与本文早前描述的差异，均已实测确认：
