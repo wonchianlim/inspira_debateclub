@@ -8,15 +8,12 @@ import { getEventDetail } from "@/lib/admin/events";
 import { listAllFormats } from "@/lib/admin/formats";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { requireAnyRole } from "@/lib/auth/session";
-import {
-  EVENT_HAPPY_PATH,
-  EVENT_STATUS_LABELS,
-  nextHappyPathStatus,
-} from "@/lib/domain/event-lifecycle";
+import { EVENT_HAPPY_PATH, EVENT_STATUS_LABELS } from "@/lib/domain/event-lifecycle";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 
 import { CloneEventForm } from "./clone-form";
 import { EventFormatsForm } from "./event-formats-form";
+import { StatusTransitionForm } from "./status-transition-form";
 import { EventForm } from "../event-form";
 
 export const metadata = { title: "活动详情 · INSPIRA" };
@@ -42,7 +39,6 @@ export default async function EventDetailPage({
   const enabledFormatIds = event.formats
     .filter((format) => format.enabled)
     .map((format) => format.formatId);
-  const nextStatus = nextHappyPathStatus(event.status);
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,23 +109,31 @@ export default async function EventDetailPage({
         </CardContent>
       </Card>
 
-      {/*
-        状态推进属于 P2-7。这里先如实说明"在哪里做"，而不是给一个点不动的按钮。
-        当前状态与下一步都写出来，管理员能看懂流程走向。
-      */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">状态流程</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground flex flex-col gap-2 text-sm">
-          <p>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-muted-foreground text-sm">
             完整流程：{EVENT_HAPPY_PATH.map((status) => EVENT_STATUS_LABELS[status]).join(" → ")}
           </p>
-          <p>
-            当前：<strong className="text-foreground">{EVENT_STATUS_LABELS[event.status]}</strong>
-            {nextStatus ? `，下一步是「${EVENT_STATUS_LABELS[nextStatus]}」` : "（已是终态）"}
-          </p>
-          <p className="text-xs">推进状态的功能将在下一步（P2-7）加入。</p>
+
+          {/*
+            报名即将开放、但一个赛制都没启用时给出明确警告。
+            这种情况不是"非法"（规范没有禁止），但学生报名时会没有赛制可选，
+            属于几乎必然的配置遗漏，因此在最显眼的位置提示。
+          */}
+          {event.enabledFormatCount === 0 ? (
+            <p
+              role="alert"
+              className="border-destructive/40 text-destructive rounded-md border px-3 py-2 text-sm"
+            >
+              本活动还没有启用任何赛制。开启报名前请先在下方「活动赛制」里勾选至少一个，
+              否则学生报名时没有赛制可选。
+            </p>
+          ) : null}
+
+          <StatusTransitionForm eventId={event.id} currentStatus={event.status} />
         </CardContent>
       </Card>
 

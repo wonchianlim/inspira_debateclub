@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { EVENT_STATUSES } from "@/lib/domain/event-lifecycle";
 import { isValidTimeZone, zonedDateOf, zonedTimeToUtc } from "@/lib/domain/timezone";
 
 /**
@@ -182,3 +183,17 @@ export const eventFormatMotionSchema = z.object({
   formatId: z.guid({ error: "赛制标识格式不正确" }),
   motion: z.string().trim().max(500, { error: "最多 500 字" }),
 });
+
+/**
+ * 活动状态流转的输入。
+ *
+ * 只校验"目标状态是不是九种状态之一"；**能不能跳**由
+ * `lib/domain/event-lifecycle.ts` 的状态机判断（那是唯一的事实来源）。
+ * 两者分开的好处：状态机可以独立穷举测试，不需要经过表单。
+ */
+export const transitionEventStatusSchema = z.object({
+  eventId: z.guid({ error: "活动标识格式不正确" }),
+  toStatus: z.enum(EVENT_STATUSES, { error: "无法识别的目标状态" }),
+});
+
+export type TransitionEventStatusInput = z.infer<typeof transitionEventStatusSchema>;

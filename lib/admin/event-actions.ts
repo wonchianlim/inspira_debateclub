@@ -7,6 +7,7 @@ import { getEventDetail } from "@/lib/admin/events";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { getSessionContext } from "@/lib/auth/session";
 import { computeClonedSchedule } from "@/lib/domain/event-clone";
+import { EVENT_STATUS_LABELS, checkEventTransition } from "@/lib/domain/event-lifecycle";
 import type { FormState } from "@/lib/forms/form-state";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -14,6 +15,7 @@ import {
   eventFormatsSchema,
   eventInputSchema,
   toEventScheduleRecord,
+  transitionEventStatusSchema,
 } from "@/lib/validation/events";
 
 /**
@@ -288,4 +290,63 @@ export async function setEventFormatsAction(
 
   revalidateEvents(eventId);
   return { status: "success", message: `已保存，本活动启用了 ${enabledFormatIds.length} 个赛制。` };
+}
+
+// -----------------------------------------------------------------------------
+// 推进活动状态
+//
+// 规范第 9.1 节："Invalid transitions return a domain error and do not
+// partially mutate records."
+//
+// 做法：**先判断、再写入**。非法跳转在写入之前就被拒绝，因此不可能产生部分写入。
+//
+// 关于"为什么不在数据库里也加一道触发器"：
+//   状态机的事实来源只有一处（lib/domain/event-lifecycle.ts），
+//   如果再写一份 SQL 版本的跳转表，两边迟早会不一致 ——
+//   那种不一致的后果是"界面允许跳、数据库拒绝"，用户看到一句数据库英文错误。
+//   而"绕过应用直接改状态"在本系统里没有可行路径：
+//   浏览器端**从不**直接访问数据库（有 check:browser-no-auth-service 守着），
+//   所有写入都必须经过 Server Action。因此应用层强制在架构上是充分的。
+// -----------------------------------------------------------------------------
+export async function transitionEventStatusAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = transitionEventStatusSchema.safeParse({
+    eventId: formData.get("eventId"),
+    toStatus: formData.get("toStatus"),
+  });
+
+  if (!parsed.success) {
+    return failure("活动状态参数不正确。");
+  }
+
+  const auth = await requireManager();
+  if (isFailure(auth)) return auth;
+
+  const { eventId, toStatus } = parsed.data;
+
+  const event = await getEventDetail(eventId);
+  if (!event) return failure("找不到这个活动。");
+
+  // 先判断
+  const check = checkEventTransition(event.status, toStatus);
+  if (!check.ok) {
+    // 这里返回的是领域错误里的中文说明，可以直接展示给用户
+    return failure(check.message);
+  }
+
+  const supabase = await createUserSupabaseClient();
+  const { error } = await supabase.from("events").update({ status: toStatus }).eq("id", eventId);
+
+  if (error) {
+    console.error("[admin] 推进活动状态失败:", error.message);
+    return failure("状态变更失败，请稍后再试。");
+  }
+
+  revalidateEvents(eventId);
+  return {
+    status: "success",
+    message: `活动状态已从「${EVENT_STATUS_LABELS[event.status]}」变为「${EVENT_STATUS_LABELS[toStatus]}」。`,
+  };
 }
