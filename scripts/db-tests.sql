@@ -34,6 +34,7 @@
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
 delete from public.events;
 delete from public.student_format_profiles;
@@ -104,6 +105,43 @@ insert into public.event_formats (event_id, format_id, enabled)
 select 'bbbbbbbb-0000-0000-0000-000000000001', f.id,
        (f.code = 'PF')
 from public.debate_formats f;
+
+-- 通知（Phase 2 新增）。刻意覆盖四种受众，并包含一条草稿：
+--   cccc...0001 全体、已发布      → 所有登录用户可见
+--   cccc...0002 全体、草稿        → 只有管理员可见
+--   cccc...0003 角色=judge        → 只有裁判可见
+--   cccc...0004 活动=开放报名活动  → 只有该活动的报名学生可见
+--   cccc...0005 赛制=PF           → 只有对该赛制有档案的人可见
+--   cccc...0006 赛制=WSDC         → 学生 A 没有 WSDC 档案，因此看不到
+insert into public.notices
+  (id,title,body,audience_type,event_id,role,format_id,published_at,created_by)
+values
+  ('cccccccc-0000-0000-0000-000000000001','全体已发布','正文','global',null,null,null,
+   now() - interval '1 hour','aaaaaaaa-0000-0000-0000-000000000001'),
+  ('cccccccc-0000-0000-0000-000000000002','全体草稿','正文','global',null,null,null,
+   null,'aaaaaaaa-0000-0000-0000-000000000001'),
+  ('cccccccc-0000-0000-0000-000000000003','裁判通知','正文','role',null,'judge',null,
+   now() - interval '1 hour','aaaaaaaa-0000-0000-0000-000000000001'),
+  ('cccccccc-0000-0000-0000-000000000004','活动通知','正文','event',
+   'bbbbbbbb-0000-0000-0000-000000000001',null,null,
+   now() - interval '1 hour','aaaaaaaa-0000-0000-0000-000000000001');
+
+insert into public.notices
+  (id,title,body,audience_type,format_id,published_at,created_by)
+select v.id::uuid, v.title, '正文', 'format', f.id, now() - interval '1 hour',
+       'aaaaaaaa-0000-0000-0000-000000000001'
+from (values ('cccccccc-0000-0000-0000-000000000005','PF 通知','PF'),
+             ('cccccccc-0000-0000-0000-000000000006','WSDC 通知','WSDC')) as v(id,title,code)
+join public.debate_formats f on f.code = v.code;
+
+-- 学生 B 在开放活动上的报名。刻意放在测试数据阶段而不是用例里：
+-- 学生 A 的报名会被 A14（取消报名）置为 cancelled，
+-- 而"活动受众"的通知**不应**发给已取消报名的人（这正是策略的预期行为）。
+-- 因此"能读到活动通知"这条正向用例必须用一位报名仍然有效的人来验证。
+insert into public.registrations (event_id, student_id)
+select 'bbbbbbbb-0000-0000-0000-000000000001', sp.id
+from public.student_profiles sp
+where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000005';
 
 -- =============================================================================
 -- 一、授权用例（RLS，按受影响行数判定）
@@ -196,7 +234,29 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-ALL-04 冒充他人写档案','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (update public.profiles set display_name='冒充' where id='aaaaaaaa-0000-0000-0000-000000000005' returning 1) select count(*) from x$q$),
 ('F-ALL-04b 学生改自己档案时篡改 id','aaaaaaaa-0000-0000-0000-000000000004','deny',
- $q$with x as (update public.profiles set id='aaaaaaaa-0000-0000-0000-000000000005' where id='aaaaaaaa-0000-0000-0000-000000000004' returning 1) select count(*) from x$q$);
+ $q$with x as (update public.profiles set id='aaaaaaaa-0000-0000-0000-000000000005' where id='aaaaaaaa-0000-0000-0000-000000000004' returning 1) select count(*) from x$q$),
+
+-- ============================ 通知（Phase 2 新增）============================
+('A15 学生读已发布的全体通知','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.notices where audience_type='global' and published_at is not null$q$),
+('A16 管理员读全部通知（含草稿）','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$select count(*) from public.notices$q$),
+('A17 学生读自己有档案的赛制通知','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.notices n join public.debate_formats f on f.id=n.format_id where f.code='PF'$q$),
+('A18 学生读自己已报名活动的通知','aaaaaaaa-0000-0000-0000-000000000005','allow',
+ $q$select count(*) from public.notices where event_id='bbbbbbbb-0000-0000-0000-000000000001'$q$),
+('F-STU-20 学生读未发布的通知草稿','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.notices where published_at is null$q$),
+('F-STU-21 学生读发给裁判角色的通知','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.notices where audience_type='role'$q$),
+('F-STU-22 学生读自己没有档案的赛制通知','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.notices n join public.debate_formats f on f.id=n.format_id where f.code='WSDC'$q$),
+('F-STU-23 学生读自己未报名活动的通知','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.notices where event_id='bbbbbbbb-0000-0000-0000-000000000002'$q$),
+('F-STU-24 学生自行创建通知','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.notices (title,body,audience_type,created_by) values ('伪造','正文','global',public.current_profile_id()) returning 1) select count(*) from x$q$),
+('F-COA-06 教练自行创建通知','aaaaaaaa-0000-0000-0000-000000000003','deny',
+ $q$with x as (insert into public.notices (title,body,audience_type,created_by) values ('伪造','正文','global',public.current_profile_id()) returning 1) select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -287,7 +347,31 @@ insert into constraint_cases (label, expect, sql) values
 ('C11 重复写入同一赛制是幂等的（种子可重复执行）','ok',
  $q$insert into public.debate_formats (code,name,team_size,teams_per_match,active,display_order)
     values ('PF','Public Forum Debate',2,2,true,1)
-    on conflict (code) do update set name = excluded.name$q$);
+    on conflict (code) do update set name = excluded.name$q$),
+
+-- ============================ 通知约束（Phase 2 新增）============================
+('C12 通知受众为 role 却填了 event_id 被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,event_id,role,created_by)
+    values ('x','正文','role','bbbbbbbb-0000-0000-0000-000000000001','judge',
+            'aaaaaaaa-0000-0000-0000-000000000001')$q$),
+('C13 通知受众为 event 却没填 event_id 被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,created_by)
+    values ('x','正文','event','aaaaaaaa-0000-0000-0000-000000000001')$q$),
+('C14 通知受众为 format 却填了 role 被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,role,format_id,created_by)
+    values ('x','正文','format','student',
+            (select id from public.debate_formats where code='PF'),
+            'aaaaaaaa-0000-0000-0000-000000000001')$q$),
+('C15 通知标题为空白被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,created_by)
+    values ('   ','正文','global','aaaaaaaa-0000-0000-0000-000000000001')$q$),
+('C16 通知正文为空白被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,created_by)
+    values ('标题','   ','global','aaaaaaaa-0000-0000-0000-000000000001')$q$),
+('C17 通知过期时间早于发布时间被 CHECK 拒绝','error',
+ $q$insert into public.notices (title,body,audience_type,published_at,expires_at,created_by)
+    values ('x','正文','global', now(), now() - interval '1 hour',
+            'aaaaaaaa-0000-0000-0000-000000000001')$q$);
 
 do $constraints$
 declare
@@ -330,7 +414,7 @@ declare
   tables text[] := array['profiles','user_roles','student_profiles','judge_profiles',
     'debate_formats','format_positions','student_format_profiles',
     'judge_format_qualifications','events','event_formats','registrations',
-    'registration_format_preferences','audit_logs','system_settings'];
+    'registration_format_preferences','audit_logs','system_settings','notices'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -450,6 +534,7 @@ $rl_judge$;
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
 delete from public.events;
 delete from public.student_format_profiles;

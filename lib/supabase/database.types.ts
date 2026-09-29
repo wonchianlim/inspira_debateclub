@@ -168,6 +168,37 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"notices": {
+                  Row: {
+                    "audience_type": string,"body": string,"created_at": string,"created_by": string,"event_id": string | null,"expires_at": string | null,"format_id": string | null,"id": string,"published_at": string | null,"role": Database["public"]['Enums']["app_role"] | null,"title": string,"updated_at": string
+                  }
+                  Insert: {
+                    "audience_type": string,"body": string,"created_at"?: string,"created_by": string,"event_id"?: string | null,"expires_at"?: string | null,"format_id"?: string | null,"id"?: string,"published_at"?: string | null,"role"?: Database["public"]['Enums']["app_role"] | null,"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "audience_type"?: string,"body"?: string,"created_at"?: string,"created_by"?: string,"event_id"?: string | null,"expires_at"?: string | null,"format_id"?: string | null,"id"?: string,"published_at"?: string | null,"role"?: Database["public"]['Enums']["app_role"] | null,"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notices_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notices_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notices_format_id_fkey"
+      columns: ["format_id"]
+isOneToOne: false
+      referencedRelation: "debate_formats"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string,"email": string,"first_name": string,"id": string,"last_name": string,"phone": string | null,"status": Database["public"]['Enums']["profile_status"],"updated_at": string
