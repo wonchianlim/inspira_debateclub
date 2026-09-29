@@ -46,8 +46,20 @@ export async function getSessionContext(): Promise<SessionContext | null> {
   ]);
 
   // profiles 行由 handle_new_auth_user 触发器保证存在。
-  // 若查不到，说明数据异常（例如账号被停用后清理过），按"未登录"处理更安全。
+  // 若查不到，说明数据异常，按"未登录"处理更安全。
   if (!profile) return null;
+
+  /*
+   * 账号被停用或暂停时，一律视为**没有会话**。
+   *
+   * 为什么必须在这里判断：仅把数据库里的 status 改成 inactive 是**没有作用**的 ——
+   * Supabase 的登录 cookie 仍然有效，被停用的人还能继续使用系统，直到 cookie 自然过期。
+   * 那样"停用"就只是一个好看的状态标签，而不是真的挡住了人。
+   *
+   * 放在这里的好处是**所有**受保护路径都会经过它（区域布局 → requireSession），
+   * 因此不需要在每个页面各写一次判断。
+   */
+  if (profile.status !== "active") return null;
 
   return {
     profileId: profile.id,

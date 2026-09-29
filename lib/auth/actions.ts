@@ -55,6 +55,15 @@ const GENERIC_SIGN_UP_ERROR = "注册失败，请稍后再试或更换邮箱。"
  */
 const TOO_MANY_ATTEMPTS = "操作过于频繁，请稍后再试。";
 
+/**
+ * 账号被停用/暂停时的提示。
+ *
+ * 这里可以明确告知"账号已被停用"，不算泄漏：对方已经**输入了正确的密码**，
+ * 证明这个账号确实是他的。这时告诉他真实原因才是有用的；
+ * 含糊其辞只会让他反复重试。
+ */
+const ACCOUNT_NOT_ACTIVE = "这个账号已被停用或暂停，无法登录。请联系俱乐部管理员。";
+
 // -----------------------------------------------------------------------------
 // 注册
 // -----------------------------------------------------------------------------
@@ -194,6 +203,29 @@ export async function signInAction(
   if (error) {
     console.error("[auth] 登录失败:", error.message);
     return { status: "error", message: GENERIC_SIGN_IN_ERROR };
+  }
+
+  /*
+   * 密码正确之后还要确认账号**当前是启用的**。
+   *
+   * 顺序很重要：放在密码校验之后，才不会泄漏"这个邮箱是否存在"。
+   * 若账号已被停用，立刻登出，不留下任何可用的会话。
+   */
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile || profile.status !== "active") {
+      await supabase.auth.signOut();
+      return { status: "error", message: ACCOUNT_NOT_ACTIVE };
+    }
   }
 
   redirect("/dashboard");

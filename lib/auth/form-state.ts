@@ -1,20 +1,9 @@
 /**
- * 认证表单的状态形状与初始值。
+ * 认证表单的状态形状。
  *
- * 为什么单独一个文件：`lib/auth/actions.ts` 顶部有 `"use server"`，
- * 而 Next.js 规定 **`"use server"` 文件只能导出异步函数**。
- * 把 `INITIAL_AUTH_STATE`（一个对象）放在那里会导致构建失败：
- *
- *   Error: A "use server" file can only export async functions, found object.
- *
- * 实测确实如此：一开始只被客户端组件引用时构建正常，直到服务端布局也
- * 导入了同一个模块里的动作，构建才报错。因此这里单独拆出来。
+ * 实现已移到 `lib/forms/form-state.ts`（通用形状），这里只保留认证专用的名字，
+ * 避免改动已有的导入。两者是同一个类型，不是两套。
  */
 
-export type AuthFormState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-export const INITIAL_AUTH_STATE: AuthFormState = { status: "idle" };
+export type { FormState as AuthFormState } from "@/lib/forms/form-state";
+export { INITIAL_FORM_STATE as INITIAL_AUTH_STATE } from "@/lib/forms/form-state";

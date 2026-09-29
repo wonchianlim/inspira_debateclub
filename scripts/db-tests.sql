@@ -257,7 +257,26 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-STU-24 学生自行创建通知','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (insert into public.notices (title,body,audience_type,created_by) values ('伪造','正文','global',public.current_profile_id()) returning 1) select count(*) from x$q$),
 ('F-COA-06 教练自行创建通知','aaaaaaaa-0000-0000-0000-000000000003','deny',
- $q$with x as (insert into public.notices (title,body,audience_type,created_by) values ('伪造','正文','global',public.current_profile_id()) returning 1) select count(*) from x$q$);
+ $q$with x as (insert into public.notices (title,body,audience_type,created_by) values ('伪造','正文','global',public.current_profile_id()) returning 1) select count(*) from x$q$),
+
+-- ==================== 账号状态与角色（Phase 2 / P2-4 新增）====================
+-- 目的：证明"只有超管能改账号状态、只有超管能授予角色"是**数据库**保证的，
+-- 而不是只靠应用里的一段判断。应用判断可以被绕过，数据库策略不能。
+('A19 超管修改他人账号状态','aaaaaaaa-0000-0000-0000-000000000001','allow',
+ $q$with x as (update public.profiles set status='suspended' where id='aaaaaaaa-0000-0000-0000-000000000005' returning 1) select count(*) from x$q$),
+('A20 超管授予学生角色','aaaaaaaa-0000-0000-0000-000000000001','allow',
+ $q$with x as (insert into public.user_roles (profile_id, role) values ('aaaaaaaa-0000-0000-0000-000000000003','student') returning 1) select count(*) from x$q$),
+-- 注意：目标状态必须与**当前状态不同**，否则这条用例是空的。
+-- 触发器只在状态真的发生变化时才拦截；若这次 UPDATE 没有改变状态，
+-- 它会"成功"返回 1 行，用例就会被误判成"应当拒绝却允许了"。
+-- 实测就是这样踩到的：A19 已把该账号改成 suspended，这条又改成 suspended，等于没做。
+-- 教训：权限用例必须真的尝试一次违规操作，不能只走形式。
+('F-MGR-07 管理员修改他人账号状态','aaaaaaaa-0000-0000-0000-000000000002','deny',
+ $q$with x as (update public.profiles set status='inactive' where id='aaaaaaaa-0000-0000-0000-000000000004' returning 1) select count(*) from x$q$),
+('F-MGR-08 管理员授予学生角色（非超管角色也不行）','aaaaaaaa-0000-0000-0000-000000000002','deny',
+ $q$with x as (insert into public.user_roles (profile_id, role) values ('aaaaaaaa-0000-0000-0000-000000000004','judge') returning 1) select count(*) from x$q$),
+('F-MGR-09 管理员撤销他人角色','aaaaaaaa-0000-0000-0000-000000000002','deny',
+ $q$with x as (delete from public.user_roles where profile_id='aaaaaaaa-0000-0000-0000-000000000003' and role='coach' returning 1) select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
