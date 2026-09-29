@@ -34,6 +34,7 @@
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
 delete from public.events;
@@ -530,10 +531,181 @@ end
 $rl_judge$;
 
 -- =============================================================================
--- 五、清理虚构数据
+-- 五、审计日志（由触发器自动写入）
+--
+-- 验证的是"触发器真的在工作"，而不是"应用记得写审计"：
+-- 下面这些改动**没有任何应用代码参与**，全部由数据库触发器留痕。
+-- =============================================================================
+
+drop table if exists audit_results;
+-- 刻意不用 serial：serial 会创建一个序列，而 authenticated 对该序列没有权限，
+-- 插入时会报 "permission denied for sequence"。显式编号更好控制，也少一个权限面。
+create temp table audit_results (ord int, label text, expected text, actual text);
+grant insert, select on audit_results to authenticated;
+
+-- ---- 1) 操作者与动作被正确记录 ----
+set role authenticated;
+do $audit_actor$
+declare
+  v_before int;
+  v_after int;
+  v_actor uuid;
+  v_action text;
+begin
+  -- ⚠️ 必须先设定操作者再计数。
+  -- audit_logs 的 SELECT 受 RLS 限制（只有管理员能看到），
+  -- 若先以"上一个身份"计数，再切换成超管计数，两次看到的行数根本不是一个集合 ——
+  -- 差值会变成一个巨大的假数字（实测得到 58）。这是我踩过的坑。
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', true);
+  select count(*) into v_before from public.audit_logs;
+
+  -- 以超管身份授予一个角色
+  insert into public.user_roles (profile_id, role)
+  values ('aaaaaaaa-0000-0000-0000-000000000003', 'judge');
+
+  select count(*) into v_after from public.audit_logs;
+  insert into audit_results (ord, label, expected, actual)
+  values (1, '授权角色后新增一条审计记录', '1', (v_after - v_before)::text);
+
+  select actor_profile_id, action into v_actor, v_action
+  from public.audit_logs
+  where entity_type = 'user_roles'
+  order by created_at desc, id desc
+  limit 1;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (2, '审计记录的操作者就是本人',
+          'aaaaaaaa-0000-0000-0000-000000000001',
+          coalesce(v_actor::text, 'NULL'));
+
+  insert into audit_results (ord, label, expected, actual)
+  values (3, '审计记录的动作是 insert', 'insert', coalesce(v_action, 'NULL'));
+end
+$audit_actor$;
+reset role;
+
+-- ---- 2) 敏感字段被遮蔽 ----
+do $audit_redact$
+declare
+  v_leak int;
+  v_masked int;
+begin
+  update public.profiles
+     set email = 'leak-probe@example.invalid'
+   where id = 'aaaaaaaa-0000-0000-0000-000000000004';
+
+  -- 明文邮箱**绝不能**出现在审计里
+  select count(*) into v_leak
+  from public.audit_logs
+  where entity_type = 'profiles'
+    and (old_value::text like '%leak-probe%' or new_value::text like '%leak-probe%');
+
+  insert into audit_results (ord, label, expected, actual)
+  values (4, '审计中不出现明文邮箱', '0', v_leak::text);
+
+  -- 但"邮箱被改过"这件事必须留下痕迹
+  select count(*) into v_masked
+  from public.audit_logs
+  where entity_type = 'profiles'
+    and new_value::text like '%已隐去%';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (5, '审计中出现遮蔽标记（说明改动被记录）',
+          '有', case when v_masked > 0 then '有' else '无' end);
+
+  -- 嵌套结构里的敏感键也要遮蔽（system_settings.value 是 jsonb）
+  update public.system_settings
+     set value = '{"api_key":"sk-should-not-be-logged"}'::jsonb
+   where key = 'test.key';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (6, '嵌套 jsonb 中的敏感键也被遮蔽',
+          '0',
+          (select count(*)::text from public.audit_logs
+            where entity_type = 'system_settings'
+              and (old_value::text like '%sk-should-not-be-logged%'
+                or new_value::text like '%sk-should-not-be-logged%')));
+end
+$audit_redact$;
+
+-- ---- 3) 没有实际变化时不记录（避免噪音）----
+do $audit_noop$
+declare
+  v_before int;
+  v_after int;
+begin
+  select count(*) into v_before from public.audit_logs where entity_type = 'profiles';
+
+  -- 只把 updated_at 刷新了一次，业务字段没有变化
+  update public.profiles
+     set display_name = display_name
+   where id = 'aaaaaaaa-0000-0000-0000-000000000004';
+
+  select count(*) into v_after from public.audit_logs where entity_type = 'profiles';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (7, '无实际变化不产生审计记录（updated_at 不算变化）', '0', (v_after - v_before)::text);
+end
+$audit_noop$;
+
+-- ---- 4) 删除留痕 ----
+set role authenticated;
+do $audit_delete$
+declare
+  v_before int;
+  v_after int;
+  v_action text;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_before from public.audit_logs where entity_type = 'notices';
+
+  delete from public.notices where id = 'cccccccc-0000-0000-0000-000000000006';
+
+  select count(*) into v_after from public.audit_logs where entity_type = 'notices';
+  insert into audit_results (ord, label, expected, actual)
+  values (8, '删除通知后新增审计记录', '1', (v_after - v_before)::text);
+
+  select action into v_action
+  from public.audit_logs
+  where entity_type = 'notices' and action = 'delete'
+  order by created_at desc, id desc limit 1;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (9, '删除的审计动作是 delete', 'delete', coalesce(v_action, 'NULL'));
+end
+$audit_delete$;
+reset role;
+
+-- ---- 判定 ----
+do $audit_judge$
+declare
+  r record;
+  fails int := 0;
+  passes int := 0;
+begin
+  for r in select * from audit_results order by ord loop
+    if r.actual = r.expected then
+      passes := passes + 1;
+      raise notice '[审计] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[审计] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+
+  raise notice '[审计] ---- 通过 % 条，失败 % 条 ----', passes, fails;
+  if fails > 0 then
+    raise exception '审计用例失败 % 条', fails;
+  end if;
+end
+$audit_judge$;
+
+-- =============================================================================
+-- 六、清理虚构数据
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
+delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
 delete from public.event_formats;
 delete from public.events;

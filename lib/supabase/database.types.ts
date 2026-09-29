@@ -327,13 +327,13 @@ isOneToOne: true
                   ]
                 },"system_settings": {
                   Row: {
-                    "created_at": string,"description": string | null,"key": string,"updated_at": string,"updated_by": string,"value": NonNullable<Json>
+                    "created_at": string,"description": string | null,"id": string,"key": string,"updated_at": string,"updated_by": string,"value": NonNullable<Json>
                   }
                   Insert: {
-                    "created_at"?: string,"description"?: string | null,"key": string,"updated_at"?: string,"updated_by": string,"value": NonNullable<Json>
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"key": string,"updated_at"?: string,"updated_by": string,"value": NonNullable<Json>
                   }
                   Update: {
-                    "created_at"?: string,"description"?: string | null,"key"?: string,"updated_at"?: string,"updated_by"?: string,"value"?: NonNullable<Json>
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"key"?: string,"updated_at"?: string,"updated_by"?: string,"value"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -375,7 +375,13 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "consume_rate_limit":
+            "audit_is_sensitive_key":
+{ Args: { "p_key": string }; Returns: boolean
+                           },
+"audit_redact":
+{ Args: { "p_payload": Json }; Returns: Json
+                           },
+"consume_rate_limit":
 { Args: { "p_bucket": string,"p_max": number,"p_subject_hash": string,"p_window_seconds": number }; Returns: boolean
                            },
 "current_profile_id":
