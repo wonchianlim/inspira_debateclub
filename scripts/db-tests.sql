@@ -1550,6 +1550,39 @@ end
 $correction_needs_reason$;
 reset role;
 
+-- ---- 复核请求的 RLS：草案阶段（Phase 7 / P7-6b）----
+--
+-- ⚠️ 这一段**自己判定、自己清理**，不把结果留到后面。
+-- 第一版把结果行留在 audit_results 里等统一的判定循环，
+-- 结果那一行被**工作流测试的 `ord >= 40` 循环吞掉并删除**，
+-- 于是这条检查**从来没有真正被报告过** —— 一个被静默吞掉的检查
+-- 与没有检查是一样的。
+set role authenticated;
+do $review_request_draft$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+
+  -- 评分表还是草稿 → 不能提交复核请求（规范第 14.3 节：学生只能看已发布的）
+  begin
+    insert into public.ballot_review_requests (ballot_id, requested_by_student_id, reason)
+    values ('bb000000-0000-0000-0000-000000000002',
+            'eeeeeeee-0000-0000-0000-000000000004',
+            '这是一条对草稿的复核请求，应当被拒绝');
+  exception when insufficient_privilege or check_violation then
+    v_denied := true;
+  end;
+
+  if v_denied then
+    raise notice '[复核请求] PASS  学生对**未发布**的评分表提交复核请求被拒绝';
+  else
+    raise exception '学生对未发布的评分表提交复核请求**竟然成功了** —— RLS 有问题';
+  end if;
+end
+$review_request_draft$;
+reset role;
+
 -- ---- 评分表工作流（Phase 7 / P7-5）----
 set role authenticated;
 do $ballot_workflow$
@@ -1722,6 +1755,100 @@ end
 $ballot_workflow_judge$;
 
 delete from audit_results where ord >= 40;
+
+-- ---- 复核请求的 RLS：已发布阶段（Phase 7 / P7-6b）----
+set role authenticated;
+do $review_request_published$
+declare
+  v_denied boolean := false;
+  v_count int := 0;
+  v_status public.review_request_status;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+
+  -- 评分表已发布 → 学生可以为自己提交复核请求
+  insert into public.ballot_review_requests (ballot_id, requested_by_student_id, reason)
+  values ('bb000000-0000-0000-0000-000000000002',
+          'eeeeeeee-0000-0000-0000-000000000004',
+          '我的内容分是 24，但我说过的第二和第三点没有被记录在论点里。')
+  returning status into v_status;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (61, '学生对已发布的评分表提交复核请求成功', 'open', v_status::text);
+
+  -- 同一份评分表只能提一次（数据库唯一约束）
+  v_denied := false;
+  begin
+    insert into public.ballot_review_requests (ballot_id, requested_by_student_id, reason)
+    values ('bb000000-0000-0000-0000-000000000002',
+            'eeeeeeee-0000-0000-0000-000000000004',
+            '再提一次应当被唯一约束拒绝');
+  exception when unique_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (62, '同一份评分表重复提交复核请求被拒绝', 'true', v_denied::text);
+
+  -- 学生只能看到自己的复核请求
+  select count(*) into v_count from public.ballot_review_requests;
+  insert into audit_results (ord, label, expected, actual)
+  values (63, '学生只看到自己的复核请求', '1', v_count::text);
+
+  -- 不能替别人提
+  v_denied := false;
+  begin
+    insert into public.ballot_review_requests (ballot_id, requested_by_student_id, reason)
+    values ('bb000000-0000-0000-0000-000000000002',
+            'eeeeeeee-0000-0000-0000-000000000005',
+            '替别的学生提交复核请求，应当被拒绝');
+  exception when insufficient_privilege or check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (64, '学生不能替别人提交复核请求', 'true', v_denied::text);
+end
+$review_request_published$;
+reset role;
+
+-- 管理员能看到全部复核请求
+set role authenticated;
+do $review_request_manager$
+declare
+  v_count int := 0;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_count from public.ballot_review_requests;
+  insert into audit_results (ord, label, expected, actual)
+  values (65, '管理员能看到全部复核请求', 'true', (v_count >= 1)::text);
+end
+$review_request_manager$;
+reset role;
+
+-- ---- 判定：复核请求（ord 60 起）----
+do $review_request_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 60 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[复核请求] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[复核请求] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[复核请求] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '复核请求测试失败 % 条', fails;
+  end if;
+end
+$review_request_judge$;
+
+delete from audit_results where ord >= 60;
+
 
 -- ---- 判定：开始比赛与名单锁定（ord 20 起）----
 do $match_lifecycle_judge$
