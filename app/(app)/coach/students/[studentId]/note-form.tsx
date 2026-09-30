@@ -37,8 +37,14 @@ export function CoachNotes({
 
       <form action={saveAction} className="flex flex-col gap-2">
         <input type="hidden" name="studentId" value={studentId} />
+        {/*
+          上方那段说明是段落文字、不是 label，因此这里必须显式给可访问名称。
+          ⚠️ 注释写在标签**外面**：写在标签属性里时，注释中的尖括号
+          会让静态检查误判标签边界（我踩过）。
+        */}
         <textarea
           name="body"
+          aria-label="给这位学生的私人笔记"
           rows={3}
           required
           disabled={saving}

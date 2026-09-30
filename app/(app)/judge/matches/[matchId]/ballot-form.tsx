@@ -87,7 +87,9 @@ function ListField({
             <span className="text-muted-foreground w-16 text-xs">
               {itemLabel} {index + 1}
             </span>
+            {/* 左侧的 span 不是 label，span 不提供可访问名称，因此这里必须显式给 */}
             <textarea
+              aria-label={`${field.label}第 ${index + 1} 条`}
               rows={2}
               disabled={disabled}
               value={hasSubFields ? (toObject(entry).text ?? "") : (entry as string)}
@@ -197,7 +199,9 @@ function RankingField({
         return (
           <div key={rank} className="flex items-center gap-2">
             <span className="w-20 text-sm">{label}</span>
+            {/* 同上：左侧的 span 不是 label */}
             <select
+              aria-label={`${label}的队伍`}
               disabled={disabled}
               value={selected}
               onChange={(event) => {
