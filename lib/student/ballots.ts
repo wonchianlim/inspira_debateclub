@@ -6,6 +6,7 @@ import {
   type BallotTemplateSchema,
   emptyBallotData,
 } from "@/lib/domain/ballot-schema";
+import type { HistoryEntry } from "@/lib/domain/student-history";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -276,4 +277,38 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
   }
 
   return results.sort((a, b) => b.scheduledStart.localeCompare(a.scheduledStart));
+}
+
+/**
+ * 把已发布的评分表转成历史统计的输入（Phase 8 / P8-2）。
+ *
+ * 放在这里而不是页面里，是因为"哪几个字段算历史"是个领域判断，
+ * 不该散落在渲染代码里。
+ */
+export function toHistoryEntries(ballots: readonly StudentBallot[]): HistoryEntry[] {
+  return ballots.map((ballot) => {
+    const total = ballot.myTotals[0];
+    const categoryScores: Record<string, number> = {};
+    const categoryLabels: Record<string, { label: string; max: number }> = {};
+
+    for (const score of ballot.myScores) {
+      categoryScores[score.key] = score.value;
+      const field = ballot.schema.fields.find((candidate) => candidate.key === score.key);
+      categoryLabels[score.key] = {
+        label: score.label,
+        max: field?.max ?? 0,
+      };
+    }
+
+    return {
+      formatCode: ballot.formatCode,
+      scheduledStart: ballot.scheduledStart,
+      outcome: ballot.outcome,
+      rank: ballot.myRank,
+      speakerTotal: total?.value ?? null,
+      speakerMax: total?.max ?? null,
+      categoryScores,
+      categoryLabels,
+    };
+  });
 }
