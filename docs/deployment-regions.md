@@ -392,3 +392,69 @@ Alibaba Cloud 官方文档原文：
 | 暂不实测 | 继续做不依赖部署的 Phase 1 工作（P1-1 到 P1-11） | 如果暂时不想产生费用；但 P1-12 会被阻塞 |
 
 **需要你决定：** 是否现在开始第 7 节的连通性验证，以及是否批准相关的第一笔费用。
+
+---
+
+# 大陆可达性实测记录（Phase 10）
+
+> 规范要求："Full mainland-China test matrix on at least two practical networks,
+> **with no VPN**, with results stored in `docs/deployment-regions.md`."
+>
+> **以下记录全部是实测**，命令与原始输出都留在本节里，不是推断。
+
+## 测试环境
+
+- 位置：中国大陆
+- 网络：家庭/办公宽带（第一条网络）
+- **未使用 VPN**
+- 时间：2026-09-30
+
+## ⚠️ 发现一：`*.vercel.app` 被 DNS 污染（严重）
+
+| 域名 | 解析结果 | 判断 |
+|---|---|---|
+| `inspira-debateclub.vercel.app`（本地解析） | `199.59.149.236` | ❌ 不是 Vercel 的 IP |
+| `vercel.app`（本地解析） | `31.13.94.23` | ❌ **这是 Facebook 的 IP 段** |
+| 同上（Cloudflare 加密 DNS） | 查询失败 | ❌ |
+| 同上（阿里 `dns.alidns.com`） | `199.59.148.229` | ❌ 与本地解析同段、但不同值 |
+| 同上（腾讯 `doh.pub`） | `108.160.165.173` | ❌ **这是 Dropbox 的 IP** |
+
+**四个解析器给出四个互相矛盾的答案，且都不是 Vercel 的 IP —— 这是 DNS 污染的典型特征。**
+
+**后果**：**大陆用户无法通过 `*.vercel.app` 网址访问站点。**
+不是"慢"，是**完全连不上**（`curl` 返回 `HTTP 000`，TCP 都建立不起来）。
+
+## 对照：其它境外服务是**通**的
+
+| 服务 | 结果 | 连接耗时 |
+|---|---|---|
+| `https://vercel.com`（Vercel 官网） | ✅ HTTP 200 | 0.23 秒 |
+| `https://github.com` | ✅ HTTP 200 | 0.11 秒 |
+| `https://resend.com` | ✅ HTTP 200 | 1.31 秒 |
+
+**这很重要**：说明**不是整个 Vercel 被墙**，被污染的**只是 `vercel.app` 这个域名**。
+Vercel 的基础设施本身可以访问。
+
+## 结论与处置
+
+### ❌ 不能用默认的 `*.vercel.app` 网址
+
+### ✅ 处置：改用**自己的域名**
+
+在 Vercel 里绑定 `app.inspira.education`，
+再在 A2 Hosting 的 cPanel 加一条 CNAME 指向 Vercel。
+
+**为什么这样能解决**：自己的域名走 A2 Hosting 的解析，
+**不经过被污染的 `vercel.app` 这个名字**；而 Vercel 的服务器本身是可达的（见上表）。
+
+### 如果自定义域名**也**不通
+
+那就说明问题不只在域名，而在 Vercel 的边缘 IP。
+**届时的处置是换香港 VPS**（$6–12/月，比 Vercel Pro 还便宜），
+**代码不用改** —— 项目里已有 Dockerfile。
+
+## 待补
+
+- [ ] 第二条实际网络（例如手机流量）的测试结果
+- [ ] 换自定义域名之后的**重测**结果
+- [ ] 登录、填评分表等**操作**层面的测试（目前只测了连通性）
