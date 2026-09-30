@@ -36,6 +36,11 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.ballot_review_requests;
+delete from public.ballot_feedback;
+delete from public.ballot_scores;
+delete from public.ballots;
+delete from public.ballot_templates;
 delete from public.judge_assignments;
 delete from public.judge_event_availability;
 -- ⚠️ 名单快照有"只增不改"的触发器，正常路径下**连超级管理员也会被拦住**（那是它存在的意义）。
@@ -119,8 +124,11 @@ where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000004';
 
 -- 裁判档案：刻意保持"待审批"，用于测试审批状态只有超管能改。
 -- 学生 0004 是学生，0003 是教练，这里让他同时拥有一份裁判档案。
-insert into public.judge_profiles (profile_id, approval_status)
-values ('aaaaaaaa-0000-0000-0000-000000000003', 'pending');
+-- ⚠️ 给出**固定 id**：用例里若用子查询去取裁判档案 id，
+-- 在学生身份下会被 RLS 过滤成 0 行，于是"插入被拒绝"变成"根本没有可插入的行" ——
+-- 两者在测试结果上一模一样（实测踩到过，见 F-STU-42）。
+insert into public.judge_profiles (id, profile_id, approval_status)
+values ('dddddddd-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000003', 'pending');
 
 -- ⚠️ 刻意再加一位**纯裁判**（只有 judge 角色，没有教练角色）。
 -- 原因：原来的裁判是那位教练，而 `is_staff()` **包含 coach** ——
@@ -269,6 +277,30 @@ from public.judge_profiles jp
 where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
 limit 1;
 
+
+-- ---------------------------------------------------------------------------
+-- 评分表（Phase 7）
+--
+-- 刻意让评分表停留在 `draft`：规范第 14.3 节明文要求
+-- "students cannot read **unpublished** ballots"，而只有草稿才能测到这一点。
+-- ---------------------------------------------------------------------------
+insert into public.ballot_templates (id, format_id, version, name, schema, created_by)
+select 'bb000000-0000-0000-0000-000000000001', f.id, 1, '虚构测试模板',
+       '{"schemaVersion":1,"fields":[],"winnerRequired":false,"reasonForDecisionRequired":false}'::jsonb,
+       'aaaaaaaa-0000-0000-0000-000000000001'
+from public.debate_formats f where f.code = 'PF';
+
+insert into public.ballots (id, match_id, judge_id, template_id, status)
+select 'bb000000-0000-0000-0000-000000000002',
+       '55555555-0000-0000-0000-000000000001', jp.id,
+       'bb000000-0000-0000-0000-000000000001', 'draft'
+from public.judge_profiles jp
+where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
+limit 1;
+
+insert into public.ballot_scores (ballot_id, participation_id, score_type, score_value)
+values ('bb000000-0000-0000-0000-000000000002',
+        '11111111-0000-0000-0000-000000000004', 'content', 30);
 
 insert into public.pairing_proposals (id, event_id, algorithm_version, input_snapshot)
 values ('33333333-0000-0000-0000-000000000001',
@@ -557,6 +589,24 @@ insert into authz_cases (label, sub, want, sql) values
       where student_id = 'eeeeeeee-0000-0000-0000-000000000005' returning 1)
     select count(*) from x$q$),
 
+-- ==================== 评分表（Phase 7）====================
+('A35 管理员读评分表','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$select count(*) from public.ballots$q$),
+-- 规范第 14.3 节明文要求："students cannot read unpublished ballots"
+('F-STU-40 学生读**未发布**的评分表','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.ballots where status <> 'published'$q$),
+('F-STU-41 学生读未发布评分表的逐项分','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.ballot_scores$q$),
+('F-STU-42 学生自行创建评分表','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.ballots (match_id, judge_id, template_id)
+      values ('55555555-0000-0000-0000-000000000001',
+              'dddddddd-0000-0000-0000-000000000003',
+              'bb000000-0000-0000-0000-000000000001')
+      returning 1) select count(*) from x$q$),
+-- 原始用例 F-JDG-02（自 Phase 1 起挂在"待覆盖"）：裁判读**未被指派**比赛的评分表
+('F-JDG-02 裁判读未被指派比赛的评分表','aaaaaaaa-0000-0000-0000-000000000007','deny',
+ $q$select count(*) from public.ballots$q$),
+
 -- ==================== 配对提案（Phase 4 / P4-5 新增）====================
 -- 提案是内部工作材料：学生与教练都不该看到草稿。
 ('A30 管理员读配对提案','aaaaaaaa-0000-0000-0000-000000000002','allow',
@@ -808,6 +858,12 @@ insert into constraint_cases (label, expect, sql) values
 ('C32 删除比赛名单快照被拒绝','error',
  $q$delete from public.match_roster_snapshots$q$),
 -- 规范第 6.5 节末句：一个裁判不能被指派到时间冲突的两场比赛
+-- 规范第 6.6 节："Validate that target_id refers to an entity on the ballot's match."
+-- 用一位**不在本场名单里**的学生 id 作为目标（学生 C 没有报名）
+('C34 评语的目标学生不在本场名单里被拒绝','error',
+ $q$insert into public.ballot_feedback (ballot_id, target_type, target_id, feedback_type, feedback_text)
+    values ('bb000000-0000-0000-0000-000000000002', 'student',
+            'eeeeeeee-0000-0000-0000-000000000006', 'individual', '虚构评语')$q$),
 ('C33 同一裁判被指派到时间冲突的两场比赛被拒绝','error',
  $q$insert into public.judge_assignments (match_id, judge_id, assigned_by)
     select '55555555-0000-0000-0000-000000000002', jp.id,
@@ -864,7 +920,8 @@ declare
     'registration_format_preferences','audit_logs','system_settings','notices',
       'partner_requests','participations','teams','team_members','pairing_proposals',
       'matches','match_teams','match_roster_snapshots','match_motions',
-      'judge_event_availability','judge_assignments'];
+      'judge_event_availability','judge_assignments',
+      'ballot_templates','ballots','ballot_scores','ballot_feedback','ballot_review_requests'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -1593,6 +1650,11 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.ballot_review_requests;
+delete from public.ballot_feedback;
+delete from public.ballot_scores;
+delete from public.ballots;
+delete from public.ballot_templates;
 delete from public.judge_assignments;
 delete from public.judge_event_availability;
 -- ⚠️ 名单快照有"只增不改"的触发器，正常路径下**连超级管理员也会被拦住**（那是它存在的意义）。

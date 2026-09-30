@@ -42,6 +42,155 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"ballot_feedback": {
+                  Row: {
+                    "ballot_id": string,"created_at": string,"feedback_text": string,"feedback_type": string,"id": string,"target_id": string | null,"target_type": string,"updated_at": string
+                  }
+                  Insert: {
+                    "ballot_id": string,"created_at"?: string,"feedback_text": string,"feedback_type": string,"id"?: string,"target_id"?: string | null,"target_type": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "ballot_id"?: string,"created_at"?: string,"feedback_text"?: string,"feedback_type"?: string,"id"?: string,"target_id"?: string | null,"target_type"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ballot_feedback_ballot_id_fkey"
+      columns: ["ballot_id"]
+isOneToOne: false
+      referencedRelation: "ballots"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ballot_review_requests": {
+                  Row: {
+                    "admin_response": string | null,"ballot_id": string,"created_at": string,"id": string,"reason": string,"requested_by_student_id": string,"resolved_at": string | null,"resolved_by": string | null,"status": Database["public"]['Enums']["review_request_status"],"updated_at": string
+                  }
+                  Insert: {
+                    "admin_response"?: string | null,"ballot_id": string,"created_at"?: string,"id"?: string,"reason": string,"requested_by_student_id": string,"resolved_at"?: string | null,"resolved_by"?: string | null,"status"?: Database["public"]['Enums']["review_request_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "admin_response"?: string | null,"ballot_id"?: string,"created_at"?: string,"id"?: string,"reason"?: string,"requested_by_student_id"?: string,"resolved_at"?: string | null,"resolved_by"?: string | null,"status"?: Database["public"]['Enums']["review_request_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ballot_review_requests_ballot_id_fkey"
+      columns: ["ballot_id"]
+isOneToOne: false
+      referencedRelation: "ballots"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballot_review_requests_requested_by_student_id_fkey"
+      columns: ["requested_by_student_id"]
+isOneToOne: false
+      referencedRelation: "student_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballot_review_requests_resolved_by_fkey"
+      columns: ["resolved_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ballot_scores": {
+                  Row: {
+                    "ballot_id": string,"created_at": string,"id": string,"participation_id": string,"score_type": string,"score_value": number,"updated_at": string
+                  }
+                  Insert: {
+                    "ballot_id": string,"created_at"?: string,"id"?: string,"participation_id": string,"score_type": string,"score_value": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "ballot_id"?: string,"created_at"?: string,"id"?: string,"participation_id"?: string,"score_type"?: string,"score_value"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ballot_scores_ballot_id_fkey"
+      columns: ["ballot_id"]
+isOneToOne: false
+      referencedRelation: "ballots"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballot_scores_participation_id_fkey"
+      columns: ["participation_id"]
+isOneToOne: false
+      referencedRelation: "participations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ballot_templates": {
+                  Row: {
+                    "active": boolean,"created_at": string,"created_by": string,"format_id": string,"id": string,"name": string,"schema": NonNullable<Json>,"updated_at": string,"version": number
+                  }
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"created_by": string,"format_id": string,"id"?: string,"name": string,"schema": NonNullable<Json>,"updated_at"?: string,"version": number
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"created_by"?: string,"format_id"?: string,"id"?: string,"name"?: string,"schema"?: NonNullable<Json>,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ballot_templates_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballot_templates_format_id_fkey"
+      columns: ["format_id"]
+isOneToOne: false
+      referencedRelation: "debate_formats"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ballots": {
+                  Row: {
+                    "created_at": string,"format_data": NonNullable<Json>,"id": string,"judge_id": string,"match_id": string,"published_at": string | null,"published_by": string | null,"reason_for_decision": string | null,"reopened_at": string | null,"reopened_by": string | null,"resubmitted_at": string | null,"status": Database["public"]['Enums']["ballot_status"],"submitted_at": string | null,"template_id": string,"updated_at": string,"winner_team_id": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"format_data"?: NonNullable<Json>,"id"?: string,"judge_id": string,"match_id": string,"published_at"?: string | null,"published_by"?: string | null,"reason_for_decision"?: string | null,"reopened_at"?: string | null,"reopened_by"?: string | null,"resubmitted_at"?: string | null,"status"?: Database["public"]['Enums']["ballot_status"],"submitted_at"?: string | null,"template_id": string,"updated_at"?: string,"winner_team_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"format_data"?: NonNullable<Json>,"id"?: string,"judge_id"?: string,"match_id"?: string,"published_at"?: string | null,"published_by"?: string | null,"reason_for_decision"?: string | null,"reopened_at"?: string | null,"reopened_by"?: string | null,"resubmitted_at"?: string | null,"status"?: Database["public"]['Enums']["ballot_status"],"submitted_at"?: string | null,"template_id"?: string,"updated_at"?: string,"winner_team_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ballots_judge_id_fkey"
+      columns: ["judge_id"]
+isOneToOne: false
+      referencedRelation: "judge_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballots_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballots_published_by_fkey"
+      columns: ["published_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballots_reopened_by_fkey"
+      columns: ["reopened_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballots_template_id_fkey"
+      columns: ["template_id"]
+isOneToOne: false
+      referencedRelation: "ballot_templates"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ballots_winner_team_id_fkey"
+      columns: ["winner_team_id"]
+isOneToOne: false
+      referencedRelation: "teams"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"debate_formats": {
                   Row: {
                     "active": boolean,"code": string,"created_at": string,"display_order": number,"id": string,"name": string,"team_size": number,"teams_per_match": number,"updated_at": string
@@ -768,7 +917,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","check_in_method": "self"|"admin","entitlement_type": "weekly_entitlement"|"extra_paid"|"extra_complimentary"|"extra_payment_pending","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","judge_assignment_role": "chair"|"panelist","judge_assignment_status": "assigned"|"accepted"|"completed"|"cancelled","judge_availability_status": "offered"|"approved"|"unavailable"|"assigned","match_status": "scheduled"|"missing_participant"|"ready"|"started"|"ballot_submitted"|"published"|"cancelled","pairing_proposal_status": "draft"|"confirmed"|"superseded","participation_status": "proposed"|"confirmed"|"completed"|"cancelled","partner_request_status": "pending"|"accepted"|"unavailable"|"replaced"|"cancelled","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show","team_status": "proposed"|"confirmed"|"dissolved"
+            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","ballot_status": "draft"|"submitted"|"reopened"|"resubmitted"|"published","check_in_method": "self"|"admin","entitlement_type": "weekly_entitlement"|"extra_paid"|"extra_complimentary"|"extra_payment_pending","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","judge_assignment_role": "chair"|"panelist","judge_assignment_status": "assigned"|"accepted"|"completed"|"cancelled","judge_availability_status": "offered"|"approved"|"unavailable"|"assigned","match_status": "scheduled"|"missing_participant"|"ready"|"started"|"ballot_submitted"|"published"|"cancelled","pairing_proposal_status": "draft"|"confirmed"|"superseded","participation_status": "proposed"|"confirmed"|"completed"|"cancelled","partner_request_status": "pending"|"accepted"|"unavailable"|"replaced"|"cancelled","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show","review_request_status": "open"|"reviewing"|"resolved"|"rejected","team_status": "proposed"|"confirmed"|"dissolved"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -888,7 +1037,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"check_in_method": ["self", "admin"],"entitlement_type": ["weekly_entitlement", "extra_paid", "extra_complimentary", "extra_payment_pending"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"judge_assignment_role": ["chair", "panelist"],"judge_assignment_status": ["assigned", "accepted", "completed", "cancelled"],"judge_availability_status": ["offered", "approved", "unavailable", "assigned"],"match_status": ["scheduled", "missing_participant", "ready", "started", "ballot_submitted", "published", "cancelled"],"pairing_proposal_status": ["draft", "confirmed", "superseded"],"participation_status": ["proposed", "confirmed", "completed", "cancelled"],"partner_request_status": ["pending", "accepted", "unavailable", "replaced", "cancelled"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"],"team_status": ["proposed", "confirmed", "dissolved"]
+            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"ballot_status": ["draft", "submitted", "reopened", "resubmitted", "published"],"check_in_method": ["self", "admin"],"entitlement_type": ["weekly_entitlement", "extra_paid", "extra_complimentary", "extra_payment_pending"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"judge_assignment_role": ["chair", "panelist"],"judge_assignment_status": ["assigned", "accepted", "completed", "cancelled"],"judge_availability_status": ["offered", "approved", "unavailable", "assigned"],"match_status": ["scheduled", "missing_participant", "ready", "started", "ballot_submitted", "published", "cancelled"],"pairing_proposal_status": ["draft", "confirmed", "superseded"],"participation_status": ["proposed", "confirmed", "completed", "cancelled"],"partner_request_status": ["pending", "accepted", "unavailable", "replaced", "cancelled"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"],"review_request_status": ["open", "reviewing", "resolved", "rejected"],"team_status": ["proposed", "confirmed", "dissolved"]
           }
         }
 } as const
