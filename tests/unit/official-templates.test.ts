@@ -139,10 +139,22 @@ describe("分制与满分", () => {
     expect(categoryMax(WSDC_TEMPLATE)).toEqual([40, 40, 20]);
   });
 
-  it("WSDC 三位主发言者都是整数分（规范第 38 节：0–40 / 0–40 / 0–20）", () => {
+  it("WSDC 三位**主**发言者都是整数分（规范第 38 节：0–40 / 0–40 / 0–20）", () => {
     for (const field of WSDC_TEMPLATE.fields) {
       if (field.type !== "score" || field.scope !== "speaker") continue;
+      // 只检查主发言者的字段（前三位）
+      if (!field.speakerPositions?.includes(1)) continue;
       expect(field.step, `${field.key} 应当是整数`).toBe(1);
+    }
+  });
+
+  it("WSDC 的**回复**发言者允许半分（与 JWSD 一致）", () => {
+    const replyFields = WSDC_TEMPLATE.fields.filter(
+      (field) => field.type === "score" && field.speakerPositions?.includes(4),
+    );
+    expect(replyFields.length).toBeGreaterThan(0);
+    for (const field of replyFields) {
+      expect(field.step, `${field.key} 应当允许半分`).toBe(0.5);
     }
   });
 
@@ -171,11 +183,47 @@ describe("分制与满分", () => {
     expect(teamTotals.opp?.team_total).toBe(219);
   });
 
-  it("WSDC 队内最多三位主发言者 —— 规范第 41 节要求回复发言者**另行配置**", () => {
+  /**
+   * ⚠️ 产品负责人 2026-09-29 明确："JWSD 和 WSDC 的评分应该一样的，
+   * 都是有 reply，reply 都是允许半分。"
+   *
+   * 这一条**修正了** WSDC 规范第 41 节"回复发言者应当另行配置"的写法。
+   * 下面直接**比对两个模板的分制结构**，这是最贴近那句话的断言方式。
+   */
+  it("WSDC 与 JWSD 的评分结构**完全相同**（产品负责人明确要求）", () => {
+    /** 取出"分制骨架"：字段键 + 满分 + 刻度 + 适用位次，忽略文案。 */
+    const skeleton = (schema: typeof WSDC_TEMPLATE) =>
+      schema.fields
+        .filter((field) => field.type === "score" && field.scope === "speaker")
+        .map((field) => ({
+          key: field.key,
+          max: field.max,
+          step: field.step ?? 1,
+          positions: field.speakerPositions ?? [],
+        }))
+        .sort((a, b) => a.key.localeCompare(b.key));
+
+    expect(skeleton(WSDC_TEMPLATE)).toEqual(skeleton(JWSD_TEMPLATE));
+  });
+
+  it("两个赛制的个人总项也相同（主发言者 100、回复 50）", () => {
+    const totalsOf = (schema: typeof WSDC_TEMPLATE) =>
+      (schema.totals ?? [])
+        .filter((total) => total.scope === "speaker")
+        .map((total) => ({ key: total.key, max: total.max }))
+        .sort((a, b) => a.key.localeCompare(b.key));
+
+    expect(totalsOf(WSDC_TEMPLATE)).toEqual(totalsOf(JWSD_TEMPLATE));
+    expect(totalsOf(WSDC_TEMPLATE)).toEqual([
+      { key: "reply_total", max: 50 },
+      { key: "speaker_total", max: 100 },
+    ]);
+  });
+
+  it("WSDC 的队伍总分把主发言者与回复发言者都算进去（3×100 + 50 = 350）", () => {
     const teamTotal = WSDC_TEMPLATE.totals?.find((total) => total.key === "team_total");
-    expect(teamTotal?.fromSpeakerTotals).toEqual(["speaker_total"]);
-    // 满分是 3 × 100，不把回复发言者算进这套结构
-    expect(teamTotal?.max).toBe(300);
+    expect(teamTotal?.fromSpeakerTotals).toEqual(["speaker_total", "reply_total"]);
+    expect(teamTotal?.max).toBe(350);
   });
 
   it("1v1 与 PF 的满分与规范一致", () => {
@@ -236,9 +284,15 @@ describe("BP 的 60–85 是硬性区间", () => {
 describe("WSDC 的 60–80 是硬性区间", () => {
   const speakerTotal = WSDC_TEMPLATE.totals?.find((total) => total.key === "speaker_total");
 
-  it("个人总分的硬性区间是 60–80", () => {
+  it("**主**发言者个人总分的硬性区间是 60–80", () => {
     expect(speakerTotal?.hardMin).toBe(60);
     expect(speakerTotal?.hardMax).toBe(80);
+  });
+
+  it("⚠️ 回复总分**没有**硬区间 —— 校准说明写的是 main speeches，而回复满分只有 50", () => {
+    const replyTotal = WSDC_TEMPLATE.totals?.find((total) => total.key === "reply_total");
+    expect(replyTotal?.hardMin).toBeUndefined();
+    expect(replyTotal?.hardMax).toBeUndefined();
   });
 
   it("区间之外用 hardMin/hardMax（拒绝），区间之内用 confirm（仅提示）——两者性质不同", () => {

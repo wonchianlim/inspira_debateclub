@@ -656,6 +656,8 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       min: 0,
       max: 40,
       step: 1,
+      // 只对前三位主发言者生效：回复发言者用另一组字段
+      speakerPositions: [1, 2, 3],
     },
     {
       key: "content",
@@ -666,6 +668,8 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       min: 0,
       max: 40,
       step: 1,
+      // 只对前三位主发言者生效：回复发言者用另一组字段
+      speakerPositions: [1, 2, 3],
     },
     {
       key: "strategy",
@@ -676,6 +680,47 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       min: 0,
       max: 20,
       step: 1,
+      // 只对前三位主发言者生效：回复发言者用另一组字段
+      speakerPositions: [1, 2, 3],
+    },
+
+    /*
+     * ---- 回复发言者（第 4 位，满分是主发言者的**一半**：50 分）----
+     *
+     * 与 JWSD 完全一致：表达 20 / 内容 20 / 策略 10，**允许半分**。
+     */
+    {
+      key: "reply_style",
+      label: "表达（回复）",
+      type: "score",
+      scope: "speaker",
+      required: true,
+      min: 0,
+      max: 20,
+      step: 0.5,
+      speakerPositions: [4],
+    },
+    {
+      key: "reply_content",
+      label: "内容（回复）",
+      type: "score",
+      scope: "speaker",
+      required: true,
+      min: 0,
+      max: 20,
+      step: 0.5,
+      speakerPositions: [4],
+    },
+    {
+      key: "reply_strategy",
+      label: "策略（回复）",
+      type: "score",
+      scope: "speaker",
+      required: true,
+      min: 0,
+      max: 10,
+      step: 0.5,
+      speakerPositions: [4],
     },
 
     // 每位发言者可选的单独评语（规范第 29 节）
@@ -785,14 +830,23 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       confirmAbove: 78,
       confirmBelow: 63,
     },
-    // 队伍总分 = 三位主发言者之和，满分 300（规范第 13 节）
+    // 回复发言者：50 分（主发言者的一半），**允许半分**
+    {
+      key: "reply_total",
+      label: "回复总分",
+      scope: "speaker",
+      sumOf: ["reply_style", "reply_content", "reply_strategy"],
+      max: 50,
+      perSpeaker: true,
+    },
+    // 队伍总分 = 三位主发言者 + 一位回复发言者
     {
       key: "team_total",
       label: "队伍总分",
       scope: "teamFromSpeakers",
       sumOf: [],
-      fromSpeakerTotals: ["speaker_total"],
-      max: 300,
+      fromSpeakerTotals: ["speaker_total", "reply_total"],
+      max: 350,
     },
   ],
   /*
