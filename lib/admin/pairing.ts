@@ -25,6 +25,21 @@ import {
  * 不会把管理员手工排好的队伍冲掉。
  */
 
+/**
+ * 查询失败时立刻抛出，而不是让 `data` 变成 null 继续往下走。
+ *
+ * 为什么专门加这个：**最初这一版把每个查询的错误都忽略了**。
+ * 结果是一次外键失败表现为"生成出 0 支队伍"，排查方向被完全带偏 ——
+ * 看起来像算法问题，实际是数据没写进去。
+ * 数据库查询失败必须**立刻**暴露，不能静默降级成"没有数据"。
+ */
+function unwrap<T>(result: { data: T; error: { message: string } | null }, what: string): T {
+  if (result.error) {
+    throw new Error(`读取${what}失败：${result.error.message}`);
+  }
+  return result.data;
+}
+
 export type GenerationResult =
   | {
       ok: true;
@@ -53,13 +68,40 @@ type PreservedTeam = {
   memberStudentIds: string[];
 };
 
-export async function generatePairingProposal(eventId: string): Promise<GenerationResult> {
-  const supabase = await createUserSupabaseClient();
+/**
+ * 数据库客户端的类型。
+ *
+ * 用"用户身份客户端"的返回类型表述：管理员用的服务角色客户端与它结构相同，
+ * 因此可以注入进来（见下面的说明）。
+ */
+export type PairingClient = Awaited<ReturnType<typeof createUserSupabaseClient>>;
+
+/**
+ * 生成并保存配对提案。
+ *
+ * @param eventId 活动
+ * @param injectedClient 仅用于**集成测试**：允许注入一个服务角色客户端。
+ *
+ * 为什么要留这个参数：本模块是 server-only 的，正常路径下依赖 Next 的请求上下文
+ * （cookies）来构造用户身份客户端，因此**无法在测试里直接调用**。
+ * 为了让"这一段数据库读写到底对不对"能被真实验证（而不是只靠类型检查），
+ * 允许测试注入一个客户端。
+ *
+ * 安全性说明：这不构成绕过权限的入口 —— 生产代码**不传**这个参数，
+ * 走的是用户身份客户端，权限仍由 RLS 与 Server Action 的检查决定。
+ * 集成测试用的是服务角色，因此那一条测试**不覆盖 RLS**；
+ * RLS 由 `scripts/db-tests.sql` 单独覆盖。
+ */
+export async function generatePairingProposal(
+  eventId: string,
+  injectedClient?: PairingClient,
+): Promise<GenerationResult> {
+  const supabase = injectedClient ?? (await createUserSupabaseClient());
 
   // ---------------------------------------------------------------------------
   // 1) 载入事件与赛制配置
   // ---------------------------------------------------------------------------
-  const [{ data: event }, { data: eventFormats }] = await Promise.all([
+  const [eventResult, eventFormatsResult] = await Promise.all([
     supabase.from("events").select("id, title, status").eq("id", eventId).maybeSingle(),
     supabase
       .from("event_formats")
@@ -67,6 +109,9 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
       .eq("event_id", eventId)
       .eq("enabled", true),
   ]);
+
+  const event = unwrap(eventResult, "活动");
+  const eventFormats = unwrap(eventFormatsResult, "活动赛制");
 
   if (!event) return { ok: false, message: "找不到这个活动。" };
 
@@ -101,13 +146,16 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
   // ---------------------------------------------------------------------------
   // 2) 载入当前参与、报名与偏好
   // ---------------------------------------------------------------------------
-  const { data: participationsRaw } = await supabase
-    .from("participations")
-    .select(
-      "id, student_id, format_id, rating_snapshot, participation_number, entitlement_type, status",
-    )
-    .eq("event_id", eventId)
-    .in("status", ["proposed", "confirmed"]);
+  const participationsRaw = unwrap(
+    await supabase
+      .from("participations")
+      .select(
+        "id, student_id, format_id, rating_snapshot, participation_number, entitlement_type, status",
+      )
+      .eq("event_id", eventId)
+      .in("status", ["proposed", "confirmed"]),
+    "参与记录",
+  );
 
   const participations = (participationsRaw ?? []) as ParticipationRow[];
   if (participations.length === 0) {
@@ -119,19 +167,22 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
 
   const studentIds = [...new Set(participations.map((row) => row.student_id))];
 
-  const [{ data: registrations }, { data: eligibility }, { data: partnerRequests }] =
-    await Promise.all([
-      supabase.from("registrations").select("student_id, status").eq("event_id", eventId),
-      supabase
-        .from("student_format_profiles")
-        .select("student_id, format_id, eligible")
-        .in("student_id", studentIds),
-      supabase
-        .from("partner_requests")
-        .select("requester_student_id, requested_student_id")
-        .eq("event_id", eventId)
-        .eq("status", "accepted"),
-    ]);
+  const [registrationsResult, eligibilityResult, partnerRequestsResult] = await Promise.all([
+    supabase.from("registrations").select("student_id, status").eq("event_id", eventId),
+    supabase
+      .from("student_format_profiles")
+      .select("student_id, format_id, eligible")
+      .in("student_id", studentIds),
+    supabase
+      .from("partner_requests")
+      .select("requester_student_id, requested_student_id")
+      .eq("event_id", eventId)
+      .eq("status", "accepted"),
+  ]);
+
+  const registrations = unwrap(registrationsResult, "报名");
+  const eligibility = unwrap(eligibilityResult, "赛制资格");
+  const partnerRequests = unwrap(partnerRequestsResult, "搭档请求");
 
   const availableStudentIds = new Set(
     (registrations ?? [])
@@ -166,10 +217,13 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
    * 规范说重复队友只是**轻惩罚**（稳定搭档是被允许的），因此这里只是"知道"，
    * 不用来阻止组队。
    */
-  const { data: previousMemberships } = await supabase
-    .from("team_members")
-    .select("team_id, teams!inner(event_id), participations!inner(student_id)")
-    .in("participations.student_id", studentIds);
+  const previousMemberships = unwrap(
+    await supabase
+      .from("team_members")
+      .select("team_id, teams!inner(event_id), participations!inner(student_id)")
+      .in("participations.student_id", studentIds),
+    "历史队友",
+  );
 
   type PreviousMembershipRow = {
     team_id: string;
@@ -200,11 +254,14 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
   // ---------------------------------------------------------------------------
   // 3) 保留已锁定 / 人工调整的队伍（规范 10.7 第 3 条）
   // ---------------------------------------------------------------------------
-  const { data: preservedRaw } = await supabase
-    .from("teams")
-    .select("id, format_id, team_members(participation_id, participations(student_id))")
-    .eq("event_id", eventId)
-    .or("locked.eq.true,manually_edited.eq.true");
+  const preservedRaw = unwrap(
+    await supabase
+      .from("teams")
+      .select("id, format_id, team_members(participation_id, participations(student_id))")
+      .eq("event_id", eventId)
+      .or("locked.eq.true,manually_edited.eq.true"),
+    "已锁定的队伍",
+  );
 
   type PreservedRow = {
     id: string;
@@ -233,13 +290,16 @@ export async function generatePairingProposal(eventId: string): Promise<Generati
    * 没有填偏好的人得到一个空数组 —— 分配引擎会把他列为"需要管理员处理"，
    * 而不是替他随便选一个赛制。
    */
-  const { data: preferences } = await supabase
-    .from("registration_format_preferences")
-    .select(
-      "registration_id, format_id, preference_rank, registrations!inner(event_id, student_id)",
-    )
-    .eq("registrations.event_id", eventId)
-    .order("preference_rank", { ascending: true });
+  const preferences = unwrap(
+    await supabase
+      .from("registration_format_preferences")
+      .select(
+        "registration_id, format_id, preference_rank, registrations!inner(event_id, student_id)",
+      )
+      .eq("registrations.event_id", eventId)
+      .order("preference_rank", { ascending: true }),
+    "赛制偏好",
+  );
 
   type PreferenceRow = {
     format_id: string;

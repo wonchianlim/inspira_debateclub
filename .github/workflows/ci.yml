@@ -83,6 +83,26 @@ jobs:
       - name: 从空库重放迁移并运行数据库测试
         run: npm run db:verify
 
+      # ---------------------------------------------------------------------
+      # 集成测试：需要**真实数据库**
+      #
+      # 质量门禁那个 job 刻意不需要任何密钥，因此那里的集成测试会明确跳过。
+      # 这里补上：从 supabase status 生成 .env.local 再跑，
+      # 否则"配对生成流程"这一段在 CI 里会永远不被验证。
+      # ---------------------------------------------------------------------
+      - name: 生成本地环境变量
+        run: |
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o json | jq -r .API_URL)"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(supabase status -o json | jq -r .ANON_KEY)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r .SERVICE_ROLE_KEY)"
+            echo "NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000"
+            echo "RATE_LIMIT_SALT=ci-only-not-a-secret"
+          } > .env.local
+
+      - name: 运行集成测试（配对生成流程）
+        run: npm run test:integration
+
       # 无论成功失败都清理，避免占用 runner 资源
       - name: 停止本地数据库
         if: always()
