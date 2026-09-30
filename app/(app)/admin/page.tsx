@@ -38,6 +38,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     ready: true,
   },
   {
+    title: "邮件队列",
+    description: "系统准备发出的邮件。尚未选定服务商前，这里只是待发清单，不会真的投递。",
+    ready: true,
+    href: "/admin/email",
+  },
+  {
     title: "评分表模板",
     description: "为每个赛制配置评分项与分数区间。未配置的赛制裁判无法打分。",
     ready: true,
