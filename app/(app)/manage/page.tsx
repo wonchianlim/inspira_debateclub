@@ -38,10 +38,16 @@ const MANAGE_SECTIONS: ManageSection[] = [
     href: "/manage/events",
   },
   {
-    title: "配对与比赛",
-    description: "生成队伍与比赛提案、确认并发布、指派裁判。",
+    title: "配对与队伍提案",
+    description: "按赛制偏好与评分生成队伍、查看取舍说明、锁定或解散队伍、确认提案。",
+    ready: true,
+    href: "/manage/events",
+  },
+  {
+    title: "比赛、房间与裁判指派",
+    description: "生成比赛与正反方、分配房间、指派裁判并发布。",
     ready: false,
-    phase: "Phase 4–5",
+    phase: "Phase 5",
   },
 ];
 

@@ -1,0 +1,43 @@
+import { z } from "zod";
+
+/**
+ * 配对提案相关的输入校验（Phase 4 / P4-6）。
+ */
+
+export const generateProposalSchema = z.object({
+  eventId: z.guid({ error: "活动标识格式不正确" }),
+});
+
+export const setTeamLockSchema = z.object({
+  teamId: z.guid({ error: "队伍标识格式不正确" }),
+  locked: z.enum(["true", "false"], { error: "锁定状态不正确" }),
+});
+
+export const dissolveTeamSchema = z.object({
+  teamId: z.guid({ error: "队伍标识格式不正确" }),
+});
+
+export const confirmProposalSchema = z.object({
+  proposalId: z.guid({ error: "提案标识格式不正确" }),
+});
+
+export const PAIRING_PROPOSAL_STATUS_LABELS = {
+  draft: "草稿（尚未确认）",
+  confirmed: "已确认",
+  superseded: "已被新的生成取代",
+} as const;
+
+export const TEAM_STATUS_LABELS = {
+  proposed: "系统提案",
+  confirmed: "已确认",
+  dissolved: "已解散",
+} as const;
+
+/**
+ * 说明"警告不是错误"。
+ *
+ * 规范第 10.2 节要求对每个不明显的分配给出警告。这些警告大多**不影响提案可用**，
+ * 但如果界面上不加说明，管理员会以为出了问题而不敢确认。
+ */
+export const WARNING_IS_INFORMATIONAL =
+  "这些提示说明系统在取舍时做了什么选择，不是错误。看完后可以直接确认。";
