@@ -36,6 +36,20 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.judge_assignments;
+delete from public.judge_event_availability;
+-- ⚠️ 名单快照有"只增不改"的触发器，正常路径下**连超级管理员也会被拦住**（那是它存在的意义）。
+-- 测试收尾必须删掉虚构数据，因此这里以超级管理员身份**临时停用**该触发器，
+-- 删完立刻恢复。
+--
+-- 这不是安全漏洞：`scripts/db-tests.sql` 本身就以 postgres 超级用户运行，
+-- 而应用**从不**以超级用户连接数据库；生产路径上没有任何可以停用它的入口。
+alter table public.match_roster_snapshots disable trigger roster_snapshots_immutable;
+delete from public.match_roster_snapshots;
+alter table public.match_roster_snapshots enable trigger roster_snapshots_immutable;
+delete from public.match_teams;
+delete from public.match_motions;
+delete from public.matches;
 delete from public.pairing_proposals;
 delete from public.team_members;
 delete from public.teams;
@@ -70,7 +84,8 @@ insert into auth.users (id, email) values
  ('aaaaaaaa-0000-0000-0000-000000000003','coach@example.invalid'),
  ('aaaaaaaa-0000-0000-0000-000000000004','stua@example.invalid'),
  ('aaaaaaaa-0000-0000-0000-000000000005','stub@example.invalid'),
- ('aaaaaaaa-0000-0000-0000-000000000006','stuc@example.invalid');
+ ('aaaaaaaa-0000-0000-0000-000000000006','stuc@example.invalid'),
+ ('aaaaaaaa-0000-0000-0000-000000000007','judgeonly@example.invalid');
 
 insert into public.user_roles (profile_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000001','super_admin'),
@@ -79,7 +94,8 @@ insert into public.user_roles (profile_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000003','coach'),
  ('aaaaaaaa-0000-0000-0000-000000000004','student'),
  ('aaaaaaaa-0000-0000-0000-000000000005','student'),
- ('aaaaaaaa-0000-0000-0000-000000000006','student');
+ ('aaaaaaaa-0000-0000-0000-000000000006','student'),
+ ('aaaaaaaa-0000-0000-0000-000000000007','judge');
 
 -- 刻意给固定 id：学生**看不到**别人的 student_profiles 行（RLS 正确地隐藏了），
 -- 因此用例里不能用子查询去取"另一个学生"的 id —— 那样取到的是 NULL，
@@ -105,6 +121,13 @@ where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000004';
 -- 学生 0004 是学生，0003 是教练，这里让他同时拥有一份裁判档案。
 insert into public.judge_profiles (profile_id, approval_status)
 values ('aaaaaaaa-0000-0000-0000-000000000003', 'pending');
+
+-- ⚠️ 刻意再加一位**纯裁判**（只有 judge 角色，没有教练角色）。
+-- 原因：原来的裁判是那位教练，而 `is_staff()` **包含 coach** ——
+-- 用他测"裁判读不到未指派比赛的名单"必然失败，因为他是以"教练（staff）"身份读到的。
+-- 这类"一个人兼多个角色"的测试数据会让用例测错东西。
+insert into public.judge_profiles (profile_id, approval_status)
+values ('aaaaaaaa-0000-0000-0000-000000000007', 'approved');
 
 -- 活动：一个正在报名（只启用 PF），一个报名已关闭
 with t as (select now() as base, (now() + interval '2 day' + interval '30 min') as starts_at)
@@ -197,6 +220,55 @@ values ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-0000000
 -- 配对提案。**必须有这条数据**，否则下面"学生/教练读不到提案"的拒绝对应
 -- 会因为没有数据而**假通过** —— 0 行既可能是"权限拦住了"，也可能是"本来就没有行"，
 -- 两者在测试里看起来一模一样。
+-- ---------------------------------------------------------------------------
+-- 比赛与裁判（Phase 5 / P5-1）
+--
+-- 刻意让**两场比赛的 scheduled_start 完全相同**：
+-- "同一裁判不能同时被指派到两场时间冲突的比赛"那条用例需要这个前提。
+-- ---------------------------------------------------------------------------
+insert into public.matches (id, event_id, format_id, match_number, room_name, scheduled_start)
+select '55555555-0000-0000-0000-000000000001',
+       'bbbbbbbb-0000-0000-0000-000000000001', f.id, 1, 'A101',
+       timestamptz '2026-10-01 09:00:00+08'
+from public.debate_formats f where f.code = 'PF';
+
+insert into public.matches (id, event_id, format_id, match_number, room_name, scheduled_start)
+select '55555555-0000-0000-0000-000000000002',
+       'bbbbbbbb-0000-0000-0000-000000000001', f.id, 2, 'A102',
+       timestamptz '2026-10-01 09:00:00+08'
+from public.debate_formats f where f.code = 'PF';
+
+-- 队伍挂到第一场比赛上
+insert into public.match_teams (match_id, team_id, position)
+values ('55555555-0000-0000-0000-000000000001',
+        '22222222-0000-0000-0000-000000000001', 'PROP');
+
+-- 先给第一场比赛指派这位裁判。C33 要让"同一裁判再被指派到同一时刻的第二场"被拒绝，
+-- 因此这里必须**先有一条成功的指派** —— 否则 C33 会因为"没有冲突对象"而假通过。
+insert into public.judge_assignments (match_id, judge_id, assigned_by)
+select '55555555-0000-0000-0000-000000000001', jp.id,
+       'aaaaaaaa-0000-0000-0000-000000000001'
+from public.judge_profiles jp
+where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
+limit 1;
+
+-- 名单快照（只增不改，因此下面会专门测"改/删都被拒绝"）
+insert into public.match_roster_snapshots
+  (match_id, team_id, participation_id, student_id, student_display_name,
+   position, speaker_position, rating_snapshot, is_ironman)
+values ('55555555-0000-0000-0000-000000000001',
+        '22222222-0000-0000-0000-000000000001',
+        '11111111-0000-0000-0000-000000000004',
+        'eeeeeeee-0000-0000-0000-000000000004',
+        '虚构学生A', 'PROP', 1, 7, false);
+
+-- 裁判在某活动上的可用性（用已有的那位教练裁判档案）
+insert into public.judge_event_availability (event_id, judge_id, status, approved_at)
+select 'bbbbbbbb-0000-0000-0000-000000000001', jp.id, 'approved', now()
+from public.judge_profiles jp
+where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
+limit 1;
+
 insert into public.pairing_proposals (id, event_id, algorithm_version, input_snapshot)
 values ('33333333-0000-0000-0000-000000000001',
         'bbbbbbbb-0000-0000-0000-000000000001', '1.0.0', '{"test":true}'::jsonb);
@@ -452,6 +524,29 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-STU-35 学生自行写入配对提案','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (insert into public.pairing_proposals (event_id, algorithm_version, input_snapshot)
       values ('bbbbbbbb-0000-0000-0000-000000000001','1.0.0','{}'::jsonb) returning 1)
+    select count(*) from x$q$),
+
+-- ==================== 比赛、名单快照与裁判（Phase 5 / P5-1 新增）====================
+('A31 管理员读全部比赛','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$select count(*) from public.matches$q$),
+-- 比赛是 'scheduled'（未发布），学生不该看到名单
+('F-STU-36 学生读未发布的比赛','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.matches$q$),
+('F-STU-37 学生读未发布比赛的名单快照','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.match_roster_snapshots$q$),
+-- 对应的原始用例 F-JDG-01：裁判读取**未被指派**比赛的名单
+('F-JDG-01 裁判读未被指派比赛的名单','aaaaaaaa-0000-0000-0000-000000000007','deny',
+ $q$select count(*) from public.match_roster_snapshots$q$),
+-- 对应的原始用例 F-ALL-03：学生直接往名单快照里插数据
+('F-ALL-03 学生直接插入比赛名单快照','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.match_roster_snapshots
+       (match_id, team_id, participation_id, student_id, student_display_name,
+        position, rating_snapshot, is_ironman)
+      values ('55555555-0000-0000-0000-000000000001',
+              '22222222-0000-0000-0000-000000000001',
+              '11111111-0000-0000-0000-000000000005',
+              'eeeeeeee-0000-0000-0000-000000000005',
+              '伪造姓名', 'OPP', 9, false) returning 1)
     select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
@@ -649,7 +744,32 @@ insert into constraint_cases (label, expect, sql) values
       (event_id, student_id, format_id, rating_snapshot, participation_number, entitlement_type)
     select 'bbbbbbbb-0000-0000-0000-000000000001',
            'eeeeeeee-0000-0000-0000-000000000004', f.id, 7, 2, 'extra_paid'
-    from public.debate_formats f where f.code = 'PF'$q$);
+    from public.debate_formats f where f.code = 'PF'$q$),
+
+-- ==================== 比赛与名单快照（Phase 5 / P5-1 新增）====================
+-- 同一活动内房间名不能重复：重复会让现场两支队伍走错场地。
+('C30 同一活动重复房间名被拒绝','error',
+ $q$insert into public.matches (event_id, format_id, match_number, room_name, scheduled_start)
+    select 'bbbbbbbb-0000-0000-0000-000000000001', f.id, 3, 'A101',
+           timestamptz '2026-10-01 11:00:00+08'
+    from public.debate_formats f where f.code = 'PF'$q$),
+-- 名单快照是历史：改与删都必须被拒绝（规范第 17 节）
+('C31 修改比赛名单快照被拒绝','error',
+ $q$update public.match_roster_snapshots set student_display_name = '被改过的名字'$q$),
+('C32 删除比赛名单快照被拒绝','error',
+ $q$delete from public.match_roster_snapshots$q$),
+-- 规范第 6.5 节末句：一个裁判不能被指派到时间冲突的两场比赛
+('C33 同一裁判被指派到时间冲突的两场比赛被拒绝','error',
+ $q$insert into public.judge_assignments (match_id, judge_id, assigned_by)
+    select '55555555-0000-0000-0000-000000000002', jp.id,
+           'aaaaaaaa-0000-0000-0000-000000000001'
+    from public.judge_profiles jp
+    where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
+      and exists (
+        select 1 from public.judge_assignments ja
+        where ja.match_id = '55555555-0000-0000-0000-000000000001'
+          and ja.judge_id = jp.id
+      )$q$);
 
 do $constraints$
 declare
@@ -693,7 +813,9 @@ declare
     'debate_formats','format_positions','student_format_profiles',
     'judge_format_qualifications','events','event_formats','registrations',
     'registration_format_preferences','audit_logs','system_settings','notices',
-      'partner_requests','participations','teams','team_members','pairing_proposals'];
+      'partner_requests','participations','teams','team_members','pairing_proposals',
+      'matches','match_teams','match_roster_snapshots','match_motions',
+      'judge_event_availability','judge_assignments'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -1167,6 +1289,20 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.judge_assignments;
+delete from public.judge_event_availability;
+-- ⚠️ 名单快照有"只增不改"的触发器，正常路径下**连超级管理员也会被拦住**（那是它存在的意义）。
+-- 测试收尾必须删掉虚构数据，因此这里以超级管理员身份**临时停用**该触发器，
+-- 删完立刻恢复。
+--
+-- 这不是安全漏洞：`scripts/db-tests.sql` 本身就以 postgres 超级用户运行，
+-- 而应用**从不**以超级用户连接数据库；生产路径上没有任何可以停用它的入口。
+alter table public.match_roster_snapshots disable trigger roster_snapshots_immutable;
+delete from public.match_roster_snapshots;
+alter table public.match_roster_snapshots enable trigger roster_snapshots_immutable;
+delete from public.match_teams;
+delete from public.match_motions;
+delete from public.matches;
 delete from public.pairing_proposals;
 delete from public.team_members;
 delete from public.teams;

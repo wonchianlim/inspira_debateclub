@@ -118,6 +118,62 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"judge_assignments": {
+                  Row: {
+                    "assigned_at": string,"assigned_by": string,"created_at": string,"id": string,"judge_id": string,"match_id": string,"role": Database["public"]['Enums']["judge_assignment_role"],"status": Database["public"]['Enums']["judge_assignment_status"],"updated_at": string
+                  }
+                  Insert: {
+                    "assigned_at"?: string,"assigned_by": string,"created_at"?: string,"id"?: string,"judge_id": string,"match_id": string,"role"?: Database["public"]['Enums']["judge_assignment_role"],"status"?: Database["public"]['Enums']["judge_assignment_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "assigned_at"?: string,"assigned_by"?: string,"created_at"?: string,"id"?: string,"judge_id"?: string,"match_id"?: string,"role"?: Database["public"]['Enums']["judge_assignment_role"],"status"?: Database["public"]['Enums']["judge_assignment_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "judge_assignments_assigned_by_fkey"
+      columns: ["assigned_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "judge_assignments_judge_id_fkey"
+      columns: ["judge_id"]
+isOneToOne: false
+      referencedRelation: "judge_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "judge_assignments_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"judge_event_availability": {
+                  Row: {
+                    "approved_at": string | null,"checked_in_at": string | null,"created_at": string,"event_id": string,"id": string,"judge_id": string,"signed_up_at": string,"status": Database["public"]['Enums']["judge_availability_status"],"updated_at": string
+                  }
+                  Insert: {
+                    "approved_at"?: string | null,"checked_in_at"?: string | null,"created_at"?: string,"event_id": string,"id"?: string,"judge_id": string,"signed_up_at"?: string,"status"?: Database["public"]['Enums']["judge_availability_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "approved_at"?: string | null,"checked_in_at"?: string | null,"created_at"?: string,"event_id"?: string,"id"?: string,"judge_id"?: string,"signed_up_at"?: string,"status"?: Database["public"]['Enums']["judge_availability_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "judge_event_availability_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "judge_event_availability_judge_id_fkey"
+      columns: ["judge_id"]
+isOneToOne: false
+      referencedRelation: "judge_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"judge_format_qualifications": {
                   Row: {
                     "approved": boolean,"approved_at": string | null,"approved_by": string | null,"created_at": string,"format_id": string,"id": string,"judge_id": string,"updated_at": string
@@ -165,6 +221,118 @@ isOneToOne: false
       columns: ["profile_id"]
 isOneToOne: true
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"match_motions": {
+                  Row: {
+                    "created_at": string,"created_by": string,"id": string,"match_id": string,"motion_text": string,"released_at": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"id"?: string,"match_id": string,"motion_text": string,"released_at"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"id"?: string,"match_id"?: string,"motion_text"?: string,"released_at"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "match_motions_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_motions_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"match_roster_snapshots": {
+                  Row: {
+                    "created_at": string,"id": string,"is_ironman": boolean,"match_id": string,"participation_id": string,"position": string,"rating_snapshot": number,"speaker_position": number | null,"student_display_name": string,"student_id": string,"team_id": string,"team_label": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"is_ironman": boolean,"match_id": string,"participation_id": string,"position": string,"rating_snapshot": number,"speaker_position"?: number | null,"student_display_name": string,"student_id": string,"team_id": string,"team_label"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"is_ironman"?: boolean,"match_id"?: string,"participation_id"?: string,"position"?: string,"rating_snapshot"?: number,"speaker_position"?: number | null,"student_display_name"?: string,"student_id"?: string,"team_id"?: string,"team_label"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "match_roster_snapshots_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_roster_snapshots_participation_id_fkey"
+      columns: ["participation_id"]
+isOneToOne: false
+      referencedRelation: "participations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_roster_snapshots_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "student_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_roster_snapshots_team_id_fkey"
+      columns: ["team_id"]
+isOneToOne: false
+      referencedRelation: "teams"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"match_teams": {
+                  Row: {
+                    "created_at": string,"id": string,"match_id": string,"placement": number | null,"position": string,"result": string | null,"team_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"match_id": string,"placement"?: number | null,"position": string,"result"?: string | null,"team_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"match_id"?: string,"placement"?: number | null,"position"?: string,"result"?: string | null,"team_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "match_teams_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_teams_team_id_fkey"
+      columns: ["team_id"]
+isOneToOne: false
+      referencedRelation: "teams"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"matches": {
+                  Row: {
+                    "ballot_submitted_at": string | null,"created_at": string,"event_id": string,"format_id": string,"id": string,"ironman": boolean,"match_number": number,"meeting_url": string | null,"published_at": string | null,"room_name": string,"roster_locked_at": string | null,"scheduled_start": string,"started_at": string | null,"status": Database["public"]['Enums']["match_status"],"updated_at": string
+                  }
+                  Insert: {
+                    "ballot_submitted_at"?: string | null,"created_at"?: string,"event_id": string,"format_id": string,"id"?: string,"ironman"?: boolean,"match_number": number,"meeting_url"?: string | null,"published_at"?: string | null,"room_name": string,"roster_locked_at"?: string | null,"scheduled_start": string,"started_at"?: string | null,"status"?: Database["public"]['Enums']["match_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "ballot_submitted_at"?: string | null,"created_at"?: string,"event_id"?: string,"format_id"?: string,"id"?: string,"ironman"?: boolean,"match_number"?: number,"meeting_url"?: string | null,"published_at"?: string | null,"room_name"?: string,"roster_locked_at"?: string | null,"scheduled_start"?: string,"started_at"?: string | null,"status"?: Database["public"]['Enums']["match_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "matches_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "matches_format_id_fkey"
+      columns: ["format_id"]
+isOneToOne: false
+      referencedRelation: "debate_formats"
       referencedColumns: ["id"]
     }
                   ]
@@ -588,7 +756,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","check_in_method": "self"|"admin","entitlement_type": "weekly_entitlement"|"extra_paid"|"extra_complimentary"|"extra_payment_pending","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","pairing_proposal_status": "draft"|"confirmed"|"superseded","participation_status": "proposed"|"confirmed"|"completed"|"cancelled","partner_request_status": "pending"|"accepted"|"unavailable"|"replaced"|"cancelled","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show","team_status": "proposed"|"confirmed"|"dissolved"
+            "app_role": "student"|"judge"|"coach"|"club_manager"|"super_admin","check_in_method": "self"|"admin","entitlement_type": "weekly_entitlement"|"extra_paid"|"extra_complimentary"|"extra_payment_pending","event_status": "draft"|"registration_open"|"registration_closed"|"pairing"|"ready"|"live"|"completed"|"archived"|"cancelled","judge_approval_status": "pending"|"approved"|"rejected"|"suspended","judge_assignment_role": "chair"|"panelist","judge_assignment_status": "assigned"|"accepted"|"completed"|"cancelled","judge_availability_status": "offered"|"approved"|"unavailable"|"assigned","match_status": "scheduled"|"missing_participant"|"ready"|"started"|"ballot_submitted"|"published"|"cancelled","pairing_proposal_status": "draft"|"confirmed"|"superseded","participation_status": "proposed"|"confirmed"|"completed"|"cancelled","partner_request_status": "pending"|"accepted"|"unavailable"|"replaced"|"cancelled","profile_status": "active"|"inactive"|"suspended","registration_status": "registered"|"cancelled"|"late_cancelled"|"checked_in"|"no_show","team_status": "proposed"|"confirmed"|"dissolved"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -708,7 +876,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"check_in_method": ["self", "admin"],"entitlement_type": ["weekly_entitlement", "extra_paid", "extra_complimentary", "extra_payment_pending"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"pairing_proposal_status": ["draft", "confirmed", "superseded"],"participation_status": ["proposed", "confirmed", "completed", "cancelled"],"partner_request_status": ["pending", "accepted", "unavailable", "replaced", "cancelled"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"],"team_status": ["proposed", "confirmed", "dissolved"]
+            "app_role": ["student", "judge", "coach", "club_manager", "super_admin"],"check_in_method": ["self", "admin"],"entitlement_type": ["weekly_entitlement", "extra_paid", "extra_complimentary", "extra_payment_pending"],"event_status": ["draft", "registration_open", "registration_closed", "pairing", "ready", "live", "completed", "archived", "cancelled"],"judge_approval_status": ["pending", "approved", "rejected", "suspended"],"judge_assignment_role": ["chair", "panelist"],"judge_assignment_status": ["assigned", "accepted", "completed", "cancelled"],"judge_availability_status": ["offered", "approved", "unavailable", "assigned"],"match_status": ["scheduled", "missing_participant", "ready", "started", "ballot_submitted", "published", "cancelled"],"pairing_proposal_status": ["draft", "confirmed", "superseded"],"participation_status": ["proposed", "confirmed", "completed", "cancelled"],"partner_request_status": ["pending", "accepted", "unavailable", "replaced", "cancelled"],"profile_status": ["active", "inactive", "suspended"],"registration_status": ["registered", "cancelled", "late_cancelled", "checked_in", "no_show"],"team_status": ["proposed", "confirmed", "dissolved"]
           }
         }
 } as const
