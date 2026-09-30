@@ -229,6 +229,25 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"email_outbox": {
+                  Row: {
+                    "attempts": number,"created_at": string,"id": string,"last_error": string | null,"payload": NonNullable<Json>,"scheduled_at": string,"sent_at": string | null,"status": string,"template_key": string,"to_email": string,"to_profile_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "attempts"?: number,"created_at"?: string,"id"?: string,"last_error"?: string | null,"payload"?: NonNullable<Json>,"scheduled_at"?: string,"sent_at"?: string | null,"status"?: string,"template_key": string,"to_email": string,"to_profile_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "attempts"?: number,"created_at"?: string,"id"?: string,"last_error"?: string | null,"payload"?: NonNullable<Json>,"scheduled_at"?: string,"sent_at"?: string | null,"status"?: string,"template_key"?: string,"to_email"?: string,"to_profile_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "email_outbox_to_profile_id_fkey"
+      columns: ["to_profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"event_formats": {
                   Row: {
                     "created_at": string,"enabled": boolean,"event_id": string,"format_id": string,"id": string,"motion": string | null,"updated_at": string

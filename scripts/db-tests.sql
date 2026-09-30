@@ -39,6 +39,7 @@ delete from public.registrations;
 delete from public.ballot_review_requests;
 delete from public.coach_notes;
 delete from public.notice_reads;
+delete from public.email_outbox;
 delete from public.ballot_feedback;
 delete from public.ballot_scores;
 delete from public.ballots;
@@ -2157,6 +2158,115 @@ end
 $notice_reads_judge$;
 
 delete from audit_results where ord >= 80;
+-- ---- 邮件发件队列（Phase 9）----
+--
+-- ⚠️ 队列**没有给 authenticated 任何写权限**（包括管理员）：
+--    入队由服务角色在 server-only 模块里做，那里才有"该发什么"的判断。
+--    下面用超级用户插入来测"谁能读"。
+insert into public.email_outbox (to_profile_id, to_email, template_key, payload, status, sent_at, last_error)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000004', 'stua@example.invalid', 'ballot_published',
+   '{"matchNumber": 1}'::jsonb, 'pending', null, null),
+  ('aaaaaaaa-0000-0000-0000-000000000005', 'stub@example.invalid', 'ballot_published',
+   '{"matchNumber": 2}'::jsonb, 'sent', now(), null),
+  ('aaaaaaaa-0000-0000-0000-000000000006', 'stuc@example.invalid', 'ballot_overdue',
+   '{"matchNumber": 3}'::jsonb, 'failed', null, 'smtp timeout');
+
+set role authenticated;
+do $outbox_rls$
+declare
+  v_manager_count int := 0;
+  v_student_count int := 0;
+  v_denied boolean := false;
+begin
+  -- 管理员能读到队列（出问题时需要看得见积了什么）
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_manager_count from public.email_outbox;
+  insert into audit_results (ord, label, expected, actual)
+  values (90, '管理员能读取邮件队列', 'true', (v_manager_count >= 3)::text);
+
+  -- ⚠️ 但管理员**不能写入** —— 队列里全是别人的邮箱地址，
+  --    给管理员 INSERT 只会多一条绕开业务规则的路径
+  begin
+    insert into public.email_outbox (to_email, template_key)
+    values ('someone@example.invalid', 'manual');
+  exception when insufficient_privilege then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (91, '管理员**不能**直接往队列里写', 'true', v_denied::text);
+
+  -- 学生完全看不到（队列里全是他人的邮箱地址）
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  select count(*) into v_student_count from public.email_outbox;
+  insert into audit_results (ord, label, expected, actual)
+  values (92, '学生看不到邮件队列（0 行）', '0', v_student_count::text);
+end
+$outbox_rls$;
+reset role;
+
+-- 约束：状态与 sent_at 必须一致、失败必须有原因
+do $outbox_constraints$
+declare
+  v_bad_sent boolean := false;
+  v_bad_failed boolean := false;
+begin
+  begin
+    insert into public.email_outbox (to_email, template_key, status, sent_at)
+    values ('x@example.invalid', 't', 'pending', now());
+  exception when check_violation then
+    v_bad_sent := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (93, '未发出的信不能有发出时间', 'true', v_bad_sent::text);
+
+  begin
+    insert into public.email_outbox (to_email, template_key, status, last_error)
+    values ('x@example.invalid', 't', 'failed', null);
+  exception when check_violation then
+    v_bad_failed := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (94, '失败的信必须带原因', 'true', v_bad_failed::text);
+end
+$outbox_constraints$;
+
+-- 队列**不进审计**（机器行为 + 个人信息）
+do $outbox_no_audit$
+declare
+  v_exists boolean;
+begin
+  select exists (select 1 from pg_trigger where tgname = 'audit_email_outbox') into v_exists;
+  insert into audit_results (ord, label, expected, actual)
+  values (95, '邮件队列没有审计触发器（机器行为且含个人信息）', 'false', v_exists::text);
+end
+$outbox_no_audit$;
+
+-- ---- 判定：邮件队列（ord 90 起）----
+do $outbox_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 90 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[邮件队列] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[邮件队列] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[邮件队列] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '邮件队列测试失败 % 条', fails;
+  end if;
+end
+$outbox_judge$;
+
+delete from audit_results where ord >= 90;
+
 
 
 
