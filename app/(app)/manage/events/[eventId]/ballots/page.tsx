@@ -12,6 +12,7 @@ import {
   availableBallotActions,
   isBallotSubmittedForDashboard,
 } from "@/lib/domain/ballot-lifecycle";
+import { checkBallotOverdue } from "@/lib/domain/ballot-overdue";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
 import { ReviewButtons } from "./review-buttons";
@@ -30,6 +31,21 @@ export default async function EventBallotsPage({
 
   const ballots = await listEventBallots(eventId);
   const notSubmitted = ballots.filter((ballot) => !isBallotSubmittedForDashboard(ballot.status));
+
+  /*
+   * 超时标记（P7-7）。
+   *
+   * ⚠️ 没有邮件服务商之前，这是**页面上的标记**而不是真的发信 ——
+   * 但它的价值是一样的：让管理员一眼看到哪几场还差，
+   * 而不是去逐条比对时间。
+   */
+  const now = new Date();
+  const overdue = ballots
+    .map((ballot) => ({
+      ballot,
+      overdue: checkBallotOverdue(new Date(ballot.scheduledStart), ballot.status, now),
+    }))
+    .filter((entry) => entry.overdue.overdue);
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,8 +69,30 @@ export default async function EventBallotsPage({
             把它算成已交会让这里显示"全部交齐"而实际还差一份。
           */}
           <p className="text-muted-foreground text-sm">
-            共 {ballots.length} 份评分表，其中 {notSubmitted.length} 份还没交齐。
+            共 {ballots.length} 份评分表，其中 {notSubmitted.length} 份还没交齐
+            {overdue.length > 0 ? `，其中 ${overdue.length} 份已超时` : ""}。
           </p>
+
+          {overdue.length > 0 ? (
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="text-destructive text-base">
+                  这些评分表已经超时（比赛开始超过 90 分钟仍未提交）
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1 text-sm">
+                {overdue.map((entry) => (
+                  <div key={entry.ballot.ballotId}>
+                    第 {entry.ballot.matchNumber} 场 · {entry.ballot.roomName}（裁判：
+                    {entry.ballot.judgeName}）—— 已超过 {entry.overdue.minutesOverdue} 分钟
+                  </div>
+                ))}
+                <p className="text-muted-foreground mt-1 text-xs">
+                  超时只是提示，不会阻止任何操作。请联系对应裁判，或在必要时重开评分表。
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader>
