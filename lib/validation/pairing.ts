@@ -60,3 +60,16 @@ export const JUDGE_ROLE_LABELS = {
   chair: "主裁",
   panelist: "评委",
 } as const;
+
+/**
+ * 逐人移动队员（Phase 5 / P5-7，规范 10.7 第 1 条）。
+ *
+ * 前端只提交"从哪支队、哪位学生、到哪支队"三个 id；
+ * 全部跨表条件（同活动同赛制、目标有空位、名单未锁定）由数据库函数判定，
+ * 应用层不重复实现 —— 重复实现一定会与数据库漂移。
+ */
+export const moveTeamMemberSchema = z.object({
+  fromTeamId: z.guid({ error: "源队伍标识格式不正确" }),
+  participationId: z.guid({ error: "参与标识格式不正确" }),
+  toTeamId: z.guid({ error: "目标队伍标识格式不正确" }),
+});

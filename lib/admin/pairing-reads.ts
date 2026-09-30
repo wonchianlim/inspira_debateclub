@@ -169,3 +169,32 @@ export async function getPairingOverview(eventId: string): Promise<PairingOvervi
     unallocatedNames,
   };
 }
+
+/**
+ * 学生 id → 参与 id 的映射。
+ *
+ * 移动队员需要的是 `participation_id`（队伍成员表用的是它），
+ * 而界面上的成员是以学生 id 呈现的，因此需要一次查询把它们对上。
+ */
+export async function getParticipationIdsByStudent(eventId: string): Promise<Map<string, string>> {
+  const supabase = await createUserSupabaseClient();
+  const { data, error } = await supabase
+    .from("participations")
+    .select("id, student_id, participation_number")
+    .eq("event_id", eventId);
+
+  if (error) {
+    console.error("[admin] 读取参与记录失败:", error.message);
+    return new Map();
+  }
+
+  // 一个人可能有多条参与（额外场次）；这里取**第一条**（正常名额）
+  const map = new Map<string, string>();
+  for (const row of (data ?? []).sort(
+    (a, b) => (a.participation_number as number) - (b.participation_number as number),
+  )) {
+    const studentId = row.student_id as string;
+    if (!map.has(studentId)) map.set(studentId, row.id as string);
+  }
+  return map;
+}

@@ -11,6 +11,7 @@ import {
   confirmProposalSchema,
   dissolveTeamSchema,
   generateProposalSchema,
+  moveTeamMemberSchema,
   setTeamLockSchema,
 } from "@/lib/validation/pairing";
 
@@ -234,4 +235,60 @@ export async function confirmProposalAction(
 
   revalidatePairing(eventId);
   return { status: "success", message: "提案已确认。" };
+}
+
+// -----------------------------------------------------------------------------
+// 逐人移动队员（Phase 5 / P5-7）
+// -----------------------------------------------------------------------------
+/**
+ * 把一位学生从一支队伍移到另一支。
+ *
+ * 规范 10.7 第 1 条："Managers can always edit proposals before a match starts."
+ * Phase 4 交付时只做了锁定/解散/重新生成，**逐人移动**是当时记录的已知缺口。
+ *
+ * 全部跨表条件由数据库函数 `move_team_member` 判定；
+ * 应用层只负责权限与把数据库的中文错误转成可读提示。
+ */
+export async function moveTeamMemberAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = moveTeamMemberSchema.safeParse({
+    fromTeamId: formData.get("fromTeamId"),
+    participationId: formData.get("participationId"),
+    toTeamId: formData.get("toTeamId"),
+  });
+  if (!parsed.success) return failure("移动参数不正确。");
+
+  const auth = await requireManager();
+  if (isFailure(auth)) return auth;
+
+  const eventId = await eventIdOfTeam(parsed.data.fromTeamId);
+  if (!eventId) return failure("找不到源队伍。");
+
+  const supabase = await createUserSupabaseClient();
+  const { error } = await supabase.rpc("move_team_member", {
+    p_from_team_id: parsed.data.fromTeamId,
+    p_participation_id: parsed.data.participationId,
+    p_to_team_id: parsed.data.toTeamId,
+  });
+
+  if (error) {
+    console.error("[admin] 移动队员失败:", error.message);
+    // 数据库给出的中文原因比笼统的"失败"有用得多，尽量透传
+    if (error.message.includes("名单已经锁定")) {
+      return failure(
+        "这两支队伍所在比赛的名单已经锁定，不能直接移动。如确需更正，请使用紧急名单更正流程。",
+      );
+    }
+    if (error.message.includes("已经满了"))
+      return failure("目标队伍已经满了，请先移出或解散其中一支。");
+    if (error.message.includes("同一个活动"))
+      return failure("只能在同一个活动、同一个赛制内移动队员。");
+    if (error.message.includes("已经在目标队伍")) return failure("这位学生已经在目标队伍里了。");
+    return failure("移动失败，请稍后再试。");
+  }
+
+  revalidatePairing(eventId);
+  return { status: "success", message: "已移动这位学生。" };
 }

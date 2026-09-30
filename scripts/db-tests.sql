@@ -1241,6 +1241,81 @@ begin
 end
 $lookupcols$;
 
+-- ---- 逐人移动队员（Phase 5 / P5-7，规范 10.7 第 1 条）----
+--
+-- ⚠️ 这一节必须放在"开始比赛"**之前**：开始之后名单会被锁定，
+-- 而锁定之后移动队员是**故意被拒绝**的（要改必须走紧急更正流程）。
+-- 初版把它放在锁定之后，结果"管理员移动队员成功"这条直接失败 ——
+-- 那是**函数行为正确、测试顺序错误**。
+set role authenticated;
+do $move_member$
+declare
+  v_note text;
+  v_count_before int;
+  v_count_after int;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+
+  /*
+   * 把 ...0005 从队伍 ...0002 移到队伍 ...0001。
+   *
+   * ⚠️ 方向是刻意的：**不能动 ...0004**，因为后面"开始比赛"一节的 Ironman 用例
+   * 需要 ...0004 仍在队伍 ...0001 里。初版就是反着移的，结果那条用例报
+   * "这位学生不在这支队伍里" —— 又是**测试之间互相影响**，不是功能问题。
+   */
+  select count(*) into v_count_before
+  from public.team_members where team_id = '22222222-0000-0000-0000-000000000001';
+
+  v_note := public.move_team_member(
+    '22222222-0000-0000-0000-000000000002',
+    '11111111-0000-0000-0000-000000000005',
+    '22222222-0000-0000-0000-000000000001'
+  );
+
+  select count(*) into v_count_after
+  from public.team_members where team_id = '22222222-0000-0000-0000-000000000001';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (30, '管理员移动队员成功', 'true', (v_note is not null)::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (31, '目标队伍人数 +1', (v_count_before + 1)::text, v_count_after::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (32, '源队伍里不再有这位学生', '0',
+    (select count(*)::text from public.team_members
+      where team_id = '22222222-0000-0000-0000-000000000002'
+        and participation_id = '11111111-0000-0000-0000-000000000005'));
+  insert into audit_results (ord, label, expected, actual)
+  values (33, '移动队员产生审计记录', 'true',
+    (exists (
+      select 1 from public.audit_logs
+      where entity_type = 'team_members' and action = 'update'
+    ))::text);
+end
+$move_member$;
+reset role;
+
+-- 非管理员不能移动队员
+set role authenticated;
+do $move_member_denied$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  begin
+    perform public.move_team_member(
+      '22222222-0000-0000-0000-000000000001',
+      '11111111-0000-0000-0000-000000000005',
+      '22222222-0000-0000-0000-000000000002'
+    );
+  exception when insufficient_privilege then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (35, '学生不能移动队员', 'true', v_denied::text);
+end
+$move_member_denied$;
+reset role;
+
 -- =============================================================================
 -- 六·补、开始比赛与名单快照锁定（Phase 5 / P5-5）
 --
@@ -1321,6 +1396,29 @@ begin
   );
   insert into audit_results (ord, label, expected, actual)
   values (26, '紧急更正返回说明', 'true', (v_note is not null and length(v_note) > 0)::text);
+
+  /*
+   * ---- 5) 名单锁定之后**不能**再走日常的移动路径（规范 10.7 第 1 条）----
+   *
+   * 规范把那句话限定为 "before a match starts"。
+   * 开始之后要改名单，必须走 `emergency_correct_roster()` 那条**必须给理由**的通道 ——
+   * 日常路径不能被用来绕过它。
+   */
+  declare
+    v_move_denied boolean := false;
+  begin
+    begin
+      perform public.move_team_member(
+        '22222222-0000-0000-0000-000000000001',
+        '11111111-0000-0000-0000-000000000004',
+        '22222222-0000-0000-0000-000000000002'
+      );
+    exception when check_violation then
+      v_move_denied := true;
+    end;
+    insert into audit_results (ord, label, expected, actual)
+    values (36, '名单锁定后移动队员被拒绝', 'true', v_move_denied::text);
+  end;
 end
 $match_lifecycle$;
 reset role;

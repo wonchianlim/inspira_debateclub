@@ -748,6 +748,9 @@ isOneToOne: false
 "is_super_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"move_team_member":
+{ Args: { "p_from_team_id": string,"p_participation_id": string,"p_to_team_id": string }; Returns: string
+                           },
 "my_judge_id":
 { Args: Record<PropertyKey, never>; Returns: string
                            },

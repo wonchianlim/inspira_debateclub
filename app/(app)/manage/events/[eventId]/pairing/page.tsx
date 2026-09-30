@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
-import { getPairingOverview } from "@/lib/admin/pairing-reads";
+import { getPairingOverview, getParticipationIdsByStudent } from "@/lib/admin/pairing-reads";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { requireAnyRole } from "@/lib/auth/session";
 import { warningCategory } from "@/lib/domain/pairing-warnings";
@@ -19,6 +19,7 @@ import {
   GenerateForm,
   TeamLockButton,
 } from "./pairing-controls";
+import { MoveMemberForm } from "./move-member-form";
 
 export const metadata = { title: "配对提案 · INSPIRA" };
 
@@ -28,9 +29,11 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
   await requireAnyRole(AREA_ROLES.manage);
   const { eventId } = await params;
 
-  const [event, overview] = await Promise.all([
+  const [event, overview, memberParticipationIds] = await Promise.all([
     getEventDetail(eventId),
     getPairingOverview(eventId),
+    // 移动队员需要 participation_id，而界面上的成员是以学生 id 呈现的
+    getParticipationIdsByStudent(eventId),
   ]);
   if (!event) notFound();
 
@@ -190,15 +193,37 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                   </div>
 
                   <ul className="mb-3 flex flex-col gap-1 text-sm">
-                    {team.members.map((member) => (
-                      <li key={member.studentId}>
-                        {member.displayName}
-                        {member.school ? (
-                          <span className="text-muted-foreground"> · {member.school}</span>
-                        ) : null}
-                        <span className="text-muted-foreground"> · 评分 {member.rating}</span>
-                      </li>
-                    ))}
+                    {team.members.map((member) => {
+                      const participationId = memberParticipationIds.get(member.studentId);
+                      return (
+                        <li key={member.studentId} className="flex flex-wrap items-center gap-2">
+                          <span>
+                            {member.displayName}
+                            {member.school ? (
+                              <span className="text-muted-foreground"> · {member.school}</span>
+                            ) : null}
+                            <span className="text-muted-foreground"> · 评分 {member.rating}</span>
+                          </span>
+                          {participationId && !team.locked ? (
+                            <MoveMemberForm
+                              fromTeamId={team.teamId}
+                              participationId={participationId}
+                              studentName={member.displayName}
+                              otherTeams={overview.teams
+                                .filter(
+                                  (other) =>
+                                    other.teamId !== team.teamId &&
+                                    other.formatId === team.formatId,
+                                )
+                                .map((other) => ({
+                                  teamId: other.teamId,
+                                  label: other.teamLabel ?? "（未编号队伍）",
+                                }))}
+                            />
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
 
                   <div className="flex flex-wrap items-start gap-2">
