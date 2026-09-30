@@ -69,7 +69,8 @@ insert into auth.users (id, email) values
  ('aaaaaaaa-0000-0000-0000-000000000002','mgr@example.invalid'),
  ('aaaaaaaa-0000-0000-0000-000000000003','coach@example.invalid'),
  ('aaaaaaaa-0000-0000-0000-000000000004','stua@example.invalid'),
- ('aaaaaaaa-0000-0000-0000-000000000005','stub@example.invalid');
+ ('aaaaaaaa-0000-0000-0000-000000000005','stub@example.invalid'),
+ ('aaaaaaaa-0000-0000-0000-000000000006','stuc@example.invalid');
 
 insert into public.user_roles (profile_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000001','super_admin'),
@@ -77,16 +78,21 @@ insert into public.user_roles (profile_id, role) values
  ('aaaaaaaa-0000-0000-0000-000000000002','club_manager'),
  ('aaaaaaaa-0000-0000-0000-000000000003','coach'),
  ('aaaaaaaa-0000-0000-0000-000000000004','student'),
- ('aaaaaaaa-0000-0000-0000-000000000005','student');
+ ('aaaaaaaa-0000-0000-0000-000000000005','student'),
+ ('aaaaaaaa-0000-0000-0000-000000000006','student');
 
 -- 刻意给固定 id：学生**看不到**别人的 student_profiles 行（RLS 正确地隐藏了），
 -- 因此用例里不能用子查询去取"另一个学生"的 id —— 那样取到的是 NULL，
 -- 插入会以"违反 RLS"的形式失败，看起来像是策略写错了，实际是测试写法不对。
 -- 这是实测踩到的：A23 一开始就是这么写的。
 -- 搭档码在真实使用中是随机生成的，但测试里必须**固定**才能断言。
+-- ⚠️ 刻意加第三位学生（学生 C）。F-STU-14 要求验证"学生修改**他人**的搭档请求"被拒绝，
+-- 而两位原始学生的**双方都**是搭档请求的当事人，构造不出"无关第三方"。
+-- 只加档案、不加报名，因此不影响报名与参与相关的用例。
 insert into public.student_profiles (id, profile_id, school, partner_code) values
  ('eeeeeeee-0000-0000-0000-000000000004','aaaaaaaa-0000-0000-0000-000000000004','虚构中学A','STUDENTA04'),
- ('eeeeeeee-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000005','虚构中学B','STUDENTB05');
+ ('eeeeeeee-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000005','虚构中学B','STUDENTB05'),
+ ('eeeeeeee-0000-0000-0000-000000000006','aaaaaaaa-0000-0000-0000-000000000006','虚构中学C','STUDENTC06');
 
 -- 只有 PF 是"已合格"，WSDC 刻意保持不合格（用于测试 F-STU-10）
 insert into public.student_format_profiles (student_id, format_id, eligible, rating, updated_by)
@@ -438,6 +444,11 @@ insert into authz_cases (label, sub, want, sql) values
  $q$select count(*) from public.pairing_proposals$q$),
 ('F-COA-10 教练读配对提案','aaaaaaaa-0000-0000-0000-000000000003','deny',
  $q$select count(*) from public.pairing_proposals$q$),
+-- F-STU-14：学生修改**他人**的搭档请求。
+-- 学生 C 与该请求毫无关系（既不是发起方也不是被请求方），必须被拒绝。
+('F-STU-14 学生修改他人的搭档请求','aaaaaaaa-0000-0000-0000-000000000006','deny',
+ $q$with x as (update public.partner_requests set status = 'accepted' returning 1)
+    select count(*) from x$q$),
 ('F-STU-35 学生自行写入配对提案','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (insert into public.pairing_proposals (event_id, algorithm_version, input_snapshot)
       values ('bbbbbbbb-0000-0000-0000-000000000001','1.0.0','{}'::jsonb) returning 1)
