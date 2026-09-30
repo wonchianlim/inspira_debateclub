@@ -97,3 +97,84 @@ export async function transitionBallotAction(
         : "已发布。学生现在可以看到这份评分表。",
   };
 }
+
+const resolveSchema = z.object({
+  requestId: z.guid({ error: "复核请求标识格式不正确" }),
+  eventId: z.guid({ error: "活动标识格式不正确" }),
+  /** 只能改成这两个状态：受理后可以"处理中"，最终要么已处理要么驳回 */
+  status: z.enum(["reviewing", "resolved", "rejected"]),
+  response: z.string().trim().max(1000, { error: "回复太长了，请精简到 1000 字以内。" }).optional(),
+});
+
+/**
+ * 处理一份复核请求（Phase 8）。
+ *
+ * 规范第 15 节 Phase 8："Ballot review request and manager resolution."
+ *
+ * ⚠️ 规范 §17 把"学生能否撤回或重开复核请求"列为**不能自行决定**的事项，
+ *    因此这里**刻意不提供**学生侧的撤回功能，也不允许管理员把请求退回 open ——
+ *    一旦受理，就只有"已处理"或"驳回"两个终点。
+ *
+ * ⚠️ 状态改成 `resolved` / `rejected` 时**必须写回复**。
+ *    让管理员只点一个按钮而学生看不到任何解释，
+ *    与不做这个功能没有区别 —— 学生只会觉得被无视了。
+ */
+export async function resolveBallotReviewRequestAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = resolveSchema.safeParse({
+    requestId: formData.get("requestId"),
+    eventId: formData.get("eventId"),
+    status: formData.get("status"),
+    response: formData.get("response") ?? undefined,
+  });
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "提交的内容格式不正确。",
+    };
+  }
+
+  await requireAnyRole(AREA_ROLES.manage);
+
+  if (
+    (parsed.data.status === "resolved" || parsed.data.status === "rejected") &&
+    (parsed.data.response ?? "").trim().length < 5
+  ) {
+    return {
+      status: "error",
+      message: "结束处理时必须写一句回复（至少 5 个字），否则学生看不到任何解释。",
+    };
+  }
+
+  const supabase = await createUserSupabaseClient();
+  const { data: profileId } = await supabase.rpc("current_profile_id");
+
+  const { error } = await supabase
+    .from("ballot_review_requests")
+    .update({
+      status: parsed.data.status,
+      admin_response: parsed.data.response ?? null,
+      // 只有真正结束时才记处理人与时间；"处理中"不算结束
+      ...(parsed.data.status === "reviewing"
+        ? {}
+        : { resolved_by: profileId as string, resolved_at: new Date().toISOString() }),
+    })
+    .eq("id", parsed.data.requestId);
+
+  if (error) {
+    console.error("[admin] 处理复核请求失败:", error.message);
+    return { status: "error", message: "保存失败，请稍后再试。" };
+  }
+
+  revalidatePath(`/manage/events/${parsed.data.eventId}/ballots`);
+  revalidatePath("/student/ballots");
+
+  const messages: Record<string, string> = {
+    reviewing: "已标为处理中。",
+    resolved: "已处理，学生可以看到你的回复。",
+    rejected: "已驳回，学生可以看到你的说明。",
+  };
+  return { status: "success", message: messages[parsed.data.status] ?? "已保存。" };
+}

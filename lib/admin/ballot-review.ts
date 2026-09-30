@@ -88,3 +88,77 @@ export async function listEventBallots(eventId: string): Promise<EventBallotRow[
     })),
   );
 }
+
+export type ReviewRequestRow = {
+  requestId: string;
+  ballotId: string;
+  matchNumber: number;
+  roomName: string;
+  formatCode: string;
+  studentName: string;
+  reason: string;
+  status: "open" | "reviewing" | "resolved" | "rejected";
+  adminResponse: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+};
+
+/**
+ * 某个活动下的复核请求（Phase 8）。
+ *
+ * 规范第 15 节 Phase 8 要求 "Ballot review request and **manager resolution**" ——
+ * 学生那一侧（提交）在 P7-6b 做好了，这一侧是管理员的处理。
+ */
+export async function listEventReviewRequests(eventId: string): Promise<ReviewRequestRow[]> {
+  const supabase = await createUserSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("ballot_review_requests")
+    .select(
+      "id, reason, status, admin_response, created_at, resolved_at, " +
+        "ballots(id, matches(id, match_number, room_name, event_id, debate_formats(code))), " +
+        "student_profiles(profiles(display_name))",
+    );
+
+  if (error) throw new Error(`读取复核请求失败：${error.message}`);
+
+  type Row = {
+    id: string;
+    reason: string;
+    status: string;
+    admin_response: string | null;
+    created_at: string;
+    resolved_at: string | null;
+    ballots: {
+      id: string;
+      matches: {
+        id: string;
+        match_number: number;
+        room_name: string;
+        event_id: string;
+        debate_formats: { code: string } | null;
+      } | null;
+    } | null;
+    student_profiles: { profiles: { display_name: string } | null } | null;
+  };
+
+  return (
+    ((data ?? []) as unknown as Row[])
+      // 只保留本活动的 —— RLS 允许管理员看到**所有**活动的请求，因此这里必须自己过滤
+      .filter((row) => row.ballots?.matches?.event_id === eventId)
+      .map((row) => ({
+        requestId: row.id,
+        ballotId: row.ballots?.id ?? "",
+        matchNumber: row.ballots?.matches?.match_number ?? 0,
+        roomName: row.ballots?.matches?.room_name ?? "",
+        formatCode: row.ballots?.matches?.debate_formats?.code ?? "?",
+        studentName: row.student_profiles?.profiles?.display_name ?? "（未知）",
+        reason: row.reason,
+        status: row.status as ReviewRequestRow["status"],
+        adminResponse: row.admin_response,
+        createdAt: row.created_at,
+        resolvedAt: row.resolved_at,
+      }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  );
+}

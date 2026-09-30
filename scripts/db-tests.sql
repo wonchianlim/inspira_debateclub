@@ -1820,8 +1820,48 @@ begin
   select count(*) into v_count from public.ballot_review_requests;
   insert into audit_results (ord, label, expected, actual)
   values (65, '管理员能看到全部复核请求', 'true', (v_count >= 1)::text);
+
+  -- 管理员可以处理（改状态并写回复）
+  update public.ballot_review_requests
+     set status = 'resolved', admin_response = '已核对，确实漏记了第二点，已请裁判重开更正。'
+   where ballot_id = 'bb000000-0000-0000-0000-000000000002';
+  get diagnostics v_count = row_count;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (66, '管理员可以处理复核请求', '1', v_count::text);
 end
 $review_request_manager$;
+reset role;
+
+-- 学生**不能**自己改复核请求的状态
+--
+-- ⚠️ 规范 §17 把"学生能否撤回或重开复核请求"列为**不能自行决定**的事项，
+--    因此系统只给学生"提交"权，不给"撤回"或"改状态"权。
+--    RLS 的 UPDATE 是**静默过滤**：改不到就是 0 行，**不会报错**。
+--    所以这一条必须检查**行数**，而不是等一个异常。
+set role authenticated;
+do $review_request_student_cannot_update$
+declare
+  v_count int := 0;
+  v_status public.review_request_status;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+
+  update public.ballot_review_requests
+     set status = 'resolved', admin_response = '学生自己想改状态'
+   where ballot_id = 'bb000000-0000-0000-0000-000000000002';
+  get diagnostics v_count = row_count;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (67, '学生不能自己改复核请求状态（改到 0 行）', '0', v_count::text);
+
+  -- 而且状态确实没变（防止"0 行"是因为别的原因）
+  select status into v_status from public.ballot_review_requests
+   where ballot_id = 'bb000000-0000-0000-0000-000000000002';
+  insert into audit_results (ord, label, expected, actual)
+  values (68, '复核请求状态仍是管理员设的 resolved', 'resolved', v_status::text);
+end
+$review_request_student_cannot_update$;
 reset role;
 
 -- ---- 判定：复核请求（ord 60 起）----

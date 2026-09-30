@@ -4,7 +4,7 @@ import { StatePanel } from "@/components/domain/state-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listEventBallots } from "@/lib/admin/ballot-review";
+import { listEventBallots, listEventReviewRequests } from "@/lib/admin/ballot-review";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { requireAnyRole } from "@/lib/auth/session";
 import {
@@ -16,6 +16,7 @@ import { checkBallotOverdue } from "@/lib/domain/ballot-overdue";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
 import { ReviewButtons } from "./review-buttons";
+import { ReviewRequestPanel } from "./review-request-panel";
 
 export const metadata = { title: "评分表复核 · INSPIRA" };
 
@@ -29,7 +30,10 @@ export default async function EventBallotsPage({
   await requireAnyRole(AREA_ROLES.manage);
   const { eventId } = await params;
 
-  const ballots = await listEventBallots(eventId);
+  const [ballots, reviewRequests] = await Promise.all([
+    listEventBallots(eventId),
+    listEventReviewRequests(eventId),
+  ]);
   const notSubmitted = ballots.filter((ballot) => !isBallotSubmittedForDashboard(ballot.status));
 
   /*
@@ -55,6 +59,8 @@ export default async function EventBallotsPage({
           <Link href={`/manage/events/${eventId}`}>返回活动</Link>
         </Button>
       </div>
+
+      <ReviewRequestPanel eventId={eventId} requests={reviewRequests} />
 
       {ballots.length === 0 ? (
         <StatePanel
