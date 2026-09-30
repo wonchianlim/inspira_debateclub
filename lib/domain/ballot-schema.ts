@@ -196,6 +196,20 @@ export type BallotCrossFieldRule =
       kind: "totalsMustNotTie";
       totalKey: string;
       message: string;
+    }
+  | {
+      /**
+       * 两队总项之差必须落在一个区间内。
+       *
+       * WSDC 与 JWSD 的硬规则：**差不能超过 12 分，也不能少于 0.5 分**。
+       * 下界 0.5 意味着"不能平局"（在允许半分的赛制里，0.5 就是最小差距）；
+       * 上界 12 意味着"不能一边倒得太离谱"——那通常说明打分出了问题。
+       */
+      kind: "teamTotalGapWithinRange";
+      totalKey: string;
+      minGap: number;
+      maxGap: number;
+      message: string;
     };
 
 export type BallotTemplateSchema = {
@@ -1015,6 +1029,17 @@ export function canSubmitBallot(
         );
 
       if (entries.length < 2) continue; // 还没算得出两支队伍的总项，无法判断
+
+      if (rule.kind === "teamTotalGapWithinRange") {
+        const values = entries.map((entry) => entry.value);
+        const gap = Math.max(...values) - Math.min(...values);
+        if (gap < rule.minGap) {
+          issues.push({ message: rule.message });
+        } else if (gap > rule.maxGap) {
+          issues.push({ message: rule.message });
+        }
+        continue;
+      }
 
       if (rule.kind === "totalsMustNotTie") {
         const values = entries.map((entry) => entry.value);

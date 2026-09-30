@@ -242,3 +242,55 @@ describe("WSDC 校准：平均 70 的分数构成（规范：Style 28 / Content 
     expect(speakerTotals["p-1"]?.speaker_total).toBe(75);
   });
 });
+
+/**
+ * 产品负责人 2026-09-29：**WSDC 与 JWSD 的队伍总分差必须在 0.5–12 分之间**。
+ *
+ * 只针对这两个赛制 —— 1v1 的队伍满分才 30 分，差 12 分是另一个量级；
+ * PF 的规范也没有这条。因此断言里**明确检查哪两份有、哪两份没有**。
+ */
+describe("队伍总分差的硬性区间（仅 WSDC 与 JWSD）", () => {
+  const withGapRule = ENTRIES.filter(([, entry]) =>
+    (entry.schema.rules ?? []).some((rule) => rule.kind === "teamTotalGapWithinRange"),
+  ).map(([code]) => code);
+
+  it("只有 WSDC 与 JWSD 有这条规则", () => {
+    expect(withGapRule.sort()).toEqual(["JWSD", "WSDC"]);
+  });
+
+  it("1v1 与 PF **没有**这条规则（产品负责人的说明不包含它们）", () => {
+    expect(withGapRule).not.toContain("ONE_V_ONE");
+    expect(withGapRule).not.toContain("PF");
+  });
+
+  it("区间是 0.5 到 12", () => {
+    for (const code of withGapRule) {
+      const rule = (OFFICIAL_TEMPLATES[code]!.schema.rules ?? []).find(
+        (candidate) => candidate.kind === "teamTotalGapWithinRange",
+      );
+      expect(rule, code).toMatchObject({ minGap: 0.5, maxGap: 12 });
+    }
+  });
+
+  it("下界 0.5 正好使「不能平局」成为它的特例", () => {
+    for (const code of withGapRule) {
+      const rule = (OFFICIAL_TEMPLATES[code]!.schema.rules ?? []).find(
+        (candidate) => candidate.kind === "teamTotalGapWithinRange",
+      );
+      // 允许半分的赛制里，最小非零差距就是 0.5
+      expect(typeof rule === "object" && "minGap" in rule ? rule.minGap : null).toBe(0.5);
+    }
+  });
+
+  it("规则引用的总项真实存在且是队伍级", () => {
+    for (const code of withGapRule) {
+      const schema = OFFICIAL_TEMPLATES[code]!.schema;
+      const rule = (schema.rules ?? []).find((r) => r.kind === "teamTotalGapWithinRange");
+      const total = (schema.totals ?? []).find(
+        (t) => t.key === (rule as { totalKey: string }).totalKey,
+      );
+      expect(total, code).toBeDefined();
+      expect(["team", "teamFromSpeakers"], code).toContain(total?.scope);
+    }
+  });
+});

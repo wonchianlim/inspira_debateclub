@@ -7,10 +7,11 @@ import {
   listBallotTemplates,
   listFormatsWithoutActiveTemplate,
 } from "@/lib/admin/ballot-templates";
+import { OFFICIAL_TEMPLATES } from "@/lib/domain/official-templates";
 import { TEMPLATE_PERMISSION_NOTE } from "@/lib/validation/ballot-templates";
 import { requireAnyRole } from "@/lib/auth/session";
 
-import { TemplateForm, TemplateToggleButton } from "./template-form";
+import { SeedOfficialTemplatesButton, TemplateForm, TemplateToggleButton } from "./template-form";
 
 export const metadata = { title: "评分表模板 · INSPIRA" };
 
@@ -53,6 +54,17 @@ export default async function BallotTemplatesPage() {
             <p className="text-muted-foreground mt-2 text-xs">
               每个赛制打哪几项、每项满分多少，需要你来定 —— 系统不会替你决定。
             </p>
+            {/*
+              官方内容已经在代码里（由产品负责人提供），这里提供一键写入，
+              省掉逐项手工录入。没有官方内容的赛制仍可在下面手工配置。
+            */}
+            <div className="mt-3">
+              <SeedOfficialTemplatesButton
+                missingFormatCodes={missingFormats
+                  .map((format) => format.code)
+                  .filter((code) => code in OFFICIAL_TEMPLATES)}
+              />
+            </div>
           </CardContent>
         </Card>
       ) : (

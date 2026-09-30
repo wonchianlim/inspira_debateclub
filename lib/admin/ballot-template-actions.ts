@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionContext } from "@/lib/auth/session";
+import { getSessionContext, requireAnyRole } from "@/lib/auth/session";
 import { validateBallotTemplate } from "@/lib/domain/ballot-schema";
+import { OFFICIAL_TEMPLATES } from "@/lib/domain/official-templates";
 import type { FormState } from "@/lib/forms/form-state";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -187,4 +188,95 @@ export async function toggleBallotTemplateAction(
     status: "success",
     message: active ? "已设为该赛制当前使用的模板。" : "已停用这个模板。",
   };
+}
+
+/**
+ * 把产品负责人给的**官方模板**写入数据库（Phase 7 / P7-3）。
+ *
+ * 为什么需要一个动作而不是写进迁移：
+ * 迁移执行时系统里可能**还没有任何用户**（`created_by` 无从填写），
+ * 而模板的创建者是超级管理员。写进迁移会得到一个 created_by 为空的模板，
+ * 或者更糟 —— 静默跳过、让人以为已经灌好了。
+ *
+ * 因此做成一个**显式动作**：由超级管理员点一下，在需要的时候执行。
+ *
+ * ⚠️ 幂等：已经配置过官方模板的赛制会被**跳过**，不会覆盖成第二个版本。
+ * 重复点击是安全的 —— 否则一次误点就会产生一个新版本，
+ * 而旧版本还留在历史里，没人分得清哪个在生效。
+ */
+export async function seedOfficialTemplatesAction(): Promise<FormState> {
+  const session = await requireAnyRole(["super_admin"]);
+  const supabase = await createUserSupabaseClient();
+
+  // 赛制代号 → 现有活跃模板
+  const { data: formats, error: formatError } = await supabase
+    .from("debate_formats")
+    .select("id, code, ballot_templates(id, active)");
+
+  if (formatError) {
+    console.error("[admin] 读取赛制失败:", formatError.message);
+    return { status: "error", message: "读取赛制失败，请稍后再试。" };
+  }
+
+  type FormatRow = {
+    id: string;
+    code: string;
+    ballot_templates: { id: string; active: boolean }[] | null;
+  };
+
+  const inserted: string[] = [];
+  const skipped: string[] = [];
+  const missing: string[] = [];
+
+  for (const [formatCode, entry] of Object.entries(OFFICIAL_TEMPLATES)) {
+    const format = ((formats ?? []) as unknown as FormatRow[]).find(
+      (row) => row.code === formatCode,
+    );
+    if (!format) {
+      // 数据库里没有这个赛制 —— 如实报告，而不是悄悄跳过
+      missing.push(formatCode);
+      continue;
+    }
+
+    const hasActive = (format.ballot_templates ?? []).some((template) => template.active);
+    if (hasActive) {
+      skipped.push(formatCode);
+      continue;
+    }
+
+    // 版本号取该赛制现有模板数 + 1（规范要求模板版本化）
+    const { count } = await supabase
+      .from("ballot_templates")
+      .select("id", { count: "exact", head: true })
+      .eq("format_id", format.id);
+
+    const { error } = await supabase.from("ballot_templates").insert({
+      format_id: format.id,
+      name: entry.name,
+      version: (count ?? 0) + 1,
+      schema: JSON.parse(JSON.stringify(entry.schema)) as never,
+      active: true,
+      created_by: session.profileId,
+    });
+
+    if (error) {
+      console.error(`[admin] 写入 ${formatCode} 模板失败:`, error.message);
+      return { status: "error", message: `写入 ${formatCode} 模板失败，请稍后再试。` };
+    }
+    inserted.push(formatCode);
+  }
+
+  revalidatePath("/admin/ballot-templates");
+  revalidatePath("/judge");
+
+  const parts = [
+    inserted.length > 0 ? `已载入 ${inserted.join("、")}` : null,
+    skipped.length > 0 ? `${skipped.join("、")} 已有模板，已跳过` : null,
+    missing.length > 0 ? `数据库里没有 ${missing.join("、")} 赛制，已跳过` : null,
+  ].filter((part): part is string => part !== null);
+
+  if (inserted.length === 0) {
+    return { status: "success", message: parts.join("；") + "。没有需要新增的模板。" };
+  }
+  return { status: "success", message: parts.join("；") + "。" };
 }

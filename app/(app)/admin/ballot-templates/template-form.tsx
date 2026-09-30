@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   createBallotTemplateAction,
+  seedOfficialTemplatesAction,
   toggleBallotTemplateAction,
 } from "@/lib/admin/ballot-template-actions";
 import type { FormatWithoutTemplate } from "@/lib/admin/ballot-templates";
@@ -304,6 +305,45 @@ export function TemplateToggleButton({
       <Button type="submit" size="sm" variant={active ? "ghost" : "outline"} disabled={pending}>
         {pending ? "…" : active ? "停用" : "设为该赛制当前使用"}
       </Button>
+      <FormMessage status={state.status} message={state.message} />
+    </form>
+  );
+}
+
+/**
+ * "载入官方模板"按钮。
+ *
+ * 产品负责人已经把 1v1 / JWSD / WSDC / PF 的评分表内容给了我，
+ * 但那些内容在代码里、还没进数据库。这个按钮把它们写进去，
+ * 省掉手工逐项录入 —— 那不是产品负责人该花时间的地方。
+ *
+ * ⚠️ 幂等：已经有模板的赛制会被跳过，重复点击安全。
+ */
+export function SeedOfficialTemplatesButton({
+  missingFormatCodes,
+}: {
+  missingFormatCodes: string[];
+}) {
+  /*
+   * 这个动作不需要表单输入，但 `useActionState` 要求 `(state, formData)` 签名，
+   * 因此在这里薄薄地包一层，而不是给动作加上两个用不到的参数
+   * （那会被 lint 判为未使用，也会让动作的意图变模糊）。
+   */
+  const [state, formAction, pending] = useActionState(
+    async () => seedOfficialTemplatesAction(),
+    INITIAL_FORM_STATE,
+  );
+
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">
+        {pending ? "载入中…" : "载入官方模板"}
+      </Button>
+      <p className="text-muted-foreground text-xs">
+        {missingFormatCodes.length > 0
+          ? `可以自动载入：${missingFormatCodes.join("、")}。其余赛制尚无官方内容，仍可在下面手工配置。`
+          : "四个官方模板都已载入。再点一次是安全的（已配置的会被跳过）。"}
+      </p>
       <FormMessage status={state.status} message={state.message} />
     </form>
   );

@@ -406,6 +406,21 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
         "你选的胜方队伍总分低于对方。本赛制不允许 Low Point Win（低分获胜），" +
         "请调整分数或改选胜方后再提交。",
     },
+    {
+      /*
+       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的队伍总分差必须在 0.5–12 分之间**。
+       *
+       *   - 下界 0.5：不能平局（这两个赛制允许半分，0.5 就是最小差距）
+       *   - 上界 12：不能一边倒得太离谱 —— 那通常说明打分出了问题
+       */
+      kind: "teamTotalGapWithinRange",
+      totalKey: "team_total",
+      minGap: 0.5,
+      maxGap: 12,
+      message:
+        "两队队伍总分的差距必须在 0.5 到 12 分之间。差得太少说明几乎平局，" +
+        "差得太多通常说明打分有问题 —— 请检查发言者分数后再提交。",
+    },
   ],
   /*
    * 评分参照表 —— 规范要求它在打分界面上**始终可见**。
@@ -797,6 +812,21 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       message:
         "你选的胜方队伍总分低于对方。本赛制不允许 Low Point Win（低分获胜），" +
         "请调整分数或改选胜方后再提交。",
+    },
+    {
+      /*
+       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的队伍总分差必须在 0.5–12 分之间**。
+       *
+       *   - 下界 0.5：不能平局（这两个赛制允许半分，0.5 就是最小差距）
+       *   - 上界 12：不能一边倒得太离谱 —— 那通常说明打分出了问题
+       */
+      kind: "teamTotalGapWithinRange",
+      totalKey: "team_total",
+      minGap: 0.5,
+      maxGap: 12,
+      message:
+        "两队队伍总分的差距必须在 0.5 到 12 分之间。差得太少说明几乎平局，" +
+        "差得太多通常说明打分有问题 —— 请检查发言者分数后再提交。",
     },
   ],
   guidance: {
