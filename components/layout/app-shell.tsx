@@ -96,7 +96,18 @@ export function AppShell({
 
       <footer className="border-border border-t">
         <div className="text-muted-foreground mx-auto w-full max-w-5xl px-4 py-6 text-xs">
-          INSPIRA 辩论俱乐部管理系统 · 当前为 Phase 1 基础设施阶段
+          {/*
+              ⚠️ 这里曾经写着「当前为 Phase 1 基础设施阶段」。
+
+              那句话在 Phase 9 之后就不成立了，但页脚**没有任何测试会去看它**，
+              于是在上线当天，**每一个页面**底下都挂着"当前是第一阶段"——
+              包括已经能用的登录页。
+
+              教训：**不要在常驻界面里写"当前进度"**。
+              进度会变，而页脚不会有人回头改。
+              现在只保留系统名称 —— 它任何时候都是对的。
+            */}
+          INSPIRA 辩论俱乐部管理系统
         </div>
       </footer>
     </div>
