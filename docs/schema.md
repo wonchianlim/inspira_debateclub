@@ -351,7 +351,7 @@ CREATE UNIQUE INDEX ballot_templates_one_active
 | `...091300_rls` | |
 | `...091400_rate_limiting`（P1-8 新增，见 ADR-0012） | |
 
-实测：从空库重建后得到 **20 张表、45 条策略、20 张启用 RLS 的表、68 个索引、29 个函数、34 个触发器（含 17 个审计触发器）、10 个枚举**（**2026-09-29 最终值**；P1-5 时点为 14/32/14/40/19；P1-8 新增 `rate_limit_counters` 与两个限流函数；**P2-1 新增 `notices`**；**P2-2 新增 3 个审计函数与 12 个审计触发器**；**P3-1 新增 `partner_requests` 表与 `partner_request_status` 枚举，并给 `registrations` 与 `partner_requests` 补上审计触发器**；**P3-4 新增搭档码列与按码查找函数**；**P4-1 新增 `participations` / `teams` / `team_members` 三张表与三个枚举，并加了跨表一致性触发器**），
+实测：从空库重建后得到 **21 张表、46 条策略、21 张启用 RLS 的表、71 个索引、29 个函数、35 个触发器（含 18 个审计触发器）、11 个枚举**（**2026-09-29 最终值**；P1-5 时点为 14/32/14/40/19；P1-8 新增 `rate_limit_counters` 与两个限流函数；**P2-1 新增 `notices`**；**P2-2 新增 3 个审计函数与 12 个审计触发器**；**P3-1 新增 `partner_requests` 表与 `partner_request_status` 枚举，并给 `registrations` 与 `partner_requests` 补上审计触发器**；**P3-4 新增搭档码列与按码查找函数**；**P4-1 新增 `participations` / `teams` / `team_members` 三张表与三个枚举，并加了跨表一致性触发器**；**P4-5 新增 `pairing_proposals` 表与 `pairing_proposal_status` 枚举，并给 `teams` 补上锁定/人工调整标记**），
 并且 27 条 RLS 授权用例全部通过（`npm run db:rls-smoke`）。
 
 两点与本文早前描述的差异，均已实测确认：

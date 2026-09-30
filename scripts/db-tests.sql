@@ -36,6 +36,7 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.pairing_proposals;
 delete from public.team_members;
 delete from public.teams;
 delete from public.participations;
@@ -186,6 +187,13 @@ from public.debate_formats f where f.code = 'PF';
 -- 否则那个位置是空的，重复插入不会冲突，用例会**假通过**（实测踩到过）。
 insert into public.team_members (team_id, participation_id, speaker_position)
 values ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000004', 1);
+
+-- 配对提案。**必须有这条数据**，否则下面"学生/教练读不到提案"的拒绝对应
+-- 会因为没有数据而**假通过** —— 0 行既可能是"权限拦住了"，也可能是"本来就没有行"，
+-- 两者在测试里看起来一模一样。
+insert into public.pairing_proposals (id, event_id, algorithm_version, input_snapshot)
+values ('33333333-0000-0000-0000-000000000001',
+        'bbbbbbbb-0000-0000-0000-000000000001', '1.0.0', '{"test":true}'::jsonb);
 
 -- 第二支 PF 队伍（空）
 insert into public.teams (id, event_id, format_id)
@@ -420,7 +428,20 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-STU-33 学生自行创建参与记录','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (insert into public.participations (event_id, student_id, format_id, rating_snapshot)
       select 'bbbbbbbb-0000-0000-0000-000000000001', public.my_student_id(), f.id, 10
-      from public.debate_formats f where f.code = 'PF' returning 1) select count(*) from x$q$);
+      from public.debate_formats f where f.code = 'PF' returning 1) select count(*) from x$q$),
+
+-- ==================== 配对提案（Phase 4 / P4-5 新增）====================
+-- 提案是内部工作材料：学生与教练都不该看到草稿。
+('A30 管理员读配对提案','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$select count(*) from public.pairing_proposals$q$),
+('F-STU-34 学生读配对提案','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.pairing_proposals$q$),
+('F-COA-10 教练读配对提案','aaaaaaaa-0000-0000-0000-000000000003','deny',
+ $q$select count(*) from public.pairing_proposals$q$),
+('F-STU-35 学生自行写入配对提案','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.pairing_proposals (event_id, algorithm_version, input_snapshot)
+      values ('bbbbbbbb-0000-0000-0000-000000000001','1.0.0','{}'::jsonb) returning 1)
+    select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -661,7 +682,7 @@ declare
     'debate_formats','format_positions','student_format_profiles',
     'judge_format_qualifications','events','event_formats','registrations',
     'registration_format_preferences','audit_logs','system_settings','notices',
-      'partner_requests','participations','teams','team_members'];
+      'partner_requests','participations','teams','team_members','pairing_proposals'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -1105,6 +1126,7 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.pairing_proposals;
 delete from public.team_members;
 delete from public.teams;
 delete from public.participations;
