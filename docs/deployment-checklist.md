@@ -58,16 +58,25 @@
 
 ---
 
-## 第 4 步：把 22 个迁移跑到生产库
+## 第 4 步：把 29 个迁移跑到生产库
 
 ```bash
-# 需要 Supabase CLI，并链接到生产项目
-supabase link --project-ref <你的项目 ref>
-supabase db push
+cd /Users/chianlim/Documents/deepseek-harness/default-workspace/inspira
+
+# 1. 登录（会打开浏览器让你授权）
+npx supabase login
+
+# 2. 链接到生产项目（会问数据库密码 —— 就是第 3 步存好的那个）
+npx supabase link --project-ref owkntjvfsrrjuithgdtq
+
+# 3. 应用全部 29 个迁移
+npx supabase db push
 ```
 
+> ⚠️ 生产项目 ref：**`owkntjvfsrrjuithgdtq`**
+
 - [ ] 迁移全部成功
-- [ ] 到 Supabase 控制台的 **Table Editor** 确认表都建出来了（应该是 **35 张**）
+- [ ] 到 Supabase 控制台的 **Table Editor** 确认表都建出来了（**35 张** —— 与本地 `db:verify` 重建后的数量一致）
 
 > ⚠️ **这一步已经在本地演练过很多次**：`npm run db:verify` 每一轮都会
 > 删库重建、从零重放全部迁移、再跑 251 条数据库用例。
