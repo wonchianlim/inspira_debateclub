@@ -27,9 +27,9 @@ const STUDENT_SECTIONS: StudentSection[] = [
   },
   {
     title: "搭档请求",
-    description: "邀请同场的同学搭档。被接受后是配对时的强烈偏好。",
-    ready: false,
-    phase: "P3-4",
+    description: "用搭档码邀请同学（在活动详情页里），被接受后是配对时的强烈偏好。",
+    ready: true,
+    href: "/student/events",
   },
   {
     title: "签到",

@@ -345,13 +345,13 @@ isOneToOne: false
                   ]
                 },"student_profiles": {
                   Row: {
-                    "active": boolean,"created_at": string,"grade": string | null,"id": string,"notes": string | null,"profile_id": string,"school": string | null,"updated_at": string
+                    "active": boolean,"created_at": string,"grade": string | null,"id": string,"notes": string | null,"partner_code": string,"profile_id": string,"school": string | null,"updated_at": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"grade"?: string | null,"id"?: string,"notes"?: string | null,"profile_id": string,"school"?: string | null,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"grade"?: string | null,"id"?: string,"notes"?: string | null,"partner_code"?: string,"profile_id": string,"school"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"grade"?: string | null,"id"?: string,"notes"?: string | null,"profile_id"?: string,"school"?: string | null,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"grade"?: string | null,"id"?: string,"notes"?: string | null,"partner_code"?: string,"profile_id"?: string,"school"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -422,6 +422,14 @@ isOneToOne: false
 { Args: { "p_bucket": string,"p_max": number,"p_subject_hash": string,"p_window_seconds": number }; Returns: boolean
                            },
 "current_profile_id":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"find_student_by_partner_code":
+{ Args: { "p_code": string,"p_event": string }; Returns: {
+              "display_name": string,"registered_for_event": boolean,"school": string,"student_id": string
+            }[]
+                           },
+"generate_partner_code":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "has_role":

@@ -8,6 +8,9 @@ import { registrationWindowState } from "@/lib/domain/registration";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 import { getStudentEventDetail } from "@/lib/student/registrations";
 
+import { getMyPartnerCode, listPartnerRequestsForEvent } from "@/lib/student/partners";
+
+import { PartnerSection } from "./partner-section";
 import { PreferencesForm } from "./preferences-form";
 import { RegistrationForm } from "./registration-form";
 
@@ -25,6 +28,11 @@ export default async function StudentEventDetailPage({
 
   const event = await getStudentEventDetail(eventId);
   if (!event) notFound();
+
+  const [myPartnerCode, partnerRequests] = await Promise.all([
+    getMyPartnerCode(),
+    listPartnerRequestsForEvent(eventId),
+  ]);
 
   const windowState = registrationWindowState({
     eventStatus: event.status,
@@ -134,6 +142,21 @@ export default async function StudentEventDetailPage({
       ) : (
         <p className="text-muted-foreground text-sm">报名之后可以在这里选择想参加的赛制并排序。</p>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">搭档</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PartnerSection
+            eventId={event.id}
+            myPartnerCode={myPartnerCode}
+            requests={partnerRequests}
+            canInvite={isRegistered}
+            cannotInviteReason="报名之后才能邀请搭档。"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

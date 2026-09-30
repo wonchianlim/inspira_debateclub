@@ -79,9 +79,10 @@ insert into public.user_roles (profile_id, role) values
 -- 因此用例里不能用子查询去取"另一个学生"的 id —— 那样取到的是 NULL，
 -- 插入会以"违反 RLS"的形式失败，看起来像是策略写错了，实际是测试写法不对。
 -- 这是实测踩到的：A23 一开始就是这么写的。
-insert into public.student_profiles (id, profile_id, school) values
- ('eeeeeeee-0000-0000-0000-000000000004','aaaaaaaa-0000-0000-0000-000000000004','虚构中学A'),
- ('eeeeeeee-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000005','虚构中学B');
+-- 搭档码在真实使用中是随机生成的，但测试里必须**固定**才能断言。
+insert into public.student_profiles (id, profile_id, school, partner_code) values
+ ('eeeeeeee-0000-0000-0000-000000000004','aaaaaaaa-0000-0000-0000-000000000004','虚构中学A','STUDENTA04'),
+ ('eeeeeeee-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000005','虚构中学B','STUDENTB05');
 
 -- 只有 PF 是"已合格"，WSDC 刻意保持不合格（用于测试 F-STU-10）
 insert into public.student_format_profiles (student_id, format_id, eligible, rating, updated_by)
@@ -343,7 +344,23 @@ insert into authz_cases (label, sub, want, sql) values
       where requester_student_id <> public.my_student_id()
         and requested_student_id <> public.my_student_id()$q$),
 ('F-COA-07 教练读搭档请求','aaaaaaaa-0000-0000-0000-000000000003','deny',
- $q$select count(*) from public.partner_requests$q$);
+ $q$select count(*) from public.partner_requests$q$),
+
+-- ============ 按搭档码查找（Phase 3 / P3-4）============
+-- 查找函数是 SECURITY DEFINER，会绕过 RLS，**它自己就是那道关口**：
+-- 调用者必须是该活动的有效参与者。下面三条拒绝对应用例就是证明"关口确实在"。
+-- 顺序很关键：此时活动 bbbb...0001 的有效参与者只有学生 B
+-- （学生 A 的报名已被 A14 取消）。
+('A26 已报名学生按搭档码找到同学','aaaaaaaa-0000-0000-0000-000000000005','allow',
+ $q$select count(*) from public.find_student_by_partner_code('STUDENTA04', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
+('A27 搭档码大小写与空格不敏感','aaaaaaaa-0000-0000-0000-000000000005','allow',
+ $q$select count(*) from public.find_student_by_partner_code('  studenta04  ', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
+('F-STU-28 未报名该活动的学生按码查找（不是参与者）','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.find_student_by_partner_code('STUDENTB05', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
+('F-COA-08 教练按搭档码查找学生','aaaaaaaa-0000-0000-0000-000000000003','deny',
+ $q$select count(*) from public.find_student_by_partner_code('STUDENTB05', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
+('F-STU-29 用不存在的搭档码查找','aaaaaaaa-0000-0000-0000-000000000005','deny',
+ $q$select count(*) from public.find_student_by_partner_code('ZZZZZZZZZZ', 'bbbbbbbb-0000-0000-0000-000000000001')$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -565,6 +582,18 @@ begin
       raise notice '[匿名] PASS  未登录读 % 被权限拒绝', t;
     end;
   end loop;
+
+  -- 按搭档码查找是一个 SECURITY DEFINER 函数，**必须单独检查**：
+  -- 它绕过 RLS，因此"anon 没有表权限"那一层保护对它无效。
+  -- 若忘了 REVOKE，任何人不登录就能枚举学生姓名与学校 —— 那是隐私事故。
+  begin
+    perform count(*) from public.find_student_by_partner_code('STUDENTB05', 'bbbbbbbb-0000-0000-0000-000000000001');
+    failures := failures + 1;
+    raise notice '[匿名] FAIL  未登录竟然能调用按搭档码查找的函数';
+  exception when insufficient_privilege then
+    passed := passed + 1;
+    raise notice '[匿名] PASS  未登录调用按搭档码查找被权限拒绝';
+  end;
 
   raise notice '[匿名] ---- 通过 % 条，失败 % 条 ----', passed, failures;
   if failures > 0 then
@@ -830,7 +859,50 @@ end
 $audit_judge$;
 
 -- =============================================================================
--- 六、报名窗口与活动状态（跨层一致性）
+-- 六、搭档码查找的返回字段（隐私断言）
+--
+-- 这个函数是 SECURITY DEFINER、返回什么完全由代码决定。
+-- 因此"不能返回邮箱、不能返回评分"这件事**必须被显式断言** ——
+-- 否则将来有人顺手加一列（比如为了"方便显示"），
+-- 学生的评分或邮箱就会在学生之间公开，而没有任何测试会失败。
+-- =============================================================================
+do $lookupcols$
+declare
+  cols text;
+  sensitive text;
+begin
+  select string_agg(a.argname, ',' order by a.ord)
+    into cols
+  from pg_proc pr
+  cross join lateral unnest(pr.proargnames, pr.proargmodes)
+    with ordinality as a(argname, argmode, ord)
+  where pr.proname = 'find_student_by_partner_code'
+    and a.argmode = 't';
+
+  if cols = 'student_id,display_name,school,registered_for_event' then
+    raise notice '[搭档码] PASS  返回字段恰好是 student_id/display_name/school/registered_for_event';
+  else
+    raise exception '[搭档码] 返回字段与约定不符，实际为：%', cols;
+  end if;
+
+  select string_agg(a.argname, ',')
+    into sensitive
+  from pg_proc pr
+  cross join lateral unnest(pr.proargnames, pr.proargmodes) as a(argname, argmode)
+  where pr.proname = 'find_student_by_partner_code'
+    and a.argmode = 't'
+    and (a.argname ilike '%email%' or a.argname ilike '%rating%' or a.argname ilike '%phone%');
+
+  if sensitive is null then
+    raise notice '[搭档码] PASS  返回字段里没有 email / rating / phone';
+  else
+    raise exception '[搭档码] 返回字段里出现了敏感列：%', sensitive;
+  end if;
+end
+$lookupcols$;
+
+-- =============================================================================
+-- 七、报名窗口与活动状态（跨层一致性）
 --
 -- 为什么需要这一节：应用层有一份"哪些状态允许报名"的纯逻辑
 -- （lib/domain/registration.ts 的 isEventStatusOpenForRegistration），
@@ -891,7 +963,7 @@ end
 $window$;
 
 -- =============================================================================
--- 七、清理虚构数据
+-- 八、清理虚构数据
 -- =============================================================================
 delete from public.registration_format_preferences;
 delete from public.registrations;
