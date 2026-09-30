@@ -27,7 +27,12 @@ export default async function JudgeAreaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold tracking-tight">裁判区域</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight">裁判区域</h1>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/judge/profile">我的档案与理念</Link>
+        </Button>
+      </div>
 
       {matches.length === 0 ? (
         <StatePanel
