@@ -26,148 +26,7 @@ import {
  *   - 规范的"TOTAL 自动计算" → `totals`（**不存数据库**，读取时计算）
  */
 
-const TEAM_SCOPE = "team" as const;
-const MATCH_SCOPE = "match" as const;
-
-export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
-  schemaVersion: 1,
-  fields: [
-    // ---- 计分表：五个维度，正反方各一份（规范第 4 节）----
-    {
-      key: "argumentation",
-      label: "论证",
-      type: "score",
-      scope: TEAM_SCOPE,
-      required: true,
-      min: 0,
-      max: 10,
-    },
-    {
-      key: "engagement",
-      label: "交锋",
-      type: "score",
-      scope: TEAM_SCOPE,
-      required: true,
-      min: 0,
-      max: 8,
-    },
-    {
-      key: "analysis_adaptability",
-      label: "分析与应变",
-      type: "score",
-      scope: TEAM_SCOPE,
-      required: true,
-      min: 0,
-      max: 6,
-    },
-    {
-      key: "delivery",
-      label: "表达",
-      type: "score",
-      scope: TEAM_SCOPE,
-      required: true,
-      min: 0,
-      max: 4,
-    },
-    {
-      key: "structure_strategy",
-      label: "结构与策略",
-      type: "score",
-      scope: TEAM_SCOPE,
-      required: true,
-      min: 0,
-      max: 2,
-    },
-
-    // ---- Ballot 第 1、2 部分：正反方主要论点 ----
-    // `scope: team` 让**一支队伍一份列表**，天然对应规范里
-    // "Proposition Main Arguments" 与 "Opposition Main Arguments" 两节。
-    {
-      key: "main_arguments",
-      label: "主要论点",
-      type: "list",
-      scope: TEAM_SCOPE,
-      required: true,
-      minItems: 1,
-      maxItems: 5,
-      itemLabel: "论点",
-    },
-
-    // ---- Ballot 第 3 部分：主要交锋（不按方，整场一份）----
-    {
-      key: "main_clashes",
-      label: "主要交锋",
-      type: "list",
-      scope: MATCH_SCOPE,
-      required: true,
-      minItems: 1,
-      maxItems: 5,
-      itemLabel: "交锋",
-    },
-
-    // ---- Ballot 第 4 部分：判决理由（至少 100 字，规范第 19 节）----
-    {
-      key: "reason_for_decision",
-      label: "判决理由",
-      type: "text",
-      scope: MATCH_SCOPE,
-      required: true,
-      minLength: 100,
-    },
-
-    // ---- 裁判信心（3 档，可选，规范第 14 节）----
-    {
-      key: "judge_confidence",
-      label: "裁判信心",
-      type: "score",
-      scope: MATCH_SCOPE,
-      required: false,
-      min: 1,
-      max: 3,
-      options: [
-        { value: 3, label: "清晰判决" },
-        { value: 2, label: "势均力敌" },
-        { value: 1, label: "非常接近" },
-      ],
-    },
-
-    // ---- Ballot 第 5、6 部分：正反方反馈（各两项，至少 30 字，规范第 22、23 节）----
-    {
-      key: "feedback_strength",
-      label: "做得好的地方",
-      type: "text",
-      scope: TEAM_SCOPE,
-      required: true,
-      minLength: 30,
-    },
-    {
-      key: "feedback_improve",
-      label: "应该改进的地方",
-      type: "text",
-      scope: TEAM_SCOPE,
-      required: true,
-      minLength: 30,
-    },
-  ],
-  winnerRequired: true,
-  reasonForDecisionRequired: true,
-  // 规范第 40 节：总分由五项相加，满分 30，**裁判不填**
-  totals: [
-    {
-      key: "total",
-      label: "总分",
-      scope: "team",
-      sumOf: [
-        "argumentation",
-        "engagement",
-        "analysis_adaptability",
-        "delivery",
-        "structure_strategy",
-      ],
-      max: 30,
-    },
-  ],
-};
+import { EXTEMP_TEMPLATE } from "@/lib/domain/official-templates";
 
 const PROP = "team-prop";
 const OPP = "team-opp";
@@ -428,7 +287,7 @@ describe("提交要求（规范第 31 节逐条）", () => {
  * 裁判就会被系统强行拦住，而那与规范的要求相反。
  */
 describe("软警告：显示但不阻止提交（规范第 13、20 节）", () => {
-  it("胜方总分明显低于对方 → **有警告**，但**仍然可以提交**", () => {
+  it("胜方总分低于对方 → **不能提交**（产品负责人 2026-09-29 明确：所有赛制都不允许 Low Point Win）", () => {
     const data = filledBallot({
       teamValues: {
         [PROP]: {
@@ -443,19 +302,25 @@ describe("软警告：显示但不阻止提交（规范第 13、20 节）", () =
       },
     });
 
-    const warnings = findBallotWarnings(EXTEMP_TEMPLATE, data, {
-      winnerTeamId: PROP,
-      reasonForDecision: (data.matchValues.reason_for_decision as string) ?? null,
-    });
-    expect(warnings.some((warning) => warning.code === "winner_score_mismatch")).toBe(true);
-
-    // ⚠️ 关键：有警告**不等于**不能提交
     const submission = canSubmitBallot(EXTEMP_TEMPLATE, data, {
       winnerTeamId: PROP,
       reasonForDecision: (data.matchValues.reason_for_decision as string) ?? null,
       expectedIds: { teamIds: [PROP, OPP] },
     });
-    expect(submission.valid, JSON.stringify(submission.issues)).toBe(true);
+
+    /*
+     * ⚠️ 这一条**修正了**规范第 13 节原来的写法（那里说"不阻止提交"）。
+     * 产品负责人后来明确：所有赛制都不允许 Low Point Win，因此这里是硬规则。
+     */
+    expect(submission.valid).toBe(false);
+    expect(submission.issues.map((issue) => issue.message).join("")).toContain("Low Point Win");
+
+    // 也不该再重复一条"可以确认继续"的软警告
+    const warnings = findBallotWarnings(EXTEMP_TEMPLATE, data, {
+      winnerTeamId: PROP,
+      reasonForDecision: (data.matchValues.reason_for_decision as string) ?? null,
+    });
+    expect(warnings.some((warning) => warning.code === "winner_score_mismatch")).toBe(false);
   });
 
   it("分数接近时**不**报警（规范举的 24 对 23 属正常）", () => {

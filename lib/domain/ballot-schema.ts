@@ -49,6 +49,13 @@ export type BallotField = {
   /** 仅 `score` 有意义 */
   min?: number;
   max?: number;
+  /**
+   * 仅 `score` 有意义：**允许的最小刻度**（默认 1，即必须是整数）。
+   *
+   * JWSD 的规则是"前三位发言者只能打整数，回复发言者允许半分"，
+   * 因此前者的字段 `step: 1`、后者的字段 `step: 0.5`。
+   * 这一项是**硬校验**：打 70.5 到整数位字段上会被拒绝。
+   */
   step?: number;
   /**
    * 仅 `score` 有意义：每个分档的中文说明。
@@ -75,10 +82,17 @@ export type BallotField = {
   maxItems?: number;
   itemLabel?: string;
   /**
+   * 仅 `scope: "speaker"` 有意义：**只对这些发言位次生效**（1 起）。
+   *
+   * JWSD 的回复发言者（第 4 位）只打一半的分，用的字段也与前三位不同。
+   * 不填这个属性时，字段对**所有**发言者生效。
+   */
+  speakerPositions?: number[];
+  /**
    * 仅 `list` 有意义：**每条可带哪些子字段**。
    *
-   * JWSD 规范里每条论点可带一个"裁判笔记"，每条交锋可带
-   * "正方主张 / 反方主张 / 裁判评估"三段笔记。
+   * JWSD 规范里每条论点可带一个「裁判笔记」，每条交锋可带
+   * 「正方主张 / 反方主张 / 裁判评估」三段笔记。
    * 不填这个属性时，条目就是纯文字（1v1 的论点与交锋就是这种）。
    */
   itemFields?: BallotListItemField[];
@@ -122,13 +136,67 @@ export type BallotTotal = {
   scope: "team" | "speaker" | "teamFromSpeakers";
   /** 由哪些字段相加；`teamFromSpeakers` 时不用 */
   sumOf: string[];
-  /** 仅 `teamFromSpeakers`：把发言者的哪个总项相加 */
-  fromSpeakerTotal?: string;
+  /**
+   * 仅 `teamFromSpeakers`：把发言者的**哪些**总项相加。
+   *
+   * 用数组而不是单个键，是因为 JWSD 有两类发言者：
+   * 前三位每人满分 100，回复发言者满分 50 —— 队伍总分要把两者都算进去。
+   */
+  fromSpeakerTotals?: string[];
   /** 满分，用于显示 `/30` 或 `/100` */
   max: number;
   /** 是否是"每位发言者都要有的"总项（用于界面按人显示） */
   perSpeaker?: boolean;
+  /**
+   * 高于这个总分时提示"请确认这确实是异常出色"（**软警告**）。
+   *
+   * ⚠️ 这是**总分**上的确认区间，不是单个维度的。
+   * PF 规范第 49 节说的是"This speaker received a score above 29" —— 即个人总分。
+   */
+  confirmAbove?: number;
+  /** 低于这个总分时提示确认（软警告）。 */
+  confirmBelow?: number;
+  /**
+   * **硬性**最低总分 —— 低于它**不能提交**。
+   *
+   * ⚠️ 与 `confirmBelow` 的区别是性质，不是程度：
+   *   - `confirmBelow` 只是"请确认"，裁判确认后可以继续；
+   *   - `hardMin` 是**拒绝**，不可覆盖。
+   *
+   * WSDC 规范明确要求"system should reject 59 / 81"，
+   * 因此那里的 60 是 `hardMin`，不是建议。
+   */
+  hardMin?: number;
+  /** **硬性**最高总分 —— 高于它不能提交。 */
+  hardMax?: number;
 };
+
+/**
+ * **跨字段硬规则**：引用计算结果（总项）来约束整份评分表。
+ *
+ * 为什么需要单独一类规则：
+ *   - 1v1 与 JWSD 里"胜方分数明显偏低"只是**软警告**（规范明说不得阻止提交）；
+ *   - 而 PF 规范第 3、4、22、48 节把它定成**硬规则**：
+ *     "No Low Point Wins" 与"不能平局"，**不可覆盖**，必须阻止提交。
+ *
+ * 同一个现象在两个赛制里性质相反，因此**不能写死在代码里** ——
+ * 它必须是模板的配置项。
+ */
+export type BallotCrossFieldRule =
+  | {
+      /** 胜方必须是总项最高的那一方（PF：不允许 Low Point Win） */
+      kind: "winnerMustHaveHighestTotal";
+      /** 引用哪个队伍级总项 */
+      totalKey: string;
+      /** 违反时的提示（中文，直接显示给裁判） */
+      message: string;
+    }
+  | {
+      /** 队伍总项不能相同（PF：不允许平局） */
+      kind: "totalsMustNotTie";
+      totalKey: string;
+      message: string;
+    };
 
 export type BallotTemplateSchema = {
   /** **schema 格式本身**的版本，与 `ballot_templates.version`（模板版本）不是一回事 */
@@ -140,6 +208,30 @@ export type BallotTemplateSchema = {
   reasonForDecisionRequired: boolean;
   /** 计算总项（可选）。总项不存数据库，读取与提交时计算。 */
   totals?: BallotTotal[];
+  /**
+   * 跨字段**硬**规则（可选）。违反即**阻止提交**，且按规范不可覆盖。
+   * 与软警告的区别见 `BallotCrossFieldRule` 的说明。
+   */
+  rules?: BallotCrossFieldRule[];
+  /**
+   * 给裁判的**评分参照表**（可选）。
+   *
+   * WSDC 规范明确要求："the scoring interface should display the following
+   * reference beside or underneath the score fields... This guide should
+   * remain visible while judges score speakers."
+   *
+   * 因此它是模板的一部分，而不是写死在界面里的文字 ——
+   * 不同赛制的参照标准不同。
+   */
+  guidance?: {
+    title: string;
+    /** 常规区间，用于提示 */
+    normalRange?: [number, number];
+    /** 界面上的默认参照点 */
+    defaultScore?: number;
+    /** 锚点：分数 → 名称 → 说明 */
+    anchors: { score: number; label: string; note?: string }[];
+  };
 };
 
 export type BallotValidationIssue = {
@@ -223,6 +315,17 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
       issues.push({ fieldKey: field.key, message: `文字字段 "${field.key}" 的最少字数不能为负。` });
     }
 
+    if (field.type === "score" && field.step !== undefined && field.step <= 0) {
+      issues.push({ fieldKey: field.key, message: `分数字段 "${field.key}" 的刻度必须大于 0。` });
+    }
+
+    if (field.speakerPositions && field.scope !== "speaker") {
+      issues.push({
+        fieldKey: field.key,
+        message: `字段 "${field.key}" 指定了发言位次，但它不是「按学生」的字段。`,
+      });
+    }
+
     if (field.type === "score" && field.options) {
       // 分档说明只对分数有意义，且每一档都要有值
       const badOption = field.options.find(
@@ -259,27 +362,34 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
   // 计算总项：必须是已存在的分数字段之和
   for (const total of schema.totals ?? []) {
     if (total.scope === "teamFromSpeakers") {
-      if (!total.fromSpeakerTotal) {
-        issues.push({ message: `总项 "${total.label}" 没有说明由发言者的哪个总项相加。` });
+      const fromKeys = total.fromSpeakerTotals ?? [];
+      if (fromKeys.length === 0) {
+        issues.push({ message: `总项 "${total.label}" 没有说明由发言者的哪些总项相加。` });
         continue;
       }
-      const speakerTotal = (schema.totals ?? []).find(
-        (candidate) => candidate.key === total.fromSpeakerTotal && candidate.scope === "speaker",
+      const referenced = fromKeys.map((key) =>
+        (schema.totals ?? []).find(
+          (candidate) => candidate.key === key && candidate.scope === "speaker",
+        ),
       );
-      if (!speakerTotal) {
+      const missing = fromKeys.filter((_, index) => referenced[index] === undefined);
+      if (missing.length > 0) {
         issues.push({
-          message: `总项 "${total.label}" 引用的发言者总项 "${total.fromSpeakerTotal}" 不存在或不是发言者级的。`,
+          message: `总项 "${total.label}" 引用的发言者总项 ${missing.join("、")} 不存在或不是发言者级的。`,
         });
         continue;
       }
+
       /*
-       * 队伍总分满分应当是"人数 × 每人满分"，但**人数是可变的**
-       * （3 人、4 人，或将来加替补），因此只要求它是每人满分的整数倍 ——
-       * 写死 300 会在换人数时变成错的。
+       * 队伍总分满分**不能静态写死**：它取决于该队有几位发言者、以及
+       * 各是什么类型（JWSD 是"三位满分 100 + 一位满分 50"）。
+       * 因此这里只做一个**下界**检查：至少要有每位被引用总项的一份 ——
+       * 满分比这个还小，说明配置一定错了。
        */
-      if (speakerTotal.max > 0 && total.max % speakerTotal.max !== 0) {
+      const minimumMax = referenced.reduce((sum, entry) => sum + (entry?.max ?? 0), 0);
+      if (total.max < minimumMax) {
         issues.push({
-          message: `总项 "${total.label}" 的满分 ${total.max} 不是每人满分 ${speakerTotal.max} 的整数倍。`,
+          message: `总项 "${total.label}" 的满分 ${total.max} 小于各项每人满分之和 ${minimumMax}，配置有误。`,
         });
       }
       continue;
@@ -359,7 +469,17 @@ function isBlank(value: BallotValue): boolean {
 export function validateBallotData(
   schema: BallotTemplateSchema,
   data: BallotData,
-  expectedIds?: { studentIds?: readonly string[]; teamIds?: readonly string[] },
+  expectedIds?: {
+    studentIds?: readonly string[];
+    teamIds?: readonly string[];
+    /**
+     * 学生 id → 发言位次（1 起）。
+     *
+     * 只在模板里出现 `speakerPositions` 时才需要：
+     * JWSD 的回复发言者（第 4 位）用另一组字段，不该被要求填前三位那组。
+     */
+    speakerPositionByStudent?: Record<string, number>;
+  },
 ): BallotValidationResult {
   const issues: BallotValidationIssue[] = [];
 
@@ -375,10 +495,32 @@ export function validateBallotData(
     }
 
     const bucket = field.scope === "speaker" ? data.speakerValues : data.teamValues;
+
+    /*
+     * 这个字段该管哪些人。
+     *
+     * `speakerPositions` 让一个字段只对某些发言位次生效 ——
+     * JWSD 的前三位（100 分制）与回复发言者（50 分制）用的字段不同。
+     *
+     * ⚠️ 位次**未知**的学生**不会被跳过**：宁可多校验一个人，
+     *    也不该因为缺一条位次信息就静默放过。
+     */
+    const appliesTo = (targetId: string): boolean => {
+      if (!field.speakerPositions || field.speakerPositions.length === 0) return true;
+      const position = expectedIds?.speakerPositionByStudent?.[targetId];
+      if (position === undefined) return true;
+      return field.speakerPositions.includes(position);
+    };
+
     const expected =
-      field.scope === "speaker" ? (expectedIds?.studentIds ?? []) : (expectedIds?.teamIds ?? []);
+      field.scope === "speaker"
+        ? (expectedIds?.studentIds ?? []).filter(appliesTo)
+        : (expectedIds?.teamIds ?? []);
 
     for (const [targetId, values] of Object.entries(bucket)) {
+      // 不适用于这个位次的字段：既不校验取值，也不报"漏填"
+      if (!appliesTo(targetId)) continue;
+
       const value = values[field.key];
       if (field.required && isBlank(value)) {
         issues.push({
@@ -440,6 +582,26 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
         fieldKey: field.key,
         message: `"${field.label}" 是 ${value}，高于最大值 ${field.max}。`,
       });
+    }
+
+    /*
+     * 刻度校验：值必须是 `step` 的整数倍。
+     *
+     * JWSD：前三位发言者只能打整数（step 1），回复发言者允许半分（step 0.5）。
+     * 用 epsilon 比较而不是 `%`，避免浮点误差把 35.5 判成不合法。
+     */
+    const step = field.step ?? 1;
+    if (step > 0) {
+      const ratio = (value - (field.min ?? 0)) / step;
+      if (Math.abs(ratio - Math.round(ratio)) > 1e-6) {
+        issues.push({
+          fieldKey: field.key,
+          message:
+            step === 1
+              ? `"${field.label}" 必须是整数（${value} 不是）。`
+              : `"${field.label}" 必须是 ${step} 的整数倍（${value} 不是）。`,
+        });
+      }
     }
     return issues;
   }
@@ -569,15 +731,19 @@ export function computeBallotTotals(
 
   for (const total of schema.totals ?? []) {
     if (total.scope !== "teamFromSpeakers") continue;
-    const fromKey = total.fromSpeakerTotal;
-    if (!fromKey) continue;
+    const fromKeys = total.fromSpeakerTotals ?? [];
+    if (fromKeys.length === 0) continue;
 
     for (const teamId of Object.keys(context.teamMembersByTeam ?? {})) {
       const members = context.teamMembersByTeam?.[teamId] ?? [];
-      const sum = members.reduce(
-        (running, studentId) => running + (speakerTotals[studentId]?.[fromKey] ?? 0),
-        0,
-      );
+      const sum = members.reduce((running, studentId) => {
+        // 一位发言者可能只填了其中一类（普通发言者没有回复项的分数），因此逐项累加
+        const memberSum = fromKeys.reduce(
+          (partial, key) => partial + (speakerTotals[studentId]?.[key] ?? 0),
+          0,
+        );
+        return running + memberSum;
+      }, 0);
       teamTotals[teamId] = { ...(teamTotals[teamId] ?? {}), [total.key]: sum };
     }
   }
@@ -587,7 +753,12 @@ export function computeBallotTotals(
 
 /** 一条**软警告**：不阻止提交，但要请裁判确认。 */
 export type BallotWarning = {
-  code: "winner_score_mismatch" | "reason_too_brief" | "feedback_too_brief";
+  code:
+    | "winner_score_mismatch"
+    | "reason_too_brief"
+    | "feedback_too_brief"
+    | "score_unusually_high"
+    | "score_unusually_low";
   message: string;
   fieldKey?: string;
 };
@@ -625,7 +796,15 @@ export function findBallotWarnings(
   });
   const winnerTeamId = context.winnerTeamId;
 
-  if (winnerTeamId && Object.keys(teamTotals).length >= 2) {
+  /*
+   * ⚠️ 如果模板里已经有一条**硬规则**管这件事（PF 的 "不允许 Low Point Win"），
+   * 就不要再报同样的软警告 —— 同一条信息既"阻止提交"又"可以确认继续"会让裁判困惑。
+   */
+  const hasHardWinnerRule = (schema.rules ?? []).some(
+    (rule) => rule.kind === "winnerMustHaveHighestTotal",
+  );
+
+  if (!hasHardWinnerRule && winnerTeamId && Object.keys(teamTotals).length >= 2) {
     const winnerTotal = sumAll(teamTotals[winnerTeamId]);
     const loserTotals = Object.entries(teamTotals)
       .filter(([teamId]) => teamId !== winnerTeamId)
@@ -704,6 +883,45 @@ export function findBallotWarnings(
     }
   }
 
+  /*
+   * ---- 4) 分数异常高 / 异常低 ----
+   *
+   * PF 规范第 49 节：超过 29 分或低于 22 分都只是**提示**，
+   * 裁判确认后**可以继续提交**。因此这里产生的是 warning，不是 issue。
+   */
+  const { speakerTotals } = computeBallotTotals(schema, data, {
+    teamMembersByTeam: context.teamMembersByTeam,
+  });
+
+  for (const total of schema.totals ?? []) {
+    if (total.confirmAbove === undefined && total.confirmBelow === undefined) continue;
+    if (total.scope !== "speaker") continue; // 目前只有个人总分需要这种确认
+
+    for (const [studentId, totals] of Object.entries(speakerTotals)) {
+      const value = totals[total.key];
+      if (typeof value !== "number") continue;
+
+      if (total.confirmAbove !== undefined && value > total.confirmAbove) {
+        warnings.push({
+          code: "score_unusually_high",
+          fieldKey: total.key,
+          message:
+            `${studentId} 的${total.label}是 ${value}，高于 ${total.confirmAbove}。` +
+            "这**不会阻止提交**，但请确认这确实是异常出色的表现。",
+        });
+      }
+      if (total.confirmBelow !== undefined && value > 0 && value < total.confirmBelow) {
+        warnings.push({
+          code: "score_unusually_low",
+          fieldKey: total.key,
+          message:
+            `${studentId} 的${total.label}是 ${value}，低于 ${total.confirmBelow}。` +
+            "这**不会阻止提交**，但请确认这确实反映了当场表现。",
+        });
+      }
+    }
+  }
+
   return warnings;
 }
 
@@ -726,7 +944,13 @@ export function canSubmitBallot(
   context: {
     winnerTeamId: string | null;
     reasonForDecision: string | null;
-    expectedIds?: { studentIds?: readonly string[]; teamIds?: readonly string[] };
+    expectedIds?: {
+      studentIds?: readonly string[];
+      teamIds?: readonly string[];
+      speakerPositionByStudent?: Record<string, number>;
+    };
+    /** 队伍 id → 队员 id。跨字段规则要算队伍总项时必需。 */
+    teamMembersByTeam?: Record<string, string[]>;
   },
 ): BallotValidationResult {
   const issues = [...validateBallotData(schema, data, context.expectedIds).issues];
@@ -736,6 +960,84 @@ export function canSubmitBallot(
   }
   if (schema.reasonForDecisionRequired && (context.reasonForDecision ?? "").trim() === "") {
     issues.push({ fieldKey: "reason_for_decision", message: "必须填写判决理由。" });
+  }
+
+  /*
+   * ---- 跨字段硬规则 ----
+   *
+   * ⚠️ 这些规则**只看胜负关系，不看分数高低是否"合理"** ——
+   * 例如"胜方分数必须更高"是 PF 的硬性规则（不允许 Low Point Win），
+   * 而 1v1 与 JWSD 里同类情况只是软警告。差别写在模板里，不写在代码里。
+   */
+  /*
+   * ---- 总项的硬性区间 ----
+   *
+   * WSDC 规范要求"reject 59 / 81"，因此这里产生的是 issues（拒绝），
+   * 而不是 warning。注意它与 `confirmBelow`/`confirmAbove` 的区别：
+   * 那两个只是"请确认"。
+   */
+  for (const total of schema.totals ?? []) {
+    if (total.hardMin === undefined && total.hardMax === undefined) continue;
+
+    const { speakerTotals, teamTotals } = computeBallotTotals(schema, data, {
+      teamMembersByTeam: context.teamMembersByTeam,
+    });
+    const bucket = total.scope === "speaker" ? speakerTotals : teamTotals;
+
+    for (const [targetId, totals] of Object.entries(bucket)) {
+      const value = totals[total.key];
+      if (typeof value !== "number") continue;
+      if (total.hardMin !== undefined && value < total.hardMin) {
+        issues.push({
+          message: `${targetId} 的${total.label}是 ${value}，低于本赛制允许的最低分 ${total.hardMin}。`,
+        });
+      }
+      if (total.hardMax !== undefined && value > total.hardMax) {
+        issues.push({
+          message: `${targetId} 的${total.label}是 ${value}，高于本赛制允许的最高分 ${total.hardMax}。`,
+        });
+      }
+    }
+  }
+
+  const rules = schema.rules ?? [];
+  if (rules.length > 0) {
+    const hasWinner = (context.winnerTeamId ?? "") !== "";
+    const { teamTotals } = computeBallotTotals(schema, data, {
+      teamMembersByTeam: context.teamMembersByTeam,
+    });
+
+    for (const rule of rules) {
+      const entries = Object.entries(teamTotals)
+        .map(([teamId, totals]) => ({ teamId, value: totals[rule.totalKey] }))
+        .filter(
+          (entry): entry is { teamId: string; value: number } => typeof entry.value === "number",
+        );
+
+      if (entries.length < 2) continue; // 还没算得出两支队伍的总项，无法判断
+
+      if (rule.kind === "totalsMustNotTie") {
+        const values = entries.map((entry) => entry.value);
+        if (new Set(values).size < values.length) {
+          issues.push({ message: rule.message });
+        }
+        continue;
+      }
+
+      // winnerMustHaveHighestTotal
+      if (!hasWinner) continue; // 上面的"必须选出胜方"已经报过了
+      const winner = entries.find((entry) => entry.teamId === context.winnerTeamId);
+      if (!winner) continue;
+
+      const bestLoser = Math.max(
+        ...entries
+          .filter((entry) => entry.teamId !== context.winnerTeamId)
+          .map((entry) => entry.value),
+      );
+      if (winner.value < bestLoser) {
+        issues.push({ message: rule.message });
+      }
+    }
   }
 
   return { valid: issues.length === 0, issues };
