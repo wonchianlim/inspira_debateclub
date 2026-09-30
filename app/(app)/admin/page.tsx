@@ -38,6 +38,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     ready: true,
   },
   {
+    title: "评分表模板",
+    description: "为每个赛制配置评分项与分数区间。未配置的赛制裁判无法打分。",
+    ready: true,
+    href: "/admin/ballot-templates",
+  },
+  {
     href: "/admin/settings",
     title: "系统设置",
     description: "维护系统级键值（例如默认报名时间偏移）。",
