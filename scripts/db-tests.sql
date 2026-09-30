@@ -2266,6 +2266,107 @@ end
 $outbox_judge$;
 
 delete from audit_results where ord >= 90;
+-- ---- 审计覆盖复查（Phase 9）----
+--
+-- ⚠️ 这一条不是"我查了一遍"，而是**一条会在有人新增未审计的表时失败的测试**。
+--
+-- Phase 1 的规矩是：**每一张暴露在 API 上的表都要有 RLS**；
+-- 与之配套的是：**每一张承载竞赛数据的表都要有审计**。
+-- 后者以前只靠人记得，因此 Phase 9 的复查发现 `ballot_scores` 漏了 ——
+-- 而分数恰恰是审计最该覆盖的东西（改分数在 `ballots` 那一行上看不出来）。
+--
+-- 下面列出**刻意不挂审计**的表与理由。任何**不在这个名单里**却没有审计触发器的表
+-- 都会让这条用例失败 —— 将来新增表时，要么挂审计，要么来改这个名单并写明理由。
+do $audit_coverage$
+declare
+  v_expected_unaudited text[] := array[
+    -- 审计日志自己：给它挂审计会自我递归
+    'audit_logs',
+    -- 教练私人笔记：私人正文不该被复制到管理员能看到的地方（P8-3）
+    'coach_notes',
+    -- 邮件队列：机器行为、高频，且含收件人邮箱（P9-2）
+    'email_outbox',
+    -- 通知已读回执：机器行为、高频，且非竞赛数据（P9-1）
+    'notice_reads',
+    -- 限流计数：纯运行期数据，与竞赛无关，且写入极频繁
+    'rate_limit_counters',
+    -- 报名时的赛制偏好：学生在报名窗口内的**自主选择**，
+    -- 而报名本身（registrations）**是**被审计的；
+    -- 偏好只在配对阶段被读取，不构成对已定结果的更改
+    'registration_format_preferences'
+  ];
+  v_missing text[] := array[]::text[];
+  v_unexpected_extra text[] := array[]::text[];
+  v_table text;
+  v_has_audit boolean;
+begin
+  for v_table in
+    select t.tablename from pg_tables t where t.schemaname = 'public' order by t.tablename
+  loop
+    select exists (
+      select 1 from pg_trigger tg
+      join pg_class c on c.oid = tg.tgrelid
+      where c.relname = v_table
+        and tg.tgname = 'audit_' || v_table
+        and not tg.tgisinternal
+    ) into v_has_audit;
+
+    if v_has_audit and v_table = any (v_expected_unaudited) then
+      -- 名单里说"不挂"，实际却挂了 —— 名单过期了
+      v_unexpected_extra := v_unexpected_extra || v_table;
+    elsif not v_has_audit and not (v_table = any (v_expected_unaudited)) then
+      -- ⚠️ 这是真正要拦的情况：有表没有审计，却不在"刻意不挂"的名单里
+      v_missing := v_missing || v_table;
+    end if;
+  end loop;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (100, '没有"漏挂审计"的表（不在例外名单里的都必须有）', '0',
+          coalesce(array_length(v_missing, 1), 0)::text);
+
+  if v_missing is not null and array_length(v_missing, 1) > 0 then
+    raise notice '[审计覆盖] 漏挂审计的表：%', array_to_string(v_missing, '、');
+  end if;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (101, '例外名单没有过期（列出的表确实都没挂审计）', '0',
+          coalesce(array_length(v_unexpected_extra, 1), 0)::text);
+
+  -- 逐项分**必须**有审计（Phase 9 复查补上的那份）
+  insert into audit_results (ord, label, expected, actual)
+  values (102, '逐项分 ballot_scores 有审计触发器', 'true',
+          (exists (select 1 from pg_trigger where tgname = 'audit_ballot_scores'))::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (103, '评语 ballot_feedback 有审计触发器', 'true',
+          (exists (select 1 from pg_trigger where tgname = 'audit_ballot_feedback'))::text);
+end
+$audit_coverage$;
+
+-- ---- 判定：审计覆盖（ord 100 起）----
+do $audit_coverage_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 100 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[审计覆盖] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[审计覆盖] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[审计覆盖] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '审计覆盖测试失败 % 条', fails;
+  end if;
+end
+$audit_coverage_judge$;
+
+delete from audit_results where ord >= 100;
+
 
 
 
