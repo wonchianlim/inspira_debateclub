@@ -191,6 +191,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"coach_notes": {
+                  Row: {
+                    "body": string,"coach_id": string,"created_at": string,"id": string,"student_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "body": string,"coach_id": string,"created_at"?: string,"id"?: string,"student_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "body"?: string,"coach_id"?: string,"created_at"?: string,"id"?: string,"student_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "coach_notes_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "coach_notes_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "student_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"debate_formats": {
                   Row: {
                     "active": boolean,"code": string,"created_at": string,"display_order": number,"id": string,"name": string,"team_size": number,"teams_per_match": number,"updated_at": string

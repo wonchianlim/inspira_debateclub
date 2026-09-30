@@ -37,6 +37,7 @@ delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
 delete from public.ballot_review_requests;
+delete from public.coach_notes;
 delete from public.ballot_feedback;
 delete from public.ballot_scores;
 delete from public.ballots;
@@ -1888,6 +1889,179 @@ end
 $review_request_judge$;
 
 delete from audit_results where ord >= 60;
+-- ---- 教练私人笔记（Phase 8 / P8-3）----
+--
+-- ⚠️ 这一节测的是"**私人是私对谁**"：只有写笔记的教练本人能看到。
+--    这是我在迁移里做出的判断，理由写在那个文件顶部。
+--
+-- 夹具里只有**一位**教练（`...0003`），因此"别人看不到"用管理员与学生来验证，
+-- 而"不能替别人写"用学生档案 id 作为伪造的 coach_id。
+-- （第一版我凭记忆写了 `...0005`/`...0006` 当"另一位教练" —— 它们其实是学生。）
+set role authenticated;
+do $coach_notes$
+declare
+  v_count int := 0;
+  v_visible int := 0;
+  v_denied boolean := false;
+begin
+  -- 教练写一条笔记
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000003', true);
+  insert into public.coach_notes (coach_id, student_id, body)
+  values ('aaaaaaaa-0000-0000-0000-000000000003',
+          'eeeeeeee-0000-0000-0000-000000000004',
+          '这个学生的反驳需要练：常常只重复自己的论点，没有直接回应对方。');
+
+  select count(*) into v_count from public.coach_notes;
+  insert into audit_results (ord, label, expected, actual)
+  values (70, '教练能看到自己写的笔记', '1', v_count::text);
+
+  -- ⚠️ 用 `with check` 拦住"以别人的身份写"
+  begin
+    insert into public.coach_notes (coach_id, student_id, body)
+    values ('aaaaaaaa-0000-0000-0000-000000000004',
+            'eeeeeeee-0000-0000-0000-000000000004',
+            '以别人的身份写笔记，应当被 with check 拒绝');
+  exception when insufficient_privilege or check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (71, '教练不能以别人的身份写笔记', 'true', v_denied::text);
+
+end
+$coach_notes$;
+reset role;
+
+-- ⚠️ 要测"改不动**别人的**笔记"，就必须先有别人的笔记。
+--
+-- 第一版我直接 `update public.coach_notes set body = ...`（没有 where），
+-- 结果改到了 **1** 行 —— 因为表里只有教练自己的那一条，改到 1 行**是正确行为**。
+-- 那条断言从一开始就测不到它声称的东西。
+-- 这里先用超级用户直接插一条属于别人的笔记（绕过 RLS），再让教练去改它。
+-- 用**裁判**的档案当"笔记主人"：学生与管理员都要在下面被验证"看不到"，
+-- 因此不能用他们自己的档案 —— 那样他们会**正确地**看到自己的笔记，
+-- 断言就会失败（第一版正是这么错的）。
+insert into public.coach_notes (coach_id, student_id, body)
+values ('aaaaaaaa-0000-0000-0000-000000000007',
+        'eeeeeeee-0000-0000-0000-000000000005',
+        '这一条属于别的用户，教练不应能改动它。');
+
+set role authenticated;
+do $coach_notes_cannot_update$
+declare
+  v_count int := 0;
+  v_body text;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000003', true);
+
+  update public.coach_notes
+     set body = '被教练改过的内容'
+   where coach_id = 'aaaaaaaa-0000-0000-0000-000000000007';
+  get diagnostics v_count = row_count;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (72, '教练改不动不属于自己的笔记（0 行）', '0', v_count::text);
+end
+$coach_notes_cannot_update$;
+reset role;
+
+-- ⚠️ 配套的一条：证明"0 行"是因为**策略拦住了**，而不是因为那条记录不存在。
+-- 必须以**能看见它的身份**核对 —— 教练自己的身份查出来是 NULL，
+-- 那既不能证明改没改，也无法区分"被拦住"与"没这条记录"。
+do $coach_notes_unchanged$
+declare
+  v_body text;
+begin
+  select body into v_body from public.coach_notes
+   where coach_id = 'aaaaaaaa-0000-0000-0000-000000000007';
+  insert into audit_results (ord, label, expected, actual)
+  values (77, '那条笔记的正文确实没被改动', '这一条属于别的用户，教练不应能改动它。', v_body);
+end
+$coach_notes_unchanged$;
+
+-- 管理员与学生都看不到教练笔记
+set role authenticated;
+do $coach_notes_others$
+declare
+  v_manager_sees int := 0;
+  v_student_sees int := 0;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_manager_sees from public.coach_notes;
+  insert into audit_results (ord, label, expected, actual)
+  values (73, '管理员看不到教练的私人笔记', '0', v_manager_sees::text);
+
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  select count(*) into v_student_sees from public.coach_notes;
+  insert into audit_results (ord, label, expected, actual)
+  values (74, '学生看不到教练的私人笔记', '0', v_student_sees::text);
+end
+$coach_notes_others$;
+reset role;
+
+-- 空白笔记被拒绝
+set role authenticated;
+do $coach_notes_blank$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000003', true);
+  begin
+    insert into public.coach_notes (coach_id, student_id, body)
+    values ('aaaaaaaa-0000-0000-0000-000000000003',
+            'eeeeeeee-0000-0000-0000-000000000004', '   ');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (75, '空白笔记被拒绝', 'true', v_denied::text);
+end
+$coach_notes_blank$;
+reset role;
+
+-- 笔记**不进审计日志**（个人正文不应被复制到管理员能看到的地方）
+set role authenticated;
+do $coach_notes_no_audit$
+declare
+  v_exists boolean;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  -- 查审计触发器是否存在（作为管理员查 pg_trigger 是允许的）
+  select exists (
+    select 1 from pg_trigger where tgname = 'audit_coach_notes'
+  ) into v_exists;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (76, '教练笔记**没有**审计触发器（正文不进审计日志）', 'false', v_exists::text);
+end
+$coach_notes_no_audit$;
+reset role;
+
+-- ---- 判定：教练笔记（ord 70 起）----
+do $coach_notes_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 70 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[教练笔记] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[教练笔记] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[教练笔记] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '教练笔记测试失败 % 条', fails;
+  end if;
+end
+$coach_notes_judge$;
+
+delete from audit_results where ord >= 70;
+
+
 
 
 -- ---- 判定：开始比赛与名单锁定（ord 20 起）----
