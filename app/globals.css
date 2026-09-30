@@ -14,41 +14,83 @@
  * 会导致字体栈解析不确定，已在 P1-2 修正。
  */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /*
+   * INSPIRA 品牌色（依 INSPIRA_Brand_VI_Brief，2026-08-06）
+   *
+   * ⚠️ 这些 oklch 数值是**脚本从十六进制算出来的**，不是手填的近似值。
+   *    换算方式：hex → sRGB → 线性 RGB → Oklab → OKLCH。
+   *
+   * ⚠️ 关于橙色：规范要求"橙色作强调色，不作大面积背景"。
+   *    这**不只是审美** —— 实测对比度：
+   *      白字 / #FE643D  =  2.96:1   ❌ 低于正文要求的 4.5:1
+   *      橙字 / #FBFAF7  =  2.83:1   ❌
+   *      白字 / #071B45  = 16.78:1   ✅
+   *    所以**主按钮一律用 Navy**，橙色只用于非文字处
+   *    （焦点环、强调边、图标、状态点）。
+   */
+
+  /* 底与字：暖象牙，不是纯白 —— 规范要求，且长时间阅读更柔和 */
+  --background: oklch(0.985 0.0041 91.45); /* #FBFAF7 */
+  --foreground: oklch(0.2363 0.0835 262.49); /* #071B45 16.07:1 ✅ */
+
+  --card: oklch(1 0 89.88); /* #FFFFFF */
+  --card-foreground: oklch(0.2363 0.0835 262.49);
+  --popover: oklch(1 0 89.88);
+  --popover-foreground: oklch(0.2363 0.0835 262.49);
+
+  /* 主操作：Navy 承载权威（16.78:1 ✅） */
+  --primary: oklch(0.2363 0.0835 262.49); /* #071B45 */
+  --primary-foreground: oklch(1 0 89.88);
+
+  --secondary: oklch(0.9613 0.007 88.64); /* #F4F2ED */
+  --secondary-foreground: oklch(0.2363 0.0835 262.49);
+
+  --muted: oklch(0.9613 0.007 88.64);
+  --muted-foreground: oklch(0.5014 0.0244 261.7); /* #5C6472 5.71:1 ✅ */
+
+  /* 悬停/选中底色：极淡的 Navy 调，克制 */
+  --accent: oklch(0.9576 0.0087 264.52); /* #EEF1F7 */
+  --accent-foreground: oklch(0.2363 0.0835 262.49);
+
+  /* 危险色刻意【不用】品牌橙，否则用户分不清"强调"与"出错" */
+  --destructive: oklch(0.5433 0.174 29.7); /* #C0392B */
+
+  --border: oklch(0.9043 0.0129 86.83); /* #E3DFD6 */
+  --input: oklch(0.9043 0.0129 86.83);
+
+  /* 焦点环用品牌橙 —— 非文字元素，2.96:1 的限制不适用；且极难被忽略 */
+  --ring: oklch(0.6948 0.1958 35.24); /* #FE643D */
+
+  /* 品牌橙作为独立令牌，供明确需要强调的地方使用 */
+  --brand: oklch(0.6948 0.1958 35.24);
+  --brand-foreground: oklch(1 0 89.88);
+  --brand-tint: oklch(0.9656 0.0176 39.4); /* #FFF0EB 极淡橙底 */
+
+  /* 图表：Navy → 橙 → 中性，符合 70/20/10 的比例 */
+  --chart-1: oklch(0.2363 0.0835 262.49);
+  --chart-2: oklch(0.6948 0.1958 35.24);
+  --chart-3: oklch(0.5014 0.0244 261.7);
+  --chart-4: oklch(0.9043 0.0129 86.83);
+  --chart-5: oklch(0.2264 0 89.88);
+
+  /* 圆角略收 —— 规范要"严谨、权威"，过圆会显低龄 */
+  --radius: 0.5rem;
+
+  --sidebar: oklch(0.985 0.0041 91.45);
+  --sidebar-foreground: oklch(0.2363 0.0835 262.49);
+  --sidebar-primary: oklch(0.2363 0.0835 262.49);
+  --sidebar-primary-foreground: oklch(1 0 89.88);
+  --sidebar-accent: oklch(0.9576 0.0087 264.52);
+  --sidebar-accent-foreground: oklch(0.2363 0.0835 262.49);
+  --sidebar-border: oklch(0.9043 0.0129 86.83);
+  --sidebar-ring: oklch(0.6948 0.1958 35.24);
 }
 
 @theme inline {
+  /* 品牌令牌 —— 供 bg-brand / text-brand / border-brand 使用 */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-tint: var(--brand-tint);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -59,12 +101,15 @@
    * 待自托管品牌字体通过审核后，只需替换下面这一处即可。
    */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
-    "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
-  --font-heading: var(--font-sans);
+  /* 标题用 Montserrat（规范第 14 节）；中文标题回落到系统字体 */
+  --font-heading:
+    var(--font-montserrat), var(--font-inter), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -110,67 +155,56 @@ body {
  ---break---
  */
 .dark {
-  --background: oklch(0.145 0 0);
+  /*
+   * 暗色主题以深 Navy 为底 —— 而不是中性灰。
+   * 规范里 Navy 代表权威与严肃，暗色下更应保持品牌感。
+   */
+  --background: oklch(0.1999 0.0562 260.03); /* #06152F */
+  --foreground: oklch(0.985 0.0041 91.45);
 
-  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.2539 0.073 260.42); /* #0C2145 */
+  --card-foreground: oklch(0.985 0.0041 91.45);
+  --popover: oklch(0.2539 0.073 260.42);
+  --popover-foreground: oklch(0.985 0.0041 91.45);
 
-  --card: oklch(0.205 0 0);
+  /* 暗色下主按钮改用品牌橙 —— 白/象牙字在橙上对比只有 2.96:1，
+     因此这里用【深 Navy 字】配橙底，实测对比充足。 */
+  --primary: oklch(0.6948 0.1958 35.24);
+  --primary-foreground: oklch(0.1999 0.0562 260.03);
 
-  --card-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.2539 0.073 260.42);
+  --secondary-foreground: oklch(0.985 0.0041 91.45);
 
-  --popover: oklch(0.205 0 0);
+  --muted: oklch(0.2539 0.073 260.42);
+  --muted-foreground: oklch(0.75 0.02 260);
 
-  --popover-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.3 0.07 261);
+  --accent-foreground: oklch(0.985 0.0041 91.45);
 
-  --primary: oklch(0.922 0 0);
+  --destructive: oklch(0.65 0.18 25);
 
-  --primary-foreground: oklch(0.205 0 0);
+  --border: oklch(1 0 89.88 / 12%);
+  --input: oklch(1 0 89.88 / 16%);
+  --ring: oklch(0.6948 0.1958 35.24);
 
-  --secondary: oklch(0.269 0 0);
+  --brand: oklch(0.6948 0.1958 35.24);
+  --brand-foreground: oklch(0.1999 0.0562 260.03);
+  --brand-tint: oklch(0.3 0.07 261);
 
-  --secondary-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.6948 0.1958 35.24);
+  --chart-2: oklch(0.985 0.0041 91.45);
+  --chart-3: oklch(0.75 0.02 260);
+  --chart-4: oklch(0.4 0.06 261);
+  --chart-5: oklch(0.55 0.04 260.5);
 
-  --muted: oklch(0.269 0 0);
-
-  --muted-foreground: oklch(0.708 0 0);
-
-  --accent: oklch(0.269 0 0);
-
-  --accent-foreground: oklch(0.985 0 0);
-
-  --destructive: oklch(0.704 0.191 22.216);
-
-  --border: oklch(1 0 0 / 10%);
-
-  --input: oklch(1 0 0 / 15%);
-
-  --ring: oklch(0.556 0 0);
-
-  --chart-1: oklch(0.87 0 0);
-
-  --chart-2: oklch(0.556 0 0);
-
-  --chart-3: oklch(0.439 0 0);
-
-  --chart-4: oklch(0.371 0 0);
-
-  --chart-5: oklch(0.269 0 0);
-
-  --sidebar: oklch(0.205 0 0);
-
-  --sidebar-foreground: oklch(0.985 0 0);
-
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-
-  --sidebar-accent: oklch(0.269 0 0);
-
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-
-  --sidebar-border: oklch(1 0 0 / 10%);
-
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.2539 0.073 260.42);
+  --sidebar-foreground: oklch(0.985 0.0041 91.45);
+  --sidebar-primary: oklch(0.6948 0.1958 35.24);
+  --sidebar-primary-foreground: oklch(0.1999 0.0562 260.03);
+  --sidebar-accent: oklch(0.3 0.07 261);
+  --sidebar-accent-foreground: oklch(0.985 0.0041 91.45);
+  --sidebar-border: oklch(1 0 89.88 / 12%);
+  --sidebar-ring: oklch(0.6948 0.1958 35.24);
 }
 /*
  ---break---

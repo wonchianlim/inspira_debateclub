@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export type NavItem = {
   href: string;
@@ -73,9 +74,28 @@ export function AppShell({
         <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1">
           <Link
             href="/"
-            className="focus-visible:ring-ring/50 rounded-md text-sm font-semibold tracking-tight focus-visible:ring-3 focus-visible:outline-none"
+            className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md focus-visible:ring-3 focus-visible:outline-none"
           >
-            INSPIRA 辩论俱乐部
+            {/*
+              官方狮子符号（VI 规范第 11.2 节「一级：官方品牌狮子」）。
+
+              alt 留空 + aria-hidden：旁边就是品牌名，让屏幕阅读器再念一遍
+              "INSPIRA 狮子图" 只是噪音。**装饰性图片就该这么处理** ——
+              给它写 alt="狮子" 反而是错的。
+            */}
+            <Image
+              src="/inspira-lion.png"
+              alt=""
+              aria-hidden="true"
+              width={28}
+              height={28}
+              className="size-7 shrink-0"
+              priority
+            />
+            {/* 标题用 Montserrat（VI 规范第 14 节） */}
+            <span className="font-heading text-sm font-semibold tracking-tight">
+              INSPIRA 辩论俱乐部
+            </span>
           </Link>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
