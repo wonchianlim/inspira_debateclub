@@ -704,6 +704,9 @@ isOneToOne: false
 "current_profile_id":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"emergency_correct_roster":
+{ Args: { "p_match_id": string,"p_participation_id": string,"p_reason": string,"p_replacement_participation_id": string }; Returns: string
+                           },
 "find_student_by_partner_code":
 { Args: { "p_code": string,"p_event": string }; Returns: {
               "display_name": string,"registered_for_event": boolean,"school": string,"student_id": string
@@ -753,6 +756,12 @@ isOneToOne: false
                            },
 "prune_rate_limit_counters":
 { Args: { "p_keep_days"?: number }; Returns: number
+                           },
+"set_ironman":
+{ Args: { "p_is_ironman": boolean,"p_participation_id": string,"p_team_id": string }; Returns: undefined
+                           },
+"start_match":
+{ Args: { "p_match_id": string }; Returns: Database["public"]['Enums']["match_status"]
                            }
           }
           Enums: {

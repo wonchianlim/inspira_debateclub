@@ -269,6 +269,7 @@ from public.judge_profiles jp
 where jp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000003'
 limit 1;
 
+
 insert into public.pairing_proposals (id, event_id, algorithm_version, input_snapshot)
 values ('33333333-0000-0000-0000-000000000001',
         'bbbbbbbb-0000-0000-0000-000000000001', '1.0.0', '{"test":true}'::jsonb);
@@ -278,6 +279,25 @@ insert into public.teams (id, event_id, format_id)
 select '22222222-0000-0000-0000-000000000002',
        'bbbbbbbb-0000-0000-0000-000000000001', f.id
 from public.debate_formats f where f.code = 'PF';
+
+-- ---------------------------------------------------------------------------
+-- 第三场比赛：**两支队伍都有成员**，用于测试"开始比赛"（P5-5）。
+--
+-- 刻意让第二支队伍也有成员 —— 只有一支有人的话，`start_match` 会因为
+-- "名单里没有任何成员"而拒绝，测不到正常路径。
+-- ---------------------------------------------------------------------------
+insert into public.matches (id, event_id, format_id, match_number, room_name, scheduled_start)
+select '55555555-0000-0000-0000-000000000003',
+       'bbbbbbbb-0000-0000-0000-000000000001', f.id, 3, 'A103',
+       timestamptz '2026-10-01 13:00:00+08'
+from public.debate_formats f where f.code = 'PF';
+
+insert into public.match_teams (match_id, team_id, position) values
+ ('55555555-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000001', 'PROP'),
+ ('55555555-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000002', 'OPP');
+
+insert into public.team_members (team_id, participation_id, speaker_position)
+values ('22222222-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000005', 1);
 
 
 -- 学生 B 在开放活动上的报名。刻意放在测试数据阶段而不是用例里：
@@ -1220,6 +1240,163 @@ begin
   end if;
 end
 $lookupcols$;
+
+-- =============================================================================
+-- 六·补、开始比赛与名单快照锁定（Phase 5 / P5-5）
+--
+-- 规范 10.7 第 4 条："Starting a match permanently locks its roster snapshot."
+-- 第 6.4 节："Append-only rows created **atomically**"。
+--
+-- 这一节验证的不是"函数能跑"，而是三条**行为要求**：
+--   1. 开始之后名单确实被快照下来（内容来自队伍成员，而不是调用方传进来的）；
+--   2. **重复开始是幂等的** —— 不重复写快照、不报错
+--      （网络重试、连点两次都不该出问题）；
+--   3. 非管理员不能开始比赛。
+-- =============================================================================
+set role authenticated;
+do $match_lifecycle$
+declare
+  v_status public.match_status;
+  v_count int;
+  v_count_after int;
+  v_second_status public.match_status;
+  v_ironman_member boolean;
+  v_ironman_match boolean;
+  v_note text;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+
+  -- ---- 1) 管理员开始比赛 ----
+  v_status := public.start_match('55555555-0000-0000-0000-000000000003');
+  insert into audit_results (ord, label, expected, actual)
+  values (20, '管理员开始比赛返回 started', 'started', v_status::text);
+
+  select count(*) into v_count
+  from public.match_roster_snapshots
+  where match_id = '55555555-0000-0000-0000-000000000003';
+  -- 两支队伍各一位成员 → 恰好 2 条快照
+  insert into audit_results (ord, label, expected, actual)
+  values (21, '开始比赛写入的名单快照条数', '2', v_count::text);
+
+  -- ---- 2) 幂等：再开始一次 ----
+  v_second_status := public.start_match('55555555-0000-0000-0000-000000000003');
+  select count(*) into v_count_after
+  from public.match_roster_snapshots
+  where match_id = '55555555-0000-0000-0000-000000000003';
+  insert into audit_results (ord, label, expected, actual)
+  values (22, '重复开始不会重复写快照', '2', v_count_after::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (23, '重复开始返回同样的状态', 'started', v_second_status::text);
+
+  -- ---- 3) Ironman：规范要求"队伍成员与比赛两处都标" ----
+  perform public.set_ironman(
+    '22222222-0000-0000-0000-000000000001',
+    '11111111-0000-0000-0000-000000000004',
+    true
+  );
+  select is_ironman into v_ironman_member
+  from public.team_members
+  where team_id = '22222222-0000-0000-0000-000000000001'
+    and participation_id = '11111111-0000-0000-0000-000000000004';
+
+  select ironman into v_ironman_match
+  from public.matches
+  where id in (
+    select match_id from public.match_teams
+    where team_id = '22222222-0000-0000-0000-000000000001'
+  )
+  limit 1;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (24, 'Ironman 标记到队伍成员', 'true', coalesce(v_ironman_member::text, 'NULL'));
+  insert into audit_results (ord, label, expected, actual)
+  values (25, 'Ironman 标记到比赛', 'true', coalesce(v_ironman_match::text, 'NULL'));
+
+  -- ---- 4) 紧急更正：必须给出理由 ----
+  v_note := public.emergency_correct_roster(
+    '55555555-0000-0000-0000-000000000003',
+    '11111111-0000-0000-0000-000000000004',
+    '11111111-0000-0000-0000-000000000005',
+    '学生临时身体不适，由同队替补上场'
+  );
+  insert into audit_results (ord, label, expected, actual)
+  values (26, '紧急更正返回说明', 'true', (v_note is not null and length(v_note) > 0)::text);
+end
+$match_lifecycle$;
+reset role;
+
+-- 非管理员不能开始比赛（用学生身份）
+set role authenticated;
+do $match_lifecycle_denied$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  begin
+    perform public.start_match('55555555-0000-0000-0000-000000000001');
+  exception when insufficient_privilege then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (27, '学生不能开始比赛', 'true', v_denied::text);
+end
+$match_lifecycle_denied$;
+reset role;
+
+-- 紧急更正缺理由时必须拒绝
+set role authenticated;
+do $correction_needs_reason$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  begin
+    perform public.emergency_correct_roster(
+      '55555555-0000-0000-0000-000000000003',
+      '11111111-0000-0000-0000-000000000004',
+      '11111111-0000-0000-0000-000000000005',
+      '   '
+    );
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (28, '紧急更正缺理由被拒绝', 'true', v_denied::text);
+end
+$correction_needs_reason$;
+reset role;
+
+-- ---- 判定：开始比赛与名单锁定（ord 20 起）----
+do $match_lifecycle_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in
+    select ord, label, expected, actual
+    from audit_results
+    where ord >= 20
+    order by ord
+  loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[比赛流程] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[比赛流程] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+
+  raise notice '[比赛流程] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '比赛流程测试失败 % 条', fails;
+  end if;
+end
+$match_lifecycle_judge$;
+
+-- 这一节用完就把这些行清掉，避免影响后面小节对 audit_results 的统计
+delete from audit_results where ord >= 20;
 
 -- =============================================================================
 -- 七、报名窗口与活动状态（跨层一致性）
