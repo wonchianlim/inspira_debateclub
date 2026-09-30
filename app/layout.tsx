@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { HTML_LANG, getLocale, getMessages } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 /**
  * 品牌字体（依 INSPIRA_Brand_VI_Brief 第 14 节）。
@@ -48,14 +50,28 @@ export const metadata: Metadata = {
   description: "INSPIRA 每周辩论俱乐部的报名、配对、裁判与评分表管理平台",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /*
+   * ⚠️ lang 必须跟着界面语言变。
+   * 写死 zh-CN 而界面是英文，会让屏幕阅读器用中文音去读英文 ——
+   * 这是无障碍问题，不只是准确性问题。
+   */
+  const [messages, locale] = await Promise.all([getMessages(), getLocale()]);
+
   return (
-    <html lang="zh-CN" className={`${inter.variable} ${montserrat.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+    <html
+      lang={HTML_LANG[locale]}
+      className={`${inter.variable} ${montserrat.variable} h-full antialiased`}
+    >
+      <body className="flex min-h-full flex-col">
+        <I18nProvider locale={locale} messages={messages}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

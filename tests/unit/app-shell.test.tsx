@@ -7,14 +7,14 @@ import { AppShell } from "@/components/layout/app-shell";
  * 依据规范第 13 节与 WCAG 2.2 AA 的键盘/地标要求。
  */
 describe("AppShell 应用外壳", () => {
-  it("第一个可聚焦元素是「跳到主要内容」链接，且指向 main", () => {
+  it("第一个可聚焦元素是「Skip to main content」链接，且指向 main", () => {
     render(
       <AppShell>
         <p>内容</p>
       </AppShell>,
     );
 
-    const skipLink = screen.getByRole("link", { name: "跳到主要内容" });
+    const skipLink = screen.getByRole("link", { name: "Skip to main content" });
     expect(skipLink).toHaveAttribute("href", "#main-content");
   });
 
@@ -38,7 +38,7 @@ describe("AppShell 应用外壳", () => {
       </AppShell>,
     );
 
-    expect(screen.getByRole("navigation", { name: "主导航" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
   });
 
   it("不给导航项时不渲染空的导航地标（避免干扰屏幕阅读器）", () => {
@@ -53,12 +53,12 @@ describe("AppShell 应用外壳", () => {
 
   it("可以通过 nav 传入自定义导航（用于需要按路径高亮的客户端导航）", () => {
     render(
-      <AppShell nav={<nav aria-label="主导航">自定义</nav>}>
+      <AppShell nav={<nav aria-label="Main navigation">自定义</nav>}>
         <p>内容</p>
       </AppShell>,
     );
 
-    expect(screen.getByRole("navigation", { name: "主导航" })).toHaveTextContent("自定义");
+    expect(screen.getByRole("navigation", { name: "Main navigation" })).toHaveTextContent("自定义");
   });
 
   it("可以传入右上角区域（例如用户名与登出）", () => {

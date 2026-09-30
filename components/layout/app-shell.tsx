@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+
+import { LocaleSwitcher } from "@/components/layout/locale-switcher";
+import { useLocale, useMessages } from "@/lib/i18n/provider";
 
 export type NavItem = {
   href: string;
@@ -35,10 +40,13 @@ export function AppShell({
   /** 右上角区域，例如用户名与登出按钮。 */
   userSlot?: React.ReactNode;
 }) {
+  const m = useMessages();
+  const locale = useLocale();
+
   const resolvedNav =
     nav ??
     (navItems && navItems.length > 0 ? (
-      <nav aria-label="主导航">
+      <nav aria-label={m.nav.mainNav}>
         <ul className="flex flex-wrap items-center gap-1">
           {navItems.map((item) => (
             <li key={item.href}>
@@ -67,7 +75,7 @@ export function AppShell({
         href="#main-content"
         className="focus:bg-background focus:ring-ring/50 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:ring-3 focus:outline-none"
       >
-        跳到主要内容
+        {m.common.skipToContent}
       </a>
 
       <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
@@ -94,12 +102,13 @@ export function AppShell({
             />
             {/* 标题用 Montserrat（VI 规范第 14 节） */}
             <span className="font-heading text-sm font-semibold tracking-tight">
-              INSPIRA 辩论俱乐部
+              {m.common.appName}
             </span>
           </Link>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {resolvedNav}
+            <LocaleSwitcher current={locale} label={m.nav.language} />
             {userSlot}
           </div>
         </div>
