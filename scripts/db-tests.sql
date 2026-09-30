@@ -834,6 +834,42 @@ end
 $audit_delete$;
 reset role;
 
+-- ---- 5) 报名改动也被审计（Phase 3 / P3-1 把 registrations 加入了审计触发器）----
+-- 为什么要单独测：P3-1 的文档里写了"报名的状态变化会进入审计"，
+-- 而这条声明此前**没有被任何测试直接验证过** —— 触发器挂着不等于真的会写。
+set role authenticated;
+do $audit_registration$
+declare
+  v_before int;
+  v_after int;
+  v_entity text;
+  v_action text;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_before from public.audit_logs where entity_type = 'registrations';
+
+  -- 管理员把一条报名改成"未到场"（P3-5 的真实场景）
+  update public.registrations
+     set status = 'no_show', cancelled_at = null
+   where student_id = 'eeeeeeee-0000-0000-0000-000000000005';
+
+  select count(*) into v_after from public.audit_logs where entity_type = 'registrations';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (10, '把报名标记为未到场会产生审计记录', '1', (v_after - v_before)::text);
+
+  select entity_type, action into v_entity, v_action
+  from public.audit_logs
+  where entity_type = 'registrations'
+  order by created_at desc, id desc
+  limit 1;
+
+  insert into audit_results (ord, label, expected, actual)
+  values (11, '审计对象与动作正确', 'registrations/update', v_entity || '/' || v_action);
+end
+$audit_registration$;
+reset role;
+
 -- ---- 判定 ----
 do $audit_judge$
 declare
