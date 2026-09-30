@@ -2366,6 +2366,76 @@ end
 $audit_coverage_judge$;
 
 delete from audit_results where ord >= 100;
+-- ---- RLS 覆盖复查（Phase 9 的安全复查）----
+--
+-- ⚠️ 这是 Phase 1 最重要的那条保护："**每一张暴露的表都要有 RLS**"。
+--
+-- 它以前只靠人记得 —— 而 Phase 9 的审计复查恰好证明了"靠人记得"会漏东西。
+-- 因此这里把它做成会失败的守卫：新增表时忘了 `enable row level security`，
+-- 这条用例立刻变红，而不是等到有人真的读到了不该读的数据。
+do $rls_coverage$
+declare
+  v_without_rls text[] := array[]::text[];
+  v_table text;
+  v_total int := 0;
+  v_enabled int := 0;
+begin
+  for v_table in select t.tablename from pg_tables t where t.schemaname = 'public' order by t.tablename
+  loop
+    v_total := v_total + 1;
+    if exists (
+      select 1 from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = v_table and c.relrowsecurity
+    ) then
+      v_enabled := v_enabled + 1;
+    else
+      v_without_rls := v_without_rls || v_table;
+    end if;
+  end loop;
+
+  -- 一张都不能漏
+  insert into audit_results (ord, label, expected, actual)
+  values (110, '每一张 public 表都启用了 RLS（漏掉的表名会打在通知里）', '0',
+          coalesce(array_length(v_without_rls, 1), 0)::text);
+
+  if array_length(v_without_rls, 1) > 0 then
+    raise notice '[RLS 覆盖] ⚠️ 未启用 RLS 的表：%', array_to_string(v_without_rls, '、');
+  end if;
+
+  -- 防止"表数变成 0"导致上面那条空跑成假通过
+  insert into audit_results (ord, label, expected, actual)
+  values (111, '确实检查到了表（防止零张表时假通过）', 'true', (v_total > 0)::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (112, '所有表都检查过了（启用数 = 总数）', v_total::text, v_enabled::text);
+end
+$rls_coverage$;
+
+-- ---- 判定：RLS 覆盖（ord 110 起）----
+do $rls_coverage_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 110 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[RLS 覆盖] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[RLS 覆盖] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[RLS 覆盖] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception 'RLS 覆盖测试失败 % 条', fails;
+  end if;
+end
+$rls_coverage_judge$;
+
+delete from audit_results where ord >= 110;
+
 
 
 
