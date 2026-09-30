@@ -510,6 +510,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"notice_reads": {
+                  Row: {
+                    "id": string,"notice_id": string,"profile_id": string,"read_at": string
+                  }
+                  Insert: {
+                    "id"?: string,"notice_id": string,"profile_id": string,"read_at"?: string
+                  }
+                  Update: {
+                    "id"?: string,"notice_id"?: string,"profile_id"?: string,"read_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notice_reads_notice_id_fkey"
+      columns: ["notice_id"]
+isOneToOne: false
+      referencedRelation: "notices"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notice_reads_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"notices": {
                   Row: {
                     "audience_type": string,"body": string,"created_at": string,"created_by": string,"event_id": string | null,"expires_at": string | null,"format_id": string | null,"id": string,"published_at": string | null,"role": Database["public"]['Enums']["app_role"] | null,"title": string,"updated_at": string

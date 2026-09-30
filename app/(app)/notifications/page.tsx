@@ -6,6 +6,8 @@ import { requireSession } from "@/lib/auth/session";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 import { NOTICE_AUDIENCE_LABELS } from "@/lib/validation/notices";
 
+import { MarkReadButton } from "./mark-read-button";
+
 export const metadata = { title: "通知 · INSPIRA" };
 
 export const dynamic = "force-dynamic";
@@ -35,24 +37,42 @@ export default async function NotificationsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {notices.map((notice) => (
-            <Card key={notice.id}>
+            <Card
+              key={notice.id}
+              className={notice.readAt === null ? "border-primary/40" : undefined}
+            >
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                   {notice.title}
                   <Badge variant="outline" className="font-normal">
                     {NOTICE_AUDIENCE_LABELS[notice.audienceType] ?? notice.audienceType}
                   </Badge>
+                  {/*
+                    未读的用一条左边框标出来 —— 通知中心唯一有用的信息就是
+                    "哪几条是新的"。做过"全部已读"会把这个信息抹掉，因此没做。
+                  */}
+                  {notice.readAt === null ? (
+                    <Badge variant="default" className="font-normal">
+                      未读
+                    </Badge>
+                  ) : null}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <p className="text-sm whitespace-pre-wrap">{notice.body}</p>
-                <p className="text-muted-foreground text-xs">
-                  {utcToZonedLocal(new Date(notice.publishedAt), CLUB_DEFAULT_TIMEZONE).replace(
-                    "T",
-                    " ",
-                  )}
-                  （{CLUB_DEFAULT_TIMEZONE}）
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-muted-foreground text-xs">
+                    {utcToZonedLocal(new Date(notice.publishedAt), CLUB_DEFAULT_TIMEZONE).replace(
+                      "T",
+                      " ",
+                    )}
+                    （{CLUB_DEFAULT_TIMEZONE}）
+                    {notice.readAt
+                      ? ` · 已于 ${utcToZonedLocal(new Date(notice.readAt), CLUB_DEFAULT_TIMEZONE).replace("T", " ")} 读过`
+                      : ""}
+                  </p>
+                  {notice.readAt === null ? <MarkReadButton noticeId={notice.id} /> : null}
+                </div>
               </CardContent>
             </Card>
           ))}

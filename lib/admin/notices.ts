@@ -121,6 +121,8 @@ export type NotificationCenterEntry = {
   body: string;
   audienceType: NoticeAudience;
   publishedAt: string;
+  /** 我什么时候读过；null 表示还没读 */
+  readAt: string | null;
 };
 
 /**
@@ -135,7 +137,7 @@ export async function listVisibleNotices(): Promise<NotificationCenterEntry[]> {
   const supabase = await createUserSupabaseClient();
   const { data, error } = await supabase
     .from("notices")
-    .select("id, title, body, audience_type, published_at")
+    .select("id, title, body, audience_type, published_at, notice_reads(read_at)")
     .not("published_at", "is", null)
     .order("published_at", { ascending: false })
     .limit(50);
@@ -144,11 +146,20 @@ export async function listVisibleNotices(): Promise<NotificationCenterEntry[]> {
     console.error("[admin] 读取可见通知失败:", error.message);
     return [];
   }
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    title: row.title as string,
-    body: row.body as string,
-    audienceType: row.audience_type as NoticeAudience,
-    publishedAt: row.published_at as string,
-  }));
+  return (data ?? []).map((row) => {
+    /*
+     * ⚠️ `notice_reads` 是**一对多**的形状（一个人对一条通知理论上只有一条回执，
+     *    由唯一约束保证），但 PostgREST 返回的仍是数组。
+     *    取第一条即可；数组为空就是"还没读"。
+     */
+    const reads = (row as { notice_reads?: { read_at: string }[] | null }).notice_reads ?? [];
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      body: row.body as string,
+      audienceType: row.audience_type as NoticeAudience,
+      publishedAt: row.published_at as string,
+      readAt: reads[0]?.read_at ?? null,
+    };
+  });
 }

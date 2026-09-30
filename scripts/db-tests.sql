@@ -38,6 +38,7 @@ delete from public.registrations;
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
 delete from public.ballot_review_requests;
 delete from public.coach_notes;
+delete from public.notice_reads;
 delete from public.ballot_feedback;
 delete from public.ballot_scores;
 delete from public.ballots;
@@ -2060,6 +2061,103 @@ end
 $coach_notes_judge$;
 
 delete from audit_results where ord >= 70;
+-- ---- 通知已读回执（Phase 9）----
+set role authenticated;
+do $notice_reads$
+declare
+  v_count int := 0;
+  v_visible int := 0;
+  v_denied boolean := false;
+  v_notice_id uuid;
+begin
+  -- 找一条已发布的通知
+  select id into v_notice_id from public.notices where published_at is not null limit 1;
+
+  if v_notice_id is null then
+    raise notice '[通知已读] 跳过：夹具里没有已发布的通知';
+  else
+    -- 学生 A 标记已读
+    perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+    insert into public.notice_reads (notice_id, profile_id)
+    values (v_notice_id, 'aaaaaaaa-0000-0000-0000-000000000004');
+
+    select count(*) into v_count from public.notice_reads;
+    insert into audit_results (ord, label, expected, actual)
+    values (80, '能看到自己的已读回执', '1', v_count::text);
+
+    -- 同一条不能重复标记
+    begin
+      insert into public.notice_reads (notice_id, profile_id)
+      values (v_notice_id, 'aaaaaaaa-0000-0000-0000-000000000004');
+    exception when unique_violation then
+      v_denied := true;
+    end;
+    insert into audit_results (ord, label, expected, actual)
+    values (81, '同一条通知不能重复标记已读', 'true', v_denied::text);
+
+    -- 不能替别人标记
+    v_denied := false;
+    begin
+      insert into public.notice_reads (notice_id, profile_id)
+      values (v_notice_id, 'aaaaaaaa-0000-0000-0000-000000000005');
+    exception when insufficient_privilege or check_violation then
+      v_denied := true;
+    end;
+    insert into audit_results (ord, label, expected, actual)
+    values (82, '不能替别人标记已读', 'true', v_denied::text);
+
+    -- 别人看不到我的回执（RLS 静默过滤 → 0 行）
+    perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000005', true);
+    select count(*) into v_visible from public.notice_reads;
+    insert into audit_results (ord, label, expected, actual)
+    values (83, '别人看不到我的已读回执（0 行）', '0', v_visible::text);
+
+    -- 管理员也看不到（通知中心不追踪到人）
+    perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+    select count(*) into v_visible from public.notice_reads;
+    insert into audit_results (ord, label, expected, actual)
+    values (84, '管理员也看不到别人的已读回执（0 行）', '0', v_visible::text);
+  end if;
+end
+$notice_reads$;
+reset role;
+
+-- 已读回执**不进审计**
+do $notice_reads_no_audit$
+declare
+  v_exists boolean;
+begin
+  select exists (select 1 from pg_trigger where tgname = 'audit_notice_reads') into v_exists;
+  insert into audit_results (ord, label, expected, actual)
+  values (85, '已读回执没有审计触发器（高频且非竞赛数据）', 'false', v_exists::text);
+end
+$notice_reads_no_audit$;
+
+-- ---- 判定：通知已读（ord 80 起）----
+do $notice_reads_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 80 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[通知已读] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[通知已读] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[通知已读] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '通知已读测试失败 % 条', fails;
+  end if;
+end
+$notice_reads_judge$;
+
+delete from audit_results where ord >= 80;
+
 
 
 
