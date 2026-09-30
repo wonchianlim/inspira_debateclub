@@ -991,6 +991,36 @@ end
 $audit_registration$;
 reset role;
 
+-- ---- 6) 管理员的配对改动也被审计（Phase 4 / P4-6 的声明）----
+-- P4-6 的提交信息里写了"每一次人工改动都被审计"。这条声明必须被验证，
+-- 而不是靠"触发器挂着"来推断。
+set role authenticated;
+do $audit_pairing$
+declare
+  v_before int;
+  v_after int;
+  v_entity text;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+  select count(*) into v_before from public.audit_logs where entity_type = 'teams';
+
+  -- 管理员锁定一支队伍（P4-6 界面上「锁定」按钮做的事）
+  update public.teams
+     set locked = true, manually_edited = true
+   where id = '22222222-0000-0000-0000-000000000001';
+
+  select count(*) into v_after from public.audit_logs where entity_type = 'teams';
+  insert into audit_results (ord, label, expected, actual)
+  values (12, '锁定队伍会产生审计记录', '1', (v_after - v_before)::text);
+
+  select entity_type into v_entity
+  from public.audit_logs where entity_type = 'teams' order by created_at desc, id desc limit 1;
+  insert into audit_results (ord, label, expected, actual)
+  values (13, '审计对象是 teams', 'teams', coalesce(v_entity, 'NULL'));
+end
+$audit_pairing$;
+reset role;
+
 -- ---- 判定 ----
 do $audit_judge$
 declare
