@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getJudgeDetail } from "@/lib/admin/judges";
+import { AREA_ROLES } from "@/lib/auth/roles";
 import { JUDGE_APPROVAL_LABELS } from "@/lib/domain/judge-eligibility";
 import { getSessionContext } from "@/lib/auth/session";
 import type { FormState } from "@/lib/forms/form-state";
@@ -12,6 +13,7 @@ import {
   setJudgeQualificationsSchema,
   updateJudgeApprovalSchema,
 } from "@/lib/validation/judges";
+import { assignJudgeSchema, cancelJudgeAssignmentSchema } from "@/lib/validation/pairing";
 
 /**
  * 裁判审批与赛制资格的特权动作。
@@ -224,4 +226,121 @@ export async function updateJudgeNotesAction(
 
   revalidateJudge(judgeProfileId);
   return { status: "success", message: "已保存。" };
+}
+
+/*
+ * 注意权限层级的不同：
+ *   - 审批裁判、设置资格是**超级管理员**的事（`requireSuperAdmin`，Phase 2 定的）；
+ *   - 把裁判**指派到某场比赛**是俱乐部管理员的日常运营（规范第 11 节：
+ *     "Admin confirms the assignment"）。
+ * 两者不能共用一个检查 —— 否则要么让超管被日常琐事绑住，要么让管理员能改资格。
+ */
+async function requireManager(): Promise<{ profileId: string } | FormState> {
+  const session = await getSessionContext();
+  if (!session) return failure("登录状态已失效，请重新登录。");
+  const allowed = AREA_ROLES.manage.some((role) => session.roles.includes(role));
+  if (!allowed) return failure("只有俱乐部管理员或超级管理员可以指派裁判。");
+  return { profileId: session.profileId };
+}
+
+/** 指派改动之后要重新验证**比赛**相关页面（与裁判档案页面不同）。 */
+async function revalidateJudgeViews(matchId: string) {
+  const supabase = await createUserSupabaseClient();
+  const { data } = await supabase
+    .from("matches")
+    .select("event_id")
+    .eq("id", matchId)
+    .maybeSingle();
+  const eventId = data?.event_id as string | undefined;
+  if (eventId) {
+    revalidatePath(`/manage/events/${eventId}/matches`);
+    revalidatePath(`/manage/events/${eventId}`);
+  }
+}
+
+export async function assignJudgeAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = assignJudgeSchema.safeParse({
+    matchId: formData.get("matchId"),
+    judgeId: formData.get("judgeId"),
+    role: formData.get("role"),
+  });
+  if (!parsed.success) return failure("指派参数不正确。");
+
+  const auth = await requireManager();
+  if (isFailure(auth)) return auth;
+
+  const supabase = await createUserSupabaseClient();
+
+  const { error } = await supabase.from("judge_assignments").insert({
+    match_id: parsed.data.matchId,
+    judge_id: parsed.data.judgeId,
+    role: parsed.data.role,
+    assigned_by: auth.profileId,
+  });
+
+  if (error) {
+    console.error("[admin] 指派裁判失败:", error.message);
+    /*
+     * 最可能的原因是时间冲突触发器（P5-1 加的那条）。
+     * 不把它笼统地说成"失败" —— 管理员需要知道是时间冲突，才能去改时间或换人。
+     */
+    if (error.message.includes("同一时间")) {
+      return failure("这位裁判在同一时间已经被指派到另一场比赛了。请改时间或换一位裁判。");
+    }
+    if (error.message.includes("duplicate key")) {
+      return failure("这位裁判已经在这场比赛里了。");
+    }
+    return failure("指派失败，请稍后再试。");
+  }
+
+  await revalidateJudgeViews(parsed.data.matchId);
+  return { status: "success", message: "已指派裁判。" };
+}
+
+export async function cancelJudgeAssignmentAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = cancelJudgeAssignmentSchema.safeParse({
+    assignmentId: formData.get("assignmentId"),
+  });
+  if (!parsed.success) return failure("指派标识格式不正确。");
+
+  const auth = await requireManager();
+  if (isFailure(auth)) return auth;
+
+  const supabase = await createUserSupabaseClient();
+
+  const { data: assignment } = await supabase
+    .from("judge_assignments")
+    .select("id, match_id, status")
+    .eq("id", parsed.data.assignmentId)
+    .maybeSingle();
+
+  if (!assignment) return failure("找不到这条指派。");
+
+  /*
+   * 取消用状态标记，**不删除记录**。
+   *
+   * 与"解散队伍"同一个理由：`judge_assignments` 有审计触发器，
+   * 删掉记录会让审计里的删除条目失去可对照的对象；
+   * 而"这位裁判曾经被指派过、后来取消了"本身就是要保留的历史。
+   * 另外，时间冲突触发器以 `status <> 'cancelled'` 判断占用，
+   * 因此标记取消之后这位裁判立刻可以被派到别处。
+   */
+  const { error } = await supabase
+    .from("judge_assignments")
+    .update({ status: "cancelled" })
+    .eq("id", parsed.data.assignmentId);
+
+  if (error) {
+    console.error("[admin] 取消裁判指派失败:", error.message);
+    return failure("取消失败，请稍后再试。");
+  }
+
+  await revalidateJudgeViews(assignment.match_id as string);
+  return { status: "success", message: "已取消指派。这位裁判现在可以被派到别的比赛。" };
 }

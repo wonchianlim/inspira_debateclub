@@ -41,3 +41,22 @@ export const TEAM_STATUS_LABELS = {
  */
 export const WARNING_IS_INFORMATIONAL =
   "这些提示说明系统在取舍时做了什么选择，不是错误。看完后可以直接确认。";
+
+// -----------------------------------------------------------------------------
+// 裁判指派（Phase 5 / P5-4）
+// -----------------------------------------------------------------------------
+
+export const assignJudgeSchema = z.object({
+  matchId: z.guid({ error: "比赛标识格式不正确" }),
+  judgeId: z.guid({ error: "裁判标识格式不正确" }),
+  role: z.enum(["chair", "panelist"], { error: "请选择主裁或评委" }),
+});
+
+export const cancelJudgeAssignmentSchema = z.object({
+  assignmentId: z.guid({ error: "指派标识格式不正确" }),
+});
+
+export const JUDGE_ROLE_LABELS = {
+  chair: "主裁",
+  panelist: "评委",
+} as const;
