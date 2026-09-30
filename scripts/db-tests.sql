@@ -528,6 +528,35 @@ insert into authz_cases (label, sub, want, sql) values
       select 'bbbbbbbb-0000-0000-0000-000000000001', public.my_student_id(), f.id, 10
       from public.debate_formats f where f.code = 'PF' returning 1) select count(*) from x$q$),
 
+-- ==================== 签到（Phase 6）====================
+-- 学生可以给自己签到，但不能给**别人**签到。
+('A33 学生给自己签到','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$with x as (update public.registrations
+        set checked_in_at = now(), check_in_method = 'self', status = 'checked_in'
+      where student_id = public.my_student_id() returning 1)
+    select count(*) from x$q$),
+('F-STU-38 学生给别人签到','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (update public.registrations
+        set checked_in_at = now(), check_in_method = 'self', status = 'checked_in'
+      where student_id <> public.my_student_id() returning 1)
+    select count(*) from x$q$),
+-- ⚠️ 实测发现：学生本来可以把自己标成"管理员代签"。
+-- 已加触发器禁止（`enforce_check_in_method`）。这条用例固定住那个修复。
+-- ⚠️ 必须用 `with ... returning 1` 把结果变成**可计数**的。
+-- 初版这里写的是裸 `update`，它不返回任何行 ——
+-- 用例于是报"DENIED"，但那是**因为没东西可数**，不是因为有东西拒绝了它。
+-- 去掉触发器之后它照样通过，说明那条用例当时**什么都没验证**（假通过）。
+('F-STU-39 学生把自己的签到伪造成「管理员代签」','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (update public.registrations set check_in_method = 'admin'
+      where student_id = public.my_student_id() returning 1)
+    select count(*) from x$q$),
+-- 管理员可以代签（这是规范第 2.8 节明文要求的）
+('A34 管理员代学生签到','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$with x as (update public.registrations
+        set checked_in_at = now(), check_in_method = 'admin', status = 'checked_in'
+      where student_id = 'eeeeeeee-0000-0000-0000-000000000005' returning 1)
+    select count(*) from x$q$),
+
 -- ==================== 配对提案（Phase 4 / P4-5 新增）====================
 -- 提案是内部工作材料：学生与教练都不该看到草稿。
 ('A30 管理员读配对提案','aaaaaaaa-0000-0000-0000-000000000002','allow',
