@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
+
+import { MatchSettingsForm } from "./match-settings-form";
 import { listAllFormats } from "@/lib/admin/formats";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { requireAnyRole } from "@/lib/auth/session";
@@ -46,6 +48,9 @@ export default async function EventDetailPage({
         <h1 className="text-xl font-semibold tracking-tight">{event.title}</h1>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">
+            <Link href={`/manage/events/${event.id}/live`}>现场看板</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href={`/manage/events/${event.id}/matches`}>比赛安排</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
@@ -117,6 +122,21 @@ export default async function EventDetailPage({
               </div>
             ) : null}
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">比赛设置</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MatchSettingsForm
+            eventId={event.id}
+            timezone={event.timezone}
+            matchStartAtLocal={toLocalInputValue(event.matchStartAt, event.timezone)}
+            matchIntervalMinutes={event.matchIntervalMinutes}
+            roomNames={event.roomNames}
+          />
         </CardContent>
       </Card>
 
@@ -208,4 +228,10 @@ export default async function EventDetailPage({
       </Card>
     </div>
   );
+}
+
+/** 把 UTC 时间戳转成 `datetime-local` 输入框需要的本地格式。 */
+function toLocalInputValue(value: string | null, timezone: string): string {
+  if (!value) return "";
+  return utcToZonedLocal(new Date(value), timezone).slice(0, 16);
 }

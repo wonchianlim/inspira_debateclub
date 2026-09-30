@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { FormMessage } from "@/components/domain/form-message";
 import { Button } from "@/components/ui/button";
 import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
+import { studentCheckInAction } from "@/lib/admin/check-in-actions";
 import {
   cancelRegistrationAction,
   registerForEventAction,
@@ -42,6 +43,10 @@ export function RegistrationForm({
     cancelRegistrationAction,
     INITIAL_FORM_STATE,
   );
+  const [checkInState, checkInAction, checkInPending] = useActionState(
+    studentCheckInAction,
+    INITIAL_FORM_STATE,
+  );
 
   const isActive = status === "registered" || status === "checked_in";
 
@@ -51,6 +56,28 @@ export function RegistrationForm({
         当前状态：
         <strong>{status ? REGISTRATION_STATUS_LABELS[status] : "尚未报名"}</strong>
       </p>
+
+      {/*
+        签到按钮：规范第 2.8 节要求"学生用一个简单的 Check In 动作"。
+        已经签到时**不显示按钮**，只显示状态，避免重复点击。
+      */}
+      {isActive && status !== "checked_in" ? (
+        <form action={checkInAction} className="flex flex-col gap-2">
+          <input type="hidden" name="eventId" value={eventId} />
+          <FormMessage status={checkInState.status} message={checkInState.message} />
+          <Button
+            type="submit"
+            variant="secondary"
+            disabled={checkInPending}
+            className="self-start"
+          >
+            {checkInPending ? "签到中…" : "我要签到"}
+          </Button>
+          <p className="text-muted-foreground text-xs">
+            签到在活动开始前 30 分钟开放。如果你已经到现场但签到失败，请让管理员代为签到。
+          </p>
+        </form>
+      ) : null}
 
       {isActive ? (
         <form action={cancelAction} className="flex flex-col gap-3">

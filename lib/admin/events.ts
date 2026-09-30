@@ -23,6 +23,10 @@ export type EventSummary = {
 };
 
 export type EventDetail = EventSummary & {
+  /** 比赛设置（Phase 6）：第一场开始时间；为空表示沿用活动开始时间 */
+  matchStartAt: string | null;
+  matchIntervalMinutes: number;
+  roomNames: string[];
   checkInOpensAt: string;
   warningAt: string;
   meetingUrl: string | null;
@@ -46,6 +50,9 @@ type EventRow = {
   title: string;
   status: string;
   event_date: string;
+  match_start_at: string | null;
+  match_interval_minutes: number | null;
+  room_names: string[] | null;
   timezone: string;
   starts_at: string;
   ends_at: string;
@@ -68,6 +75,7 @@ type EventRow = {
 
 const EVENT_COLUMNS =
   "id, title, status, event_date, timezone, starts_at, ends_at, registration_opens_at, " +
+  "match_start_at, match_interval_minutes, room_names, " +
   "registration_closes_at, check_in_opens_at, warning_at, meeting_url, notice, created_by, created_at, " +
   "event_formats(format_id, enabled, debate_formats(code, name))";
 
@@ -88,6 +96,9 @@ function toDetail(row: EventRow): EventDetail {
     status: row.status as EventStatus,
     eventDate: row.event_date,
     timezone: row.timezone,
+    matchStartAt: row.match_start_at as string | null,
+    matchIntervalMinutes: (row.match_interval_minutes as number | null) ?? 60,
+    roomNames: (row.room_names as string[] | null) ?? [],
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     registrationOpensAt: row.registration_opens_at,

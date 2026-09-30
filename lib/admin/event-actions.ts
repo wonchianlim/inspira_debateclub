@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getEventDetail } from "@/lib/admin/events";
 import { AREA_ROLES } from "@/lib/auth/roles";
+import { zonedTimeToUtc } from "@/lib/domain/timezone";
 import { getSessionContext } from "@/lib/auth/session";
 import { computeClonedSchedule } from "@/lib/domain/event-clone";
 import { EVENT_STATUS_LABELS, checkEventTransition } from "@/lib/domain/event-lifecycle";
@@ -15,6 +16,7 @@ import {
   eventFormatsSchema,
   eventInputSchema,
   toEventScheduleRecord,
+  matchSettingsSchema,
   transitionEventStatusSchema,
 } from "@/lib/validation/events";
 
@@ -348,5 +350,95 @@ export async function transitionEventStatusAction(
   return {
     status: "success",
     message: `活动状态已从「${EVENT_STATUS_LABELS[event.status]}」变为「${EVENT_STATUS_LABELS[toStatus]}」。`,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// 比赛设置（Phase 6）
+// -----------------------------------------------------------------------------
+/**
+ * 保存活动的比赛设置：第一场开始时间、每场间隔、房间列表。
+ *
+ * 这三项在 Phase 5 是写死在生成逻辑里的默认值（房间从 A101、时间从三天后、
+ * 每场隔 60 分钟）。规范没有规定它们应该是多少，因此当时在完成报告里标为
+ * "最可能需要产品负责人补决定的地方"。现在按产品负责人的要求做成可配置。
+ */
+export async function updateMatchSettingsAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = matchSettingsSchema.safeParse({
+    eventId: formData.get("eventId"),
+    matchStartAtLocal: formData.get("matchStartAtLocal") ?? "",
+    matchIntervalMinutes: formData.get("matchIntervalMinutes"),
+    roomNamesText: formData.get("roomNamesText") ?? "",
+  });
+  if (!parsed.success) {
+    return failure(parsed.error.issues[0]?.message ?? "请检查输入。");
+  }
+
+  const session = await getSessionContext();
+  if (!session) return failure("登录状态已失效，请重新登录。");
+  if (!AREA_ROLES.manage.some((role) => session.roles.includes(role))) {
+    return failure("只有俱乐部管理员或超级管理员可以修改比赛设置。");
+  }
+
+  const supabase = await createUserSupabaseClient();
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("id, timezone")
+    .eq("id", parsed.data.eventId)
+    .maybeSingle();
+  if (!event) return failure("找不到这个活动。");
+
+  const timezone = event.timezone as string;
+
+  /*
+   * 房间名：一行一个，去掉空白行；**并去重**。
+   *
+   * 去重是必要的：`matches` 上有 `UNIQUE (event_id, room_name)`，
+   * 重复的房间名会让生成比赛时直接违反约束，而那条错误信息对管理员毫无意义。
+   */
+  const roomNames = [
+    ...new Set(
+      (parsed.data.roomNamesText ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line !== ""),
+    ),
+  ];
+
+  let matchStartAt: string | null = null;
+  if (parsed.data.matchStartAtLocal !== "") {
+    try {
+      matchStartAt = zonedTimeToUtc(parsed.data.matchStartAtLocal, timezone).toISOString();
+    } catch {
+      return failure("第一场比赛时间无法换算，请检查时区设置。");
+    }
+  }
+
+  const { error } = await supabase
+    .from("events")
+    .update({
+      match_start_at: matchStartAt,
+      match_interval_minutes: parsed.data.matchIntervalMinutes,
+      room_names: roomNames,
+    })
+    .eq("id", parsed.data.eventId);
+
+  if (error) {
+    console.error("[admin] 保存比赛设置失败:", error.message);
+    return failure("保存失败，请稍后再试。");
+  }
+
+  revalidatePath(`/manage/events/${parsed.data.eventId}`);
+  revalidatePath(`/manage/events/${parsed.data.eventId}/matches`);
+  return {
+    status: "success",
+    message:
+      `已保存。第一场：${parsed.data.matchStartAtLocal === "" ? "沿用活动开始时间" : parsed.data.matchStartAtLocal}；` +
+      `间隔 ${parsed.data.matchIntervalMinutes} 分钟；房间 ${roomNames.length} 个。` +
+      "之前的比赛不会自动改变，重新生成时才会按新设置排。",
   };
 }

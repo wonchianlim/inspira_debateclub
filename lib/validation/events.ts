@@ -197,3 +197,29 @@ export const transitionEventStatusSchema = z.object({
 });
 
 export type TransitionEventStatusInput = z.infer<typeof transitionEventStatusSchema>;
+
+/**
+ * 比赛设置（Phase 6）—— 第一场开始时间、每场间隔、房间列表。
+ *
+ * 产品负责人明确要求"希望比赛时间和房间能自己设置"，
+ * 因此这三项从代码里的默认值改成活动级配置。
+ *
+ * `matchStartAtLocal` 允许为空：为空表示"沿用活动开始时间"，
+ * 这正是本项配置加入之前的旧行为，保留它是为了让已有活动的结果不变。
+ */
+export const matchSettingsSchema = z.object({
+  eventId: z.guid({ error: "活动标识格式不正确" }),
+  matchStartAtLocal: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || LOCAL_DATE_TIME_PATTERN.test(value), {
+      error: "第一场比赛时间格式不正确",
+    }),
+  matchIntervalMinutes: z.coerce
+    .number()
+    .int({ error: "间隔必须是整数分钟" })
+    .min(5, { error: "间隔至少 5 分钟" })
+    .max(600, { error: "间隔最多 600 分钟" }),
+  /** 房间名，一行一个 */
+  roomNamesText: optionalText,
+});

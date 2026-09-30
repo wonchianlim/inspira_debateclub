@@ -82,13 +82,13 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "check_in_opens_at": string,"created_at": string,"created_by": string,"ends_at": string,"event_date": string,"id": string,"meeting_url": string | null,"notice": string | null,"registration_closes_at": string,"registration_opens_at": string,"starts_at": string,"status": Database["public"]['Enums']["event_status"],"timezone": string,"title": string,"updated_at": string,"warning_at": string
+                    "check_in_opens_at": string,"created_at": string,"created_by": string,"ends_at": string,"event_date": string,"id": string,"match_interval_minutes": number,"match_start_at": string | null,"meeting_url": string | null,"notice": string | null,"registration_closes_at": string,"registration_opens_at": string,"room_names": (string)[],"starts_at": string,"status": Database["public"]['Enums']["event_status"],"timezone": string,"title": string,"updated_at": string,"warning_at": string
                   }
                   Insert: {
-                    "check_in_opens_at": string,"created_at"?: string,"created_by": string,"ends_at": string,"event_date": string,"id"?: string,"meeting_url"?: string | null,"notice"?: string | null,"registration_closes_at": string,"registration_opens_at": string,"starts_at": string,"status"?: Database["public"]['Enums']["event_status"],"timezone"?: string,"title": string,"updated_at"?: string,"warning_at": string
+                    "check_in_opens_at": string,"created_at"?: string,"created_by": string,"ends_at": string,"event_date": string,"id"?: string,"match_interval_minutes"?: number,"match_start_at"?: string | null,"meeting_url"?: string | null,"notice"?: string | null,"registration_closes_at": string,"registration_opens_at": string,"room_names"?: (string)[],"starts_at": string,"status"?: Database["public"]['Enums']["event_status"],"timezone"?: string,"title": string,"updated_at"?: string,"warning_at": string
                   }
                   Update: {
-                    "check_in_opens_at"?: string,"created_at"?: string,"created_by"?: string,"ends_at"?: string,"event_date"?: string,"id"?: string,"meeting_url"?: string | null,"notice"?: string | null,"registration_closes_at"?: string,"registration_opens_at"?: string,"starts_at"?: string,"status"?: Database["public"]['Enums']["event_status"],"timezone"?: string,"title"?: string,"updated_at"?: string,"warning_at"?: string
+                    "check_in_opens_at"?: string,"created_at"?: string,"created_by"?: string,"ends_at"?: string,"event_date"?: string,"id"?: string,"match_interval_minutes"?: number,"match_start_at"?: string | null,"meeting_url"?: string | null,"notice"?: string | null,"registration_closes_at"?: string,"registration_opens_at"?: string,"room_names"?: (string)[],"starts_at"?: string,"status"?: Database["public"]['Enums']["event_status"],"timezone"?: string,"title"?: string,"updated_at"?: string,"warning_at"?: string
                   }
                   Relationships: [
                     {

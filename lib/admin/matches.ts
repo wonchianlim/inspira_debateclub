@@ -125,7 +125,7 @@ export async function generateAndSaveMatches(
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, title")
+    .select("id, title, starts_at, match_start_at, match_interval_minutes, room_names")
     .eq("id", eventId)
     .maybeSingle();
   if (eventError) throw new Error(`读取活动失败：${eventError.message}`);
@@ -272,11 +272,26 @@ export async function generateAndSaveMatches(
       .eq("event_id", eventId);
     const usedRooms = new Set((existingRooms ?? []).map((row) => row.room_name as string));
 
-    // 房间池：从 A101 起按顺序找没用过的
-    const roomNames: string[] = [];
-    for (let index = 1; roomNames.length < 50; index += 1) {
-      const candidate = `A${100 + index}`;
-      if (!usedRooms.has(candidate)) roomNames.push(candidate);
+    /*
+     * 房间池。
+     *
+     * 优先用**活动配置里的房间名**（`events.room_names`）——
+     * 那是产品负责人明确要求"能自己设置"的那一项。
+     * 配置为空时退回原来的默认（A101 起），保持旧行为不变。
+     *
+     * 两种情况都要跳过**本活动已经用掉**的房间名：
+     * `matches` 上有 `UNIQUE (event_id, room_name)`，重复会直接违反约束。
+     */
+    const configuredRooms = ((event.room_names as string[] | null) ?? []).filter(
+      (name) => name.trim() !== "" && !usedRooms.has(name),
+    );
+
+    const roomNames: string[] = [...configuredRooms];
+    if (roomNames.length === 0) {
+      for (let index = 1; roomNames.length < 50; index += 1) {
+        const candidate = `A${100 + index}`;
+        if (!usedRooms.has(candidate)) roomNames.push(candidate);
+      }
     }
 
     const input: MatchGenerationInput = {
@@ -297,8 +312,17 @@ export async function generateAndSaveMatches(
       previousSideACounts,
       previousSideBCounts,
       roomNames,
-      firstMatchStart: new Date(Date.now() + 3 * 86400_000),
-      matchIntervalMinutes: 60,
+      /*
+       * 开始时间与间隔也改成读活动配置。
+       *
+       * 默认保持旧行为：`match_start_at` 为空时用活动开始时间；
+       * 若活动开始时间也没有（理论上不可能，它是 NOT NULL），退回"三天后"。
+       * 间隔默认 60 分钟。
+       */
+      firstMatchStart: event.match_start_at
+        ? new Date(event.match_start_at as string)
+        : new Date(event.starts_at as string),
+      matchIntervalMinutes: (event.match_interval_minutes as number | null) ?? 60,
     };
 
     const result = generateMatches(input);
