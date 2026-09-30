@@ -31,7 +31,7 @@
  */
 
 /** 字段类型。 */
-export const BALLOT_FIELD_TYPES = ["score", "text", "boolean"] as const;
+export const BALLOT_FIELD_TYPES = ["score", "text", "boolean", "list"] as const;
 export type BallotFieldType = (typeof BALLOT_FIELD_TYPES)[number];
 
 /** 字段作用于谁 —— 决定值存在哪张表/哪一列（见文件头说明）。 */
@@ -50,8 +50,52 @@ export type BallotField = {
   min?: number;
   max?: number;
   step?: number;
+  /**
+   * 仅 `score` 有意义：每个分档的中文说明。
+   *
+   * 即兴辩论的"裁判信心"是 1/2/3 三个档位，每一档都要有文字
+   * （清晰判决 / 势均力敌 / 非常接近）—— 光有数字裁判不知道 2 是什么意思。
+   */
+  options?: { value: number; label: string }[];
+  /**
+   * 仅 `text` 有意义：**建议**的最少字数（判决理由建议 100 字、反馈建议 30 字）。
+   *
+   * ⚠️ 这是**软阈值**，不是硬要求。规范第 19、22 节的措辞都是 "Recommended minimum"，
+   * 而且第 20 节明确说 "Do **not** block submission solely based on writing quality."
+   * 因此它只在 `findBallotWarnings()` 里产生提示，**不**进 `validateBallotData()`。
+   *
+   * （我第一版把它当成了硬要求，测试立刻暴露出来：短理由被拒绝提交，
+   *   而规范要求的是"提示但允许提交"。）
+   */
+  minLength?: number;
+  /** 最多字数 —— 这一项是**硬**上限（技术限制，不是写作质量判断） */
+  maxLength?: number;
+  /** 仅 `list` 有意义：条目数量限制与每条的提示 */
+  minItems?: number;
+  maxItems?: number;
+  itemLabel?: string;
   /** 给裁判的说明 */
   help?: string;
+};
+
+/**
+ * **计算总项**：由若干分数字段相加得出，裁判**不填**。
+ *
+ * 即兴辩论的总分是五个维度之和（满分 30），规范明确要求
+ * "The total should calculate automatically. Judges should not manually enter the total."
+ *
+ * 刻意**不把它存进数据库**：总分是别的字段的纯函数，
+ * 存下来就会有"总分与分项不一致"的可能 —— 那正是要避免的。
+ * 因此它在读取与提交时计算。
+ */
+export type BallotTotal = {
+  key: string;
+  label: string;
+  scope: "team" | "speaker";
+  /** 由哪些字段相加 */
+  sumOf: string[];
+  /** 满分，用于显示 `/30` */
+  max: number;
 };
 
 export type BallotTemplateSchema = {
@@ -62,6 +106,8 @@ export type BallotTemplateSchema = {
   winnerRequired: boolean;
   /** 是否必须填写判决理由 */
   reasonForDecisionRequired: boolean;
+  /** 计算总项（可选）。总项不存数据库，读取与提交时计算。 */
+  totals?: BallotTotal[];
 };
 
 export type BallotValidationIssue = {
@@ -120,6 +166,44 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
       issues.push({ fieldKey: field.key, message: `字段 "${field.key}" 的作用范围无法识别。` });
     }
 
+    if (field.type === "list") {
+      if (typeof field.minItems !== "number" || typeof field.maxItems !== "number") {
+        issues.push({
+          fieldKey: field.key,
+          message: `列表字段 "${field.key}" 必须给出最少与最多条目数。`,
+        });
+      } else if (field.minItems < 0 || field.maxItems < field.minItems) {
+        issues.push({
+          fieldKey: field.key,
+          message: `列表字段 "${field.key}" 的条目数范围不合法（最少 ${field.minItems}、最多 ${field.maxItems}）。`,
+        });
+      }
+      if (field.scope === "speaker") {
+        // 规范里的"论点""交锋"都是按方或整场，而不是按某位学生
+        issues.push({
+          fieldKey: field.key,
+          message: `列表字段 "${field.key}" 不能按学生 —— 请用「按队伍」或「整场」。`,
+        });
+      }
+    }
+
+    if (field.type === "text" && typeof field.minLength === "number" && field.minLength < 0) {
+      issues.push({ fieldKey: field.key, message: `文字字段 "${field.key}" 的最少字数不能为负。` });
+    }
+
+    if (field.type === "score" && field.options) {
+      // 分档说明只对分数有意义，且每一档都要有值
+      const badOption = field.options.find(
+        (option) => typeof option.value !== "number" || option.label.trim() === "",
+      );
+      if (badOption) {
+        issues.push({
+          fieldKey: field.key,
+          message: `分数字段 "${field.key}" 的分档说明不完整（每一档都要有数值与文字）。`,
+        });
+      }
+    }
+
     if (field.type === "score") {
       if (typeof field.min !== "number" || typeof field.max !== "number") {
         /*
@@ -140,11 +224,44 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
     }
   }
 
+  // 计算总项：必须是已存在的分数字段之和
+  for (const total of schema.totals ?? []) {
+    const referenced = total.sumOf
+      .map((key) => schema.fields.find((field) => field.key === key))
+      .filter((field): field is BallotField => field !== undefined);
+
+    if (referenced.length !== total.sumOf.length) {
+      issues.push({
+        message: `总项 "${total.label}" 引用了不存在的字段。`,
+      });
+      continue;
+    }
+    const nonScore = referenced.filter((field) => field.type !== "score");
+    if (nonScore.length > 0) {
+      issues.push({
+        message: `总项 "${total.label}" 只能由分数字段相加，但引用了：${nonScore
+          .map((field) => field.key)
+          .join("、")}。`,
+      });
+    }
+    const expectedMax = referenced.reduce((sum, field) => sum + (field.max ?? 0), 0);
+    if (Math.abs(expectedMax - total.max) > 0.001) {
+      /*
+       * 总项的满分必须等于各分项满分之和。
+       * 不一致会让界面显示"/30"而实际最多只能打 28 分 —— 那种错误很难现场发现。
+       */
+      issues.push({
+        message: `总项 "${total.label}" 的满分是 ${total.max}，但各分项之和是 ${expectedMax}，两者必须一致。`,
+      });
+    }
+  }
+
   return { valid: issues.length === 0, issues };
 }
 
 /** 一位被评者的取值。 */
-export type BallotValue = number | string | boolean | null | undefined;
+/** 列表字段的值是字符串数组；其余是标量。 */
+export type BallotValue = number | string | boolean | string[] | null | undefined;
 
 /** 一份评分表的数据（提交上来或从数据库读出来的）。 */
 export type BallotData = {
@@ -262,10 +379,206 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
     return issues;
   }
 
+  if (field.type === "list") {
+    if (!Array.isArray(value)) {
+      issues.push({ fieldKey: field.key, message: `"${field.label}" 必须是一组条目。` });
+      return issues;
+    }
+    // 空条目不算数 —— 裁判点了几次"+ 添加"但没写字，不该算作一条论点
+    const filled = value.filter((item) => item.trim() !== "");
+    if (typeof field.minItems === "number" && filled.length < field.minItems) {
+      issues.push({
+        fieldKey: field.key,
+        message: `"${field.label}" 至少需要 ${field.minItems} 条，目前只有 ${filled.length} 条。`,
+      });
+    }
+    if (typeof field.maxItems === "number" && filled.length > field.maxItems) {
+      issues.push({
+        fieldKey: field.key,
+        message: `"${field.label}" 最多 ${field.maxItems} 条，目前有 ${filled.length} 条。`,
+      });
+    }
+    return issues;
+  }
+
   if (typeof value !== "string") {
     issues.push({ fieldKey: field.key, message: `"${field.label}" 必须是文字。` });
+    return issues;
+  }
+
+  if (field.type === "text") {
+    const length = value.trim().length;
+    /*
+     * ⚠️ 这里**刻意不检查 minLength**。
+     * 那是"建议字数"，按规范只能提示、不能阻止提交 —— 见字段定义处的说明。
+     */
+    if (typeof field.maxLength === "number" && length > field.maxLength) {
+      issues.push({
+        fieldKey: field.key,
+        message: `"${field.label}" 目前 ${length} 字，最多 ${field.maxLength} 字。`,
+      });
+    }
   }
   return issues;
+}
+
+/**
+ * 计算总项（裁判不填）。
+ *
+ * 即兴辩论的总分 = 论证 + 交锋 + 分析与应变 + 表达 + 结构与策略，满分 30。
+ * 规范明确"总分自动计算，裁判不应手动输入"。
+ *
+ * 返回 `按对象 id → 总项键 → 分数`。队伍级总项放 `teamTotals`，
+ * 学生级放 `speakerTotals`。
+ */
+export function computeBallotTotals(
+  schema: BallotTemplateSchema,
+  data: BallotData,
+): {
+  teamTotals: Record<string, Record<string, number>>;
+  speakerTotals: Record<string, Record<string, number>>;
+} {
+  const teamTotals: Record<string, Record<string, number>> = {};
+  const speakerTotals: Record<string, Record<string, number>> = {};
+
+  for (const total of schema.totals ?? []) {
+    const bucket = total.scope === "team" ? data.teamValues : data.speakerValues;
+    const target = total.scope === "team" ? teamTotals : speakerTotals;
+
+    for (const [objectId, values] of Object.entries(bucket)) {
+      const sum = total.sumOf.reduce((running, fieldKey) => {
+        const raw = values[fieldKey];
+        const numeric = typeof raw === "number" ? raw : Number(raw);
+        return Number.isFinite(numeric) ? running + numeric : running;
+      }, 0);
+      target[objectId] = { ...(target[objectId] ?? {}), [total.key]: sum };
+    }
+  }
+
+  return { teamTotals, speakerTotals };
+}
+
+/** 一条**软警告**：不阻止提交，但要请裁判确认。 */
+export type BallotWarning = {
+  code: "winner_score_mismatch" | "reason_too_brief" | "feedback_too_brief";
+  message: string;
+  fieldKey?: string;
+};
+
+/**
+ * 软警告（规范第 13、20 节）。
+ *
+ * ⚠️ 规范对这两处的要求**都是"警告、不阻止提交"**，而不是拒绝：
+ *   - 第 13 节："This should **NOT** automatically prevent submission. Instead, show:
+ *     *Warning: Your selected winner has a substantially lower score...*"
+ *   - 第 20 节："Do **not** block submission solely based on writing quality."
+ *
+ * 因此这些**不进** `issues`（那是拒绝提交用的），而是单独返回，
+ * 由界面显示成"请确认"。
+ */
+export function findBallotWarnings(
+  schema: BallotTemplateSchema,
+  data: BallotData,
+  context: {
+    winnerTeamId: string | null;
+    reasonForDecision: string | null;
+    /** 判定"分数明显低于对方"的阈值；规范没有给具体数字 */
+    mismatchThreshold?: number;
+  },
+): BallotWarning[] {
+  const warnings: BallotWarning[] = [];
+
+  // ---- 1) 胜方的总分明显低于对方 ----
+  const { teamTotals } = computeBallotTotals(schema, data);
+  const winnerTeamId = context.winnerTeamId;
+
+  if (winnerTeamId && Object.keys(teamTotals).length >= 2) {
+    const winnerTotal = sumAll(teamTotals[winnerTeamId]);
+    const loserTotals = Object.entries(teamTotals)
+      .filter(([teamId]) => teamId !== winnerTeamId)
+      .map(([, totals]) => sumAll(totals))
+      .filter((value): value is number => value !== null);
+
+    if (winnerTotal !== null && loserTotals.length > 0) {
+      /*
+       * 规范举的例子是 19 对 26（差 7 分）应当警告，而 24 对 23（差 1 分）正常。
+       * 规范**没有给出阈值**，这里取 5 分并写明是我的选择。
+       */
+      const threshold = context.mismatchThreshold ?? 5;
+      const bestLoser = Math.max(...loserTotals);
+      if (bestLoser - winnerTotal >= threshold) {
+        warnings.push({
+          code: "winner_score_mismatch",
+          message:
+            `你选的胜方总分是 ${winnerTotal}，而对方是 ${bestLoser}，相差 ${bestLoser - winnerTotal} 分。` +
+            "分数不应机械决定胜负，所以这**不会阻止提交** —— 但请确认这是你的本意。",
+        });
+      }
+    }
+  }
+
+  // ---- 2) 判决理由过短 ----
+  const reasonField = schema.fields.find((field) => field.key === "reason_for_decision");
+  const reasonText = (context.reasonForDecision ?? "").trim();
+  if (reasonText.length > 0) {
+    const minLength = reasonField?.minLength ?? 100;
+    if (reasonText.length < minLength) {
+      warnings.push({
+        code: "reason_too_brief",
+        fieldKey: "reason_for_decision",
+        message:
+          `你的判决理由只有 ${reasonText.length} 字（建议至少 ${minLength} 字）。` +
+          "请说明哪个交锋决定了这场比赛 —— 这**不会阻止提交**，但学生可能看不懂结果。",
+      });
+    }
+  }
+
+  /*
+   * ---- 3) 其他文字字段少于建议字数 ----
+   *
+   * 覆盖**所有**带 `minLength` 的文字字段（不只是反馈），
+   * 这样将来加新的建议字数不用改这里。判决理由已经单独处理过，跳过以免重复。
+   */
+  for (const field of schema.fields) {
+    if (field.type !== "text") continue;
+    if (typeof field.minLength !== "number") continue;
+    if (field.key === "reason_for_decision") continue;
+    if (field.scope === "match") {
+      const raw = data.matchValues[field.key];
+      if (typeof raw !== "string") continue;
+      const text = raw.trim();
+      if (text.length > 0 && text.length < field.minLength) {
+        warnings.push({
+          code: "feedback_too_brief",
+          fieldKey: field.key,
+          message: `「${field.label}」只有 ${text.length} 字（建议至少 ${field.minLength} 字）。`,
+        });
+      }
+      continue;
+    }
+    const bucket = field.scope === "team" ? data.teamValues : data.speakerValues;
+    for (const [targetId, values] of Object.entries(bucket)) {
+      const raw = values[field.key];
+      if (typeof raw !== "string") continue;
+      const text = raw.trim();
+      if (text.length > 0 && text.length < field.minLength) {
+        warnings.push({
+          code: "feedback_too_brief",
+          fieldKey: field.key,
+          message: `「${field.label}」在 ${targetId} 上只有 ${text.length} 字（建议至少 ${field.minLength} 字）。`,
+        });
+      }
+    }
+  }
+
+  return warnings;
+}
+
+/** 把一组总项相加；没有有效数字时返回 null。 */
+function sumAll(totals: Record<string, number>): number | null {
+  const values = Object.values(totals);
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0);
 }
 
 /**

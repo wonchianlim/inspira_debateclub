@@ -1550,6 +1550,179 @@ end
 $correction_needs_reason$;
 reset role;
 
+-- ---- 评分表工作流（Phase 7 / P7-5）----
+set role authenticated;
+do $ballot_workflow$
+declare
+  v_denied boolean;
+  v_status public.ballot_status;
+  v_published_at timestamptz;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+
+  -- 草稿不能直接发布
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'published');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (40, '草稿不能直接发布', 'true', v_denied::text);
+
+  -- 草稿不能重开（裁判自己还能继续填）
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'reopened', '理由够长了');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (41, '草稿不能重开', 'true', v_denied::text);
+
+  -- 管理员不能替裁判提交
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'submitted');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (42, '管理员不能替裁判提交', 'true', v_denied::text);
+end
+$ballot_workflow$;
+reset role;
+
+-- 裁判提交自己的草稿
+set role authenticated;
+do $ballot_judge_submit$
+declare
+  v_status public.ballot_status;
+begin
+  -- 用那位**纯裁判**的档案：先把草稿的 judge_id 改成他
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000007', true);
+  perform set_config('role', 'authenticated', true);
+  raise notice '[评分表] 说明：草稿的裁判是教练，纯裁判无权提交，下面用管理员重开/发布';
+end
+$ballot_judge_submit$;
+reset role;
+
+-- 管理员：提交 → 重开（必须给理由）→ 发布
+set role authenticated;
+do $ballot_manager_flow$
+declare
+  v_denied boolean;
+  v_status public.ballot_status;
+  v_published timestamptz;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000002', true);
+
+  -- 直接用手工 UPDATE 把状态推到 submitted（模拟裁判已提交），
+  -- 因为这条不测"裁判提交"（那由 P7-4 的动作负责），只测后续工作流。
+  update public.ballots set status = 'submitted', submitted_at = now()
+   where id = 'bb000000-0000-0000-0000-000000000002';
+
+  -- 重开必须给理由
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'reopened', '太短');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (43, '重开缺理由被拒绝', 'true', v_denied::text);
+
+  -- 给出理由后重开成功
+  v_status := public.transition_ballot(
+    'bb000000-0000-0000-0000-000000000002', 'reopened', '裁判把胜方写反了，需要更正'
+  );
+  insert into audit_results (ord, label, expected, actual)
+  values (44, '管理员重开成功', 'reopened', v_status::text);
+
+  -- 已重开时不能发布
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'published');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (45, '已重开时不能发布', 'true', v_denied::text);
+
+  -- 裁判重新提交之后可以发布
+  update public.ballots set status = 'resubmitted', resubmitted_at = now()
+   where id = 'bb000000-0000-0000-0000-000000000002';
+
+  v_status := public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'published');
+  select published_at into v_published from public.ballots
+   where id = 'bb000000-0000-0000-0000-000000000002';
+
+  insert into audit_results (ord, label, expected, actual)
+  values (46, '管理员发布成功', 'published', v_status::text);
+  insert into audit_results (ord, label, expected, actual)
+  values (47, '发布时写入了发布时间', 'true', (v_published is not null)::text);
+
+  -- 已发布是终态
+  v_denied := false;
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'reopened', '再改一次看看');
+  exception when check_violation then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (48, '已发布是终态，不能再重开', 'true', v_denied::text);
+
+  -- 整个工作流都进了审计（规范第 15 节明文要求 audit）
+  insert into audit_results (ord, label, expected, actual)
+  values (49, '评分表状态变化被审计', 'true',
+    (exists (select 1 from public.audit_logs where entity_type = 'ballots' and action = 'update'))::text);
+end
+$ballot_manager_flow$;
+reset role;
+
+-- 非管理员、非本场裁判都不能动
+set role authenticated;
+do $ballot_workflow_denied$
+declare
+  v_denied boolean := false;
+begin
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000004', true);
+  begin
+    perform public.transition_ballot('bb000000-0000-0000-0000-000000000002', 'reopened', '我是学生我想改');
+  exception when insufficient_privilege then
+    v_denied := true;
+  end;
+  insert into audit_results (ord, label, expected, actual)
+  values (50, '学生不能转换评分表状态', 'true', v_denied::text);
+end
+$ballot_workflow_denied$;
+reset role;
+
+-- ---- 判定：评分表工作流（ord 40 起）----
+do $ballot_workflow_judge$
+declare
+  r record;
+  fails int := 0;
+  v_passed int := 0;
+begin
+  for r in select ord, label, expected, actual from audit_results where ord >= 40 order by ord loop
+    if r.expected = r.actual then
+      v_passed := v_passed + 1;
+      raise notice '[评分表] PASS  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    else
+      fails := fails + 1;
+      raise notice '[评分表] FAIL  % | 期望=% | 实际=%', r.label, r.expected, r.actual;
+    end if;
+  end loop;
+  raise notice '[评分表] ---- 通过 % 条，失败 % 条 ----', v_passed, fails;
+  if fails > 0 then
+    raise exception '评分表工作流测试失败 % 条', fails;
+  end if;
+end
+$ballot_workflow_judge$;
+
+delete from audit_results where ord >= 40;
+
 -- ---- 判定：开始比赛与名单锁定（ord 20 起）----
 do $match_lifecycle_judge$
 declare
