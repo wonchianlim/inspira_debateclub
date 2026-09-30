@@ -850,6 +850,207 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
   },
 };
 
+/**
+ * **BP（British Parliamentary）模板** —— 来自产品负责人给的规范。
+ *
+ * BP 与前四种赛制有**根本不同**：
+ *
+ *   1. 没有"胜方"字段，只有**四支队伍的名次**（1st–4th，不可重复、必须用满）。
+ *      因此这里**没有** `winnerMustHaveHighestTotal` —— 那条规则需要一个胜方，
+ *      而 BP 的排名本来就不该由分数决定（规范第 32 节：
+ *      "Never automatically rank teams using combined speaker scores"）。
+ *
+ *   2. 规范第 33 节明确要求：名次与分数明显不一致时**只警告、不阻止提交**
+ *      （"This is a warning only. Do not automatically block submission."）。
+ *
+ * ⚠️ 产品负责人曾说过"BP 也不允许 low point wins"。
+ *    我在 2026-09-29 的报告里把这一处矛盾明确提出来了，并按 BP 规范第 33 节
+ *    实现为**警告**。若产品负责人确认要改成硬规则，需要给 BP 加一个"胜方"概念 ——
+ *    那与 BP 的排名制是两种不同的评分模型。
+ */
+export const BP_TEMPLATE: BallotTemplateSchema = {
+  schemaVersion: 1,
+  fields: [
+    /*
+     * ---- 每位发言者 60–85 分（规范第 18 节）----
+     *
+     * 规范明确"只用整数"（"Recommended system: Whole numbers only"），
+     * 且**硬性**要求不低于 60、不高于 85 —— 因此用 hardMin/hardMax。
+     */
+    {
+      key: "speaker_score",
+      label: "发言者得分",
+      type: "score",
+      scope: "speaker",
+      required: true,
+      min: 0,
+      max: 85,
+      step: 1,
+    },
+
+    // ---- 每位发言者的反馈（规范第 37 节：**改进建议必填**）----
+    {
+      key: "speaker_strength",
+      label: "做得好的地方",
+      type: "text",
+      scope: "speaker",
+      required: false,
+      minLength: 20,
+    },
+    {
+      key: "speaker_improve",
+      label: "应该改进的地方",
+      type: "text",
+      scope: "speaker",
+      required: true,
+      minLength: 20,
+    },
+
+    /*
+     * ---- 各队的主要贡献（规范第 50 节）----
+     *
+     * 规范里 OG/OO 叫"主要论点"、CG/CO 叫"延伸"，但两者的形状相同：
+     * 都是"这一队提出了什么"。因此用**一个**按队伍的列表字段表达四支队伍，
+     * 而不是为前两队与后两队各做一套 —— 那会变成四份几乎一样的配置。
+     */
+    {
+      key: "team_contribution",
+      label: "本队的主要贡献",
+      type: "list",
+      scope: TEAM_SCOPE,
+      required: true,
+      minItems: 1,
+      maxItems: 5,
+      itemLabel: "贡献",
+      itemFields: [
+        { key: "why_distinct", label: "为什么是新的（延伸用）", required: false },
+        { key: "why_important", label: "为什么重要", required: false },
+      ],
+    },
+
+    // ---- 主要交锋（规范第 51 节）----
+    {
+      key: "main_clashes",
+      label: "主要交锋",
+      type: "list",
+      scope: MATCH_SCOPE,
+      required: true,
+      minItems: 1,
+      maxItems: 5,
+      itemLabel: "交锋",
+    },
+
+    // ---- 队伍两两对比（规范第 52 节：可选，但对裁判训练有用）----
+    {
+      key: "comparison_opening",
+      label: "正开 vs 反开（哪一方建立了更强的初始阵地）",
+      type: "text",
+      scope: MATCH_SCOPE,
+      required: false,
+    },
+    {
+      key: "comparison_closing",
+      label: "正关 vs 反关（哪一方的延伸更强）",
+      type: "text",
+      scope: MATCH_SCOPE,
+      required: false,
+    },
+    {
+      key: "comparison_government",
+      label: "正开 vs 正关（政府席位哪一队贡献更大）",
+      type: "text",
+      scope: MATCH_SCOPE,
+      required: false,
+    },
+    {
+      key: "comparison_opposition",
+      label: "反开 vs 反关（反对席位哪一队贡献更大）",
+      type: "text",
+      scope: MATCH_SCOPE,
+      required: false,
+    },
+
+    /*
+     * ---- 最终排名（规范第 4、53 节）----
+     *
+     * ⚠️ 这是**唯一**一种"值分布在多支队伍上、且彼此互斥"的字段：
+     * 每支队伍恰好一个名次，不能重复、不能跳号。
+     */
+    {
+      key: "final_ranking",
+      label: "最终排名",
+      type: "ranking",
+      scope: MATCH_SCOPE,
+      required: true,
+      rankLabels: ["第 1 名", "第 2 名", "第 3 名", "第 4 名"],
+    },
+
+    // ---- 排名理由（规范第 36 节：至少 150 字）----
+    {
+      key: "ranking_rationale",
+      label: "排名理由",
+      type: "text",
+      scope: MATCH_SCOPE,
+      required: true,
+      minLength: 150,
+    },
+  ],
+  // BP 没有"胜方"，因此不为它设置 winnerRequired
+  winnerRequired: false,
+  reasonForDecisionRequired: false,
+  totals: [
+    {
+      key: "speaker_total",
+      label: "个人得分",
+      scope: "speaker",
+      sumOf: ["speaker_score"],
+      max: 85,
+      perSpeaker: true,
+      /*
+       * 规范第 18 节：**不得低于 60、不得高于 85**。
+       * 与 WSDC 同理，这是**硬**区间而不是建议。
+       */
+      hardMin: 60,
+      hardMax: 85,
+      // 规范第 59 节的软提示：85 分、≥82 分、≤62 分都要请裁判确认
+      confirmAbove: 81,
+      confirmBelow: 63,
+    },
+    /*
+     * 队伍总分**只用于展示**（两队的发言者之和），
+     * 规范第 32 节明确说排名**不得**由它决定 —— 因此这里
+     * **没有**任何引用它的硬规则。这是刻意的。
+     */
+    {
+      key: "team_points",
+      label: "本队两人合计（仅供参考，不决定名次）",
+      scope: "teamFromSpeakers",
+      sumOf: [],
+      fromSpeakerTotals: ["speaker_total"],
+      max: 170,
+    },
+  ],
+  // 规范第 33 节：名次与分数不一致**只警告**，因此这里刻意**没有** rules
+  guidance: {
+    title: "BP 评分参照",
+    normalRange: [60, 85],
+    defaultScore: 75,
+    anchors: [
+      { score: 85, label: "God-like", note: "极其罕见的近乎完美演讲" },
+      { score: 82, label: "Exceptional", note: "精英级别，几乎没有明显弱点" },
+      { score: 80, label: "Excellent", note: "出色的演讲" },
+      { score: 78, label: "Very Decent", note: "明显强的竞赛级演讲" },
+      { score: 76, label: "Above Average", note: "强于常规水平" },
+      { score: 75, label: "Average", note: "BP 的平均水平。75 不是低分，它就是平均" },
+      { score: 73, label: "Slightly Below Average", note: "基本可用，但明显偏弱" },
+      { score: 70, label: "Weak", note: "问题明显" },
+      { score: 65, label: "Very Weak", note: "有意义的贡献有限" },
+      { score: 61, label: "Extremely Weak", note: "几乎没有有效辩论" },
+      { score: 60, label: "Minimum", note: "相当于上台问好就坐下" },
+    ],
+  },
+};
+
 export const OFFICIAL_TEMPLATES: Record<string, { name: string; schema: BallotTemplateSchema }> = {
   ONE_V_ONE: {
     name: "即兴辩论（Extemporaneous Debate）官方模板",
@@ -866,5 +1067,9 @@ export const OFFICIAL_TEMPLATES: Record<string, { name: string; schema: BallotTe
   WSDC: {
     name: "WSDC 官方模板",
     schema: WSDC_TEMPLATE,
+  },
+  BP: {
+    name: "British Parliamentary（BP）官方模板",
+    schema: BP_TEMPLATE,
   },
 };

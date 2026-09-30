@@ -20,8 +20,14 @@ import {
 const ENTRIES = Object.entries(OFFICIAL_TEMPLATES);
 
 describe("注册表本身", () => {
-  it("四份已有内容的赛制都在注册表里", () => {
-    expect(Object.keys(OFFICIAL_TEMPLATES).sort()).toEqual(["JWSD", "ONE_V_ONE", "PF", "WSDC"]);
+  it("五种赛制都在注册表里（产品负责人已给出全部内容）", () => {
+    expect(Object.keys(OFFICIAL_TEMPLATES).sort()).toEqual([
+      "BP",
+      "JWSD",
+      "ONE_V_ONE",
+      "PF",
+      "WSDC",
+    ]);
   });
 
   it("每一份都能通过模板校验", () => {
@@ -38,16 +44,43 @@ describe("注册表本身", () => {
  * ⚠️ 这条说明**修正了** 1v1 与 JWSD / WSDC 三份规范里原本"只警告、不阻止提交"的写法。
  * 因此这里断言的是**硬规则**（会进 issues、阻止提交），而不是软警告。
  */
-describe("所有赛制都不允许 Low Point Win 与平局", () => {
+/**
+ * ⚠️ **BP 是刻意的例外**。
+ *
+ * BP 没有"胜方"字段 —— 它只有四支队伍的名次（1st–4th）。而规范第 32 节明确说
+ * "Never automatically rank teams using combined speaker scores"，
+ * 第 33 节又说名次与分数不一致"is a warning only. Do **not** automatically block
+ * submission."
+ *
+ * 因此 BP 不进这一组断言。这不是遗漏，是有意为之；
+ * 若将来产品负责人要求 BP 也硬阻止，需要先给 BP 一个"胜方"概念，
+ * 那是与排名制不同的评分模型。
+ */
+const WINS_OR_LOSES_FORMATS = ENTRIES.filter(([code]) => code !== "BP");
+
+describe("除 BP 外，所有赛制都不允许 Low Point Win 与平局", () => {
+  it("BP **没有**胜负规则（它用排名，不是胜负）", () => {
+    for (const rule of OFFICIAL_TEMPLATES.BP!.schema.rules ?? []) {
+      expect(rule.kind).not.toBe("winnerMustHaveHighestTotal");
+    }
+    expect(OFFICIAL_TEMPLATES.BP!.schema.winnerRequired).toBe(false);
+  });
+
+  it("BP 有排名字段，且名次是 1st–4th", () => {
+    const ranking = OFFICIAL_TEMPLATES.BP!.schema.fields.find((f) => f.type === "ranking");
+    expect(ranking).toBeDefined();
+    expect(ranking?.rankLabels).toEqual(["第 1 名", "第 2 名", "第 3 名", "第 4 名"]);
+  });
+
   it("每一份模板都有「不能平局」的硬规则", () => {
-    for (const [formatCode, entry] of ENTRIES) {
+    for (const [formatCode, entry] of WINS_OR_LOSES_FORMATS) {
       const rule = (entry.schema.rules ?? []).find((r) => r.kind === "totalsMustNotTie");
       expect(rule, `${formatCode} 缺少"不能平局"规则`).toBeDefined();
     }
   });
 
   it("每一份模板都有「胜方总分必须更高」的硬规则", () => {
-    for (const [formatCode, entry] of ENTRIES) {
+    for (const [formatCode, entry] of WINS_OR_LOSES_FORMATS) {
       const rule = (entry.schema.rules ?? []).find((r) => r.kind === "winnerMustHaveHighestTotal");
       expect(rule, `${formatCode} 缺少"不允许 Low Point Win"规则`).toBeDefined();
     }
@@ -85,7 +118,7 @@ describe("所有赛制都不允许 Low Point Win 与平局", () => {
   });
 
   it("拒绝信息是中文且明确指出不允许低分获胜", () => {
-    for (const [formatCode, entry] of ENTRIES) {
+    for (const [formatCode, entry] of WINS_OR_LOSES_FORMATS) {
       const rule = (entry.schema.rules ?? []).find((r) => r.kind === "winnerMustHaveHighestTotal");
       expect(rule?.message, `${formatCode}`).toContain("Low Point Win");
     }
@@ -162,6 +195,44 @@ describe("分制与满分", () => {
  * "The system should reject: 59, 81, scores outside the 60–80 range"。
  * 因此它是**硬**区间（hardMin / hardMax），不是建议。
  */
+describe("BP 的 60–85 是硬性区间", () => {
+  it("个人得分的硬性区间是 60–85，且只用整数", () => {
+    const total = OFFICIAL_TEMPLATES.BP!.schema.totals?.find((t) => t.key === "speaker_total");
+    expect(total?.hardMin).toBe(60);
+    expect(total?.hardMax).toBe(85);
+
+    const scoreField = OFFICIAL_TEMPLATES.BP!.schema.fields.find((f) => f.key === "speaker_score");
+    expect(scoreField?.step).toBe(1);
+  });
+
+  it("评分参照表的核心锚点是 85 / 78 / 75 / 60", () => {
+    const anchors = new Map(
+      (OFFICIAL_TEMPLATES.BP!.schema.guidance?.anchors ?? []).map(
+        (a) => [a.score, a.label] as const,
+      ),
+    );
+    expect(anchors.get(85)).toBe("God-like");
+    expect(anchors.get(78)).toBe("Very Decent");
+    expect(anchors.get(75)).toBe("Average");
+    expect(anchors.get(60)).toBe("Minimum");
+  });
+
+  it("排名理由至少 150 字（规范第 36 节）", () => {
+    const rationale = OFFICIAL_TEMPLATES.BP!.schema.fields.find(
+      (f) => f.key === "ranking_rationale",
+    );
+    expect(rationale?.minLength).toBe(150);
+  });
+
+  it("每位发言者的改进建议是**必填**（规范第 57 节）", () => {
+    const improve = OFFICIAL_TEMPLATES.BP!.schema.fields.find((f) => f.key === "speaker_improve");
+    expect(improve?.required).toBe(true);
+    expect(
+      OFFICIAL_TEMPLATES.BP!.schema.fields.find((f) => f.key === "speaker_strength")?.required,
+    ).toBe(false);
+  });
+});
+
 describe("WSDC 的 60–80 是硬性区间", () => {
   const speakerTotal = WSDC_TEMPLATE.totals?.find((total) => total.key === "speaker_total");
 
@@ -200,9 +271,9 @@ describe("WSDC 的 60–80 是硬性区间", () => {
     }
   });
 
-  it("只有 WSDC 有硬性区间 —— 其余赛制没有这条限制（规范只对 WSDC 提出）", () => {
+  it("只有 WSDC 与 BP 有硬性区间 —— 其余赛制没有（规范只对这两份提出）", () => {
     for (const [formatCode, entry] of ENTRIES) {
-      if (formatCode === "WSDC") continue;
+      if (formatCode === "WSDC" || formatCode === "BP") continue;
       for (const total of entry.schema.totals ?? []) {
         expect(total.hardMin, `${formatCode} 不应有硬性最低分`).toBeUndefined();
         expect(total.hardMax, `${formatCode} 不应有硬性最高分`).toBeUndefined();
@@ -254,7 +325,7 @@ describe("队伍总分差的硬性区间（仅 WSDC 与 JWSD）", () => {
     (entry.schema.rules ?? []).some((rule) => rule.kind === "teamTotalGapWithinRange"),
   ).map(([code]) => code);
 
-  it("只有 WSDC 与 JWSD 有这条规则", () => {
+  it("只有 WSDC 与 JWSD 有这条规则（BP 的排名差距不设限）", () => {
     expect(withGapRule.sort()).toEqual(["JWSD", "WSDC"]);
   });
 

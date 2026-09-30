@@ -116,9 +116,15 @@ export type BallotContext = {
     participationId: string;
     displayName: string;
     teamId: string | null;
+    /** 发言位次（1 起）。JWSD 的回复发言者是第 4 位，用另一组字段。 */
+    speakerPosition: number;
   }[];
   /** 本场的队伍（`scope: team` 的字段按这些队伍） */
   teams: { teamId: string; teamLabel: string | null; position: string }[];
+  /** 学生 id → 发言位次，直接喂给 `canSubmitBallot` 的 `expectedIds` */
+  speakerPositionByStudent: Record<string, number>;
+  /** 队伍 id → 队员学生 id，`teamFromSpeakers` 型总项需要 */
+  teamMembersByTeam: Record<string, string[]>;
   ballotId: string | null;
   ballotStatus: string | null;
   winnerTeamId: string | null;
@@ -254,9 +260,19 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
         participationId: speaker.participationId,
         displayName: speaker.displayName,
         teamId: speaker.teamId,
+        speakerPosition: speaker.speakerPosition,
       }))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+      .sort((a, b) => a.speakerPosition - b.speakerPosition),
     teams,
+    speakerPositionByStudent: Object.fromEntries(
+      speakers.map((speaker) => [speaker.studentId, speaker.speakerPosition] as const),
+    ),
+    teamMembersByTeam: teams.reduce<Record<string, string[]>>((accumulator, team) => {
+      accumulator[team.teamId] = speakers
+        .filter((speaker) => speaker.teamId === team.teamId)
+        .map((speaker) => speaker.studentId);
+      return accumulator;
+    }, {}),
     ballotId: (ballotData?.id as string | undefined) ?? null,
     ballotStatus: (ballotData?.status as string | undefined) ?? null,
     winnerTeamId: (ballotData?.winner_team_id as string | undefined) ?? null,

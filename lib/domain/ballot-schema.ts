@@ -31,7 +31,7 @@
  */
 
 /** 字段类型。 */
-export const BALLOT_FIELD_TYPES = ["score", "text", "boolean", "list"] as const;
+export const BALLOT_FIELD_TYPES = ["score", "text", "boolean", "list", "ranking"] as const;
 export type BallotFieldType = (typeof BALLOT_FIELD_TYPES)[number];
 
 /** 字段作用于谁 —— 决定值存在哪张表/哪一列（见文件头说明）。 */
@@ -77,6 +77,14 @@ export type BallotField = {
   minLength?: number;
   /** 最多字数 —— 这一项是**硬**上限（技术限制，不是写作质量判断） */
   maxLength?: number;
+  /**
+   * 仅 `type: "ranking"` 有意义：名次的显示名称（BP 的 1st–4th）。
+   *
+   * 排名是**唯一**一种"值分布在多个对象上、且彼此互斥"的字段：
+   * 每支队伍恰好拿一个名次，不能重复。这与"按队伍打分"完全不同 ——
+   * 后者每支队伍独立取值，重复没有问题。
+   */
+  rankLabels?: string[];
   /** 仅 `list` 有意义：条目数量限制与每条的提示 */
   minItems?: number;
   maxItems?: number;
@@ -304,6 +312,21 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
       issues.push({ fieldKey: field.key, message: `字段 "${field.key}" 的作用范围无法识别。` });
     }
 
+    if (field.type === "ranking") {
+      if (field.scope !== "match") {
+        issues.push({
+          fieldKey: field.key,
+          message: `排名字段 "${field.key}" 必须是「整场」范围 —— 它横跨所有队伍，不属于某一支。`,
+        });
+      }
+      if (!field.rankLabels || field.rankLabels.length < 2) {
+        issues.push({
+          fieldKey: field.key,
+          message: `排名字段 "${field.key}" 必须给出名次名称（例如 1st–4th）。`,
+        });
+      }
+    }
+
     if (field.type === "list") {
       if (typeof field.minItems !== "number" || typeof field.maxItems !== "number") {
         issues.push({
@@ -450,7 +473,11 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
  */
 export type BallotListEntry = string | Record<string, string>;
 
-export type BallotValue = number | string | boolean | BallotListEntry[] | null | undefined;
+/** 排名值：队伍 id → 名次（1 起）。 */
+export type BallotRankingValue = Record<string, number>;
+
+export type BallotValue =
+  number | string | boolean | BallotListEntry[] | BallotRankingValue | null | undefined;
 
 /** 一份评分表的数据（提交上来或从数据库读出来的）。 */
 export type BallotData = {
@@ -500,6 +527,25 @@ export function validateBallotData(
   for (const field of schema.fields) {
     if (field.scope === "match") {
       const value = data.matchValues[field.key];
+
+      /*
+       * 排名字段的"有没有填"要看**每支队伍是否都有名次** ——
+       * 一个非空但只覆盖两支队伍的对象不算填好了。
+       */
+      if (field.type === "ranking") {
+        const ranking = (value ?? {}) as BallotRankingValue;
+        const expectedTeams = expectedIds?.teamIds ?? [];
+        const missing = expectedTeams.filter((teamId) => !Number.isFinite(ranking[teamId]));
+        if (field.required && missing.length > 0) {
+          issues.push({
+            fieldKey: field.key,
+            message: `"${field.label}" 还没有给这些队伍排名（共 ${missing.length} 支）。`,
+          });
+        }
+        if (!isBlank(value)) issues.push(...checkValueType(field, value));
+        continue;
+      }
+
       if (field.required && isBlank(value)) {
         issues.push({ fieldKey: field.key, message: `"${field.label}" 必须填写。` });
         continue;
@@ -623,6 +669,40 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
   if (field.type === "boolean") {
     if (typeof value !== "boolean") {
       issues.push({ fieldKey: field.key, message: `"${field.label}" 必须是「是/否」。` });
+    }
+    return issues;
+  }
+
+  if (field.type === "ranking") {
+    if (typeof value !== "object" || Array.isArray(value) || value === null) {
+      issues.push({ fieldKey: field.key, message: `"${field.label}" 必须是一组队伍名次。` });
+      return issues;
+    }
+
+    const ranking = value as BallotRankingValue;
+    const ranks = Object.values(ranking).filter((rank) => Number.isFinite(rank));
+
+    // 名次不能重复 —— 两支队伍并列第一在 BP 里是不允许的
+    if (new Set(ranks).size !== ranks.length) {
+      issues.push({
+        fieldKey: field.key,
+        message: `"${field.label}" 里有重复的名次。每支队伍必须拿到**不同**的名次。`,
+      });
+    }
+
+    // 名次必须用满 1..N，不能跳号（1、2、4 是不合法的）
+    const expectedCount = field.rankLabels?.length ?? 0;
+    if (expectedCount > 0) {
+      const sorted = [...ranks].sort((a, b) => a - b);
+      const wanted = Array.from({ length: expectedCount }, (_, index) => index + 1);
+      if (sorted.join(",") !== wanted.join(",")) {
+        issues.push({
+          fieldKey: field.key,
+          message:
+            `"${field.label}" 必须恰好用到 ${wanted.join("、")} 这几个名次，` +
+            `目前是 ${sorted.join("、") || "空"}。`,
+        });
+      }
     }
     return issues;
   }
