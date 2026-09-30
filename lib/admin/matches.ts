@@ -108,8 +108,20 @@ export async function listEventMatches(eventId: string): Promise<PersistedMatchV
  *
  * 已开始（`roster_locked_at` 非空）的比赛**整体保留**，其队伍不参与本次重新分组。
  */
-export async function generateAndSaveMatches(eventId: string): Promise<GenerateMatchesResult> {
-  const supabase = await createUserSupabaseClient();
+export type MatchesClient = Awaited<ReturnType<typeof createUserSupabaseClient>>;
+
+/**
+ * 生成并保存比赛。
+ *
+ * @param injectedClient 仅用于**集成测试**（与配对生成、裁判推荐同一做法）：
+ *   server-only 模块正常路径依赖 Next 的请求上下文，无法在测试里直接调用。
+ *   生产代码**不传**，权限仍由 RLS 与 Server Action 决定。
+ */
+export async function generateAndSaveMatches(
+  eventId: string,
+  injectedClient?: MatchesClient,
+): Promise<GenerateMatchesResult> {
+  const supabase = injectedClient ?? (await createUserSupabaseClient());
 
   const { data: event, error: eventError } = await supabase
     .from("events")
@@ -185,11 +197,25 @@ export async function generateAndSaveMatches(eventId: string): Promise<GenerateM
   }
 
   // --- 历史正反方（让每位学生的两侧趋于平衡） ---
-  const { data: sideHistory, error: sideError } = await supabase
-    .from("match_roster_snapshots")
-    .select("student_id, position")
-    .in("event_id", [eventId])
-    .returns<{ student_id: string; position: string }[]>();
+  /*
+   * ⚠️ `match_roster_snapshots` **没有** `event_id` 列 —— 初版这里按 event_id 过滤，
+   * 数据库直接报 "column ... does not exist"。
+   * 必须先在 matches 上取到该活动的比赛 id，再按 match_id 过滤。
+   */
+  const { data: eventMatches, error: eventMatchesError } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("event_id", eventId);
+  if (eventMatchesError) throw new Error(`读取活动比赛失败：${eventMatchesError.message}`);
+
+  const eventMatchIds = (eventMatches ?? []).map((match) => match.id as string);
+  const { data: sideHistory, error: sideError } =
+    eventMatchIds.length === 0
+      ? { data: [] as { student_id: string; position: string }[], error: null }
+      : await supabase
+          .from("match_roster_snapshots")
+          .select("student_id, position")
+          .in("match_id", eventMatchIds);
   if (sideError) throw new Error(`读取历史正反方失败：${sideError.message}`);
 
   /*
