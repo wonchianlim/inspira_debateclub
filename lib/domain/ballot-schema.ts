@@ -74,8 +74,30 @@ export type BallotField = {
   minItems?: number;
   maxItems?: number;
   itemLabel?: string;
+  /**
+   * 仅 `list` 有意义：**每条可带哪些子字段**。
+   *
+   * JWSD 规范里每条论点可带一个"裁判笔记"，每条交锋可带
+   * "正方主张 / 反方主张 / 裁判评估"三段笔记。
+   * 不填这个属性时，条目就是纯文字（1v1 的论点与交锋就是这种）。
+   */
+  itemFields?: BallotListItemField[];
   /** 给裁判的说明 */
   help?: string;
+};
+
+/**
+ * 结构化列表条目的子字段（例如论点的"裁判笔记"）。
+ *
+ * 刻意只支持文字：规范里这些子字段全是记录性文字，没有分数或选项。
+ * 若将来需要别的类型，再按需要扩展 —— 现在多加类型只会让界面更难用。
+ */
+export type BallotListItemField = {
+  key: string;
+  label: string;
+  required: boolean;
+  /** 建议的最少字数（软阈值，与顶层文字字段同一语义） */
+  minLength?: number;
 };
 
 /**
@@ -91,11 +113,21 @@ export type BallotField = {
 export type BallotTotal = {
   key: string;
   label: string;
-  scope: "team" | "speaker";
-  /** 由哪些字段相加 */
+  /**
+   * - `team`：把**该队伍自己的**若干字段相加（1v1 的 30 分是这种）
+   * - `speaker`：把**该学生自己的**若干字段相加（JWSD 每人的 100 分是这种）
+   * - `teamFromSpeakers`：把**该队伍每位发言者的某个总项**相加
+   *   （JWSD 的队伍总分 = 三位发言者总分之和）
+   */
+  scope: "team" | "speaker" | "teamFromSpeakers";
+  /** 由哪些字段相加；`teamFromSpeakers` 时不用 */
   sumOf: string[];
-  /** 满分，用于显示 `/30` */
+  /** 仅 `teamFromSpeakers`：把发言者的哪个总项相加 */
+  fromSpeakerTotal?: string;
+  /** 满分，用于显示 `/30` 或 `/100` */
   max: number;
+  /** 是否是"每位发言者都要有的"总项（用于界面按人显示） */
+  perSpeaker?: boolean;
 };
 
 export type BallotTemplateSchema = {
@@ -226,6 +258,32 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
 
   // 计算总项：必须是已存在的分数字段之和
   for (const total of schema.totals ?? []) {
+    if (total.scope === "teamFromSpeakers") {
+      if (!total.fromSpeakerTotal) {
+        issues.push({ message: `总项 "${total.label}" 没有说明由发言者的哪个总项相加。` });
+        continue;
+      }
+      const speakerTotal = (schema.totals ?? []).find(
+        (candidate) => candidate.key === total.fromSpeakerTotal && candidate.scope === "speaker",
+      );
+      if (!speakerTotal) {
+        issues.push({
+          message: `总项 "${total.label}" 引用的发言者总项 "${total.fromSpeakerTotal}" 不存在或不是发言者级的。`,
+        });
+        continue;
+      }
+      /*
+       * 队伍总分满分应当是"人数 × 每人满分"，但**人数是可变的**
+       * （3 人、4 人，或将来加替补），因此只要求它是每人满分的整数倍 ——
+       * 写死 300 会在换人数时变成错的。
+       */
+      if (speakerTotal.max > 0 && total.max % speakerTotal.max !== 0) {
+        issues.push({
+          message: `总项 "${total.label}" 的满分 ${total.max} 不是每人满分 ${speakerTotal.max} 的整数倍。`,
+        });
+      }
+      continue;
+    }
     const referenced = total.sumOf
       .map((key) => schema.fields.find((field) => field.key === key))
       .filter((field): field is BallotField => field !== undefined);
@@ -261,7 +319,14 @@ export function validateBallotTemplate(schema: BallotTemplateSchema): BallotVali
 
 /** 一位被评者的取值。 */
 /** 列表字段的值是字符串数组；其余是标量。 */
-export type BallotValue = number | string | boolean | string[] | null | undefined;
+/**
+ * 列表字段的值有两种形态：
+ *   - `string[]` —— 纯文字条目（1v1 的论点、交锋）
+ *   - `Record<string, string>[]` —— 带子字段的条目（JWSD 的论点+裁判笔记、交锋三段笔记）
+ */
+export type BallotListEntry = string | Record<string, string>;
+
+export type BallotValue = number | string | boolean | BallotListEntry[] | null | undefined;
 
 /** 一份评分表的数据（提交上来或从数据库读出来的）。 */
 export type BallotData = {
@@ -348,6 +413,13 @@ export function validateBallotData(
   return { valid: issues.length === 0, issues };
 }
 
+/** 一条列表条目是否"写了内容"（空条目不算数）。 */
+function isBlankListEntry(entry: BallotListEntry): boolean {
+  if (typeof entry === "string") return entry.trim() === "";
+  // 结构化条目：只要**任何一个**子字段有内容就算写了
+  return Object.values(entry).every((text) => (text ?? "").trim() === "");
+}
+
 /** 单项取值是否与字段类型/区间相符。 */
 function checkValueType(field: BallotField, value: BallotValue): BallotValidationIssue[] {
   const issues: BallotValidationIssue[] = [];
@@ -385,7 +457,8 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
       return issues;
     }
     // 空条目不算数 —— 裁判点了几次"+ 添加"但没写字，不该算作一条论点
-    const filled = value.filter((item) => item.trim() !== "");
+    const filled = value.filter((entry) => !isBlankListEntry(entry));
+
     if (typeof field.minItems === "number" && filled.length < field.minItems) {
       issues.push({
         fieldKey: field.key,
@@ -397,6 +470,22 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
         fieldKey: field.key,
         message: `"${field.label}" 最多 ${field.maxItems} 条，目前有 ${filled.length} 条。`,
       });
+    }
+
+    // 结构化条目：检查必填子字段（JWSD 的裁判笔记是可选的，因此不会命中）
+    if (field.itemFields && field.itemFields.length > 0) {
+      for (const [index, entry] of filled.entries()) {
+        if (typeof entry === "string") continue;
+        for (const sub of field.itemFields) {
+          if (!sub.required) continue;
+          if ((entry[sub.key] ?? "").trim() === "") {
+            issues.push({
+              fieldKey: field.key,
+              message: `"${field.label}" 第 ${index + 1} 条的「${sub.label}」没有填写。`,
+            });
+          }
+        }
+      }
     }
     return issues;
   }
@@ -434,6 +523,16 @@ function checkValueType(field: BallotField, value: BallotValue): BallotValidatio
 export function computeBallotTotals(
   schema: BallotTemplateSchema,
   data: BallotData,
+  context: {
+    /**
+     * 队伍 id → 该队的发言者（学生）id。
+     *
+     * 只有 `teamFromSpeakers` 型的总项需要它：队伍总分要把**队员各自的
+     * 某个总项**加起来，而 `BallotData` 只按学生、按队伍各存一份，
+     * 并不知道谁属于哪一队。
+     */
+    teamMembersByTeam?: Record<string, string[]>;
+  } = {},
 ): {
   teamTotals: Record<string, Record<string, number>>;
   speakerTotals: Record<string, Record<string, number>>;
@@ -441,17 +540,45 @@ export function computeBallotTotals(
   const teamTotals: Record<string, Record<string, number>> = {};
   const speakerTotals: Record<string, Record<string, number>> = {};
 
+  const sumFields = (values: Record<string, BallotValue>, fieldKeys: string[]): number =>
+    fieldKeys.reduce((running, fieldKey) => {
+      const raw = values[fieldKey];
+      const numeric = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(numeric) ? running + numeric : running;
+    }, 0);
+
+  /*
+   * 先算"按队伍"与"按发言者"的总项，再算"由发言者汇总"的。
+   *
+   * ⚠️ 顺序很重要：队伍总分要把发言者的总项加起来，因此必须等发言者总项算完。
+   * 这里刻意用**两趟循环**把这个依赖关系写清楚，
+   * 而不是依赖 totals 数组里恰好先写了发言者总项。
+   */
   for (const total of schema.totals ?? []) {
+    if (total.scope === "teamFromSpeakers") continue;
     const bucket = total.scope === "team" ? data.teamValues : data.speakerValues;
     const target = total.scope === "team" ? teamTotals : speakerTotals;
 
     for (const [objectId, values] of Object.entries(bucket)) {
-      const sum = total.sumOf.reduce((running, fieldKey) => {
-        const raw = values[fieldKey];
-        const numeric = typeof raw === "number" ? raw : Number(raw);
-        return Number.isFinite(numeric) ? running + numeric : running;
-      }, 0);
-      target[objectId] = { ...(target[objectId] ?? {}), [total.key]: sum };
+      target[objectId] = {
+        ...(target[objectId] ?? {}),
+        [total.key]: sumFields(values, total.sumOf),
+      };
+    }
+  }
+
+  for (const total of schema.totals ?? []) {
+    if (total.scope !== "teamFromSpeakers") continue;
+    const fromKey = total.fromSpeakerTotal;
+    if (!fromKey) continue;
+
+    for (const teamId of Object.keys(context.teamMembersByTeam ?? {})) {
+      const members = context.teamMembersByTeam?.[teamId] ?? [];
+      const sum = members.reduce(
+        (running, studentId) => running + (speakerTotals[studentId]?.[fromKey] ?? 0),
+        0,
+      );
+      teamTotals[teamId] = { ...(teamTotals[teamId] ?? {}), [total.key]: sum };
     }
   }
 
@@ -484,12 +611,18 @@ export function findBallotWarnings(
     reasonForDecision: string | null;
     /** 判定"分数明显低于对方"的阈值；规范没有给具体数字 */
     mismatchThreshold?: number;
+    /** 队伍 id → 队员 id。JWSD 的队伍总分要靠它才能算出来。 */
+    teamMembersByTeam?: Record<string, string[]>;
   },
 ): BallotWarning[] {
   const warnings: BallotWarning[] = [];
 
   // ---- 1) 胜方的总分明显低于对方 ----
-  const { teamTotals } = computeBallotTotals(schema, data);
+  // ⚠️ 必须把队伍名单传进去，否则 `teamFromSpeakers` 型的队伍总分算不出来，
+  //    这条警告会永远不触发 —— 一个不会触发的检查等于没有检查。
+  const { teamTotals } = computeBallotTotals(schema, data, {
+    teamMembersByTeam: context.teamMembersByTeam,
+  });
   const winnerTeamId = context.winnerTeamId;
 
   if (winnerTeamId && Object.keys(teamTotals).length >= 2) {
