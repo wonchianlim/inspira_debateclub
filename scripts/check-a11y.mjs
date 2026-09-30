@@ -47,6 +47,23 @@ function walk(dir) {
 }
 
 /** 取出一个 JSX 元素的完整属性文本（处理属性里出现的 `>`）。 */
+/**
+ * 去掉注释后再扫描。
+ *
+ * ⚠️ 没有这一步就会**误报**：本项目会在注释里写元素名做说明
+ * （例如"用 `<select>` 而不是两个按钮"），而正则不认注释，
+ * 于是那个 `<select>` 被当成真实元素，报出"缺少可访问名称"。
+ *
+ * 这个误报真的发生过。**当时的修法是改这条检查，而不是给代码加无意义的属性** ——
+ * 因为问题出在扫描方式上。
+ *
+ * 注意：这是**启发式**剥离，不解析字符串内的转义。对这个项目的写法足够；
+ * 若将来出现误报，先怀疑这里。
+ */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+}
+
 function* elements(source, tag) {
   const pattern = new RegExp(`<${tag}\\b`, "g");
   let match;
@@ -86,7 +103,8 @@ for (const root of ROOTS) {
      */
     if (file.includes(`components${path.sep}ui${path.sep}`)) continue;
 
-    const source = readFileSync(file, "utf8");
+    // ⚠️ 先剥注释：注释里出现的元素名会被正则当成真实元素（曾经误报过）
+    const source = stripComments(readFileSync(file, "utf8"));
 
     // ---- 表单控件的可访问名称 ----
     for (const tag of ["input", "textarea", "select"]) {

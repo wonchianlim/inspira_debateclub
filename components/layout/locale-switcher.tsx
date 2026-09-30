@@ -19,7 +19,6 @@ export function LocaleSwitcher({ current, label }: { current: Locale; label: str
       <span className="sr-only">{label}</span>
       <select
         aria-label={label}
-        aria-label={label}
         value={current}
         disabled={isPending}
         onChange={(event) => {
