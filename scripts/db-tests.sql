@@ -36,6 +36,9 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.team_members;
+delete from public.teams;
+delete from public.participations;
 delete from public.partner_requests;
 delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
@@ -152,6 +155,44 @@ select v.id::uuid, v.title, '正文', 'format', f.id, now() - interval '1 hour',
 from (values ('cccccccc-0000-0000-0000-000000000005','PF 通知','PF'),
              ('cccccccc-0000-0000-0000-000000000006','WSDC 通知','WSDC')) as v(id,title,code)
 join public.debate_formats f on f.code = v.code;
+
+-- ---------------------------------------------------------------------------
+-- 参与记录（Phase 4 / P4-1）
+--
+-- 两位学生各在 PF 上有一条参与。刻意**不**给 WSDC 造参与 ——
+-- 下面"赛制不一致"的用例需要一条"别的赛制"的参与，因此单独造一条并立即删除。
+-- ---------------------------------------------------------------------------
+insert into public.participations (id, event_id, student_id, format_id, rating_snapshot)
+select '11111111-0000-0000-0000-000000000004',
+       'bbbbbbbb-0000-0000-0000-000000000001',
+       'eeeeeeee-0000-0000-0000-000000000004',
+       f.id, 7
+from public.debate_formats f where f.code = 'PF';
+
+insert into public.participations (id, event_id, student_id, format_id, rating_snapshot)
+select '11111111-0000-0000-0000-000000000005',
+       'bbbbbbbb-0000-0000-0000-000000000001',
+       'eeeeeeee-0000-0000-0000-000000000005',
+       f.id, 7
+from public.debate_formats f where f.code = 'PF';
+
+-- 一支 PF 队伍，含第一位学生
+insert into public.teams (id, event_id, format_id)
+select '22222222-0000-0000-0000-000000000001',
+       'bbbbbbbb-0000-0000-0000-000000000001', f.id
+from public.debate_formats f where f.code = 'PF';
+
+-- 刻意给出 speaker_position = 1：C26 需要"同一队伍同一发言位"真的被占用，
+-- 否则那个位置是空的，重复插入不会冲突，用例会**假通过**（实测踩到过）。
+insert into public.team_members (team_id, participation_id, speaker_position)
+values ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000004', 1);
+
+-- 第二支 PF 队伍（空）
+insert into public.teams (id, event_id, format_id)
+select '22222222-0000-0000-0000-000000000002',
+       'bbbbbbbb-0000-0000-0000-000000000001', f.id
+from public.debate_formats f where f.code = 'PF';
+
 
 -- 学生 B 在开放活动上的报名。刻意放在测试数据阶段而不是用例里：
 -- 学生 A 的报名会被 A14（取消报名）置为 cancelled，
@@ -336,7 +377,7 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-STU-26 学生以他人名义发起搭档请求','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (insert into public.partner_requests (event_id, requester_student_id, requested_student_id)
       values ('bbbbbbbb-0000-0000-0000-000000000001',
-              (select id from public.student_profiles where profile_id='aaaaaaaa-0000-0000-0000-000000000005'),
+              'eeeeeeee-0000-0000-0000-000000000005',
               'eeeeeeee-0000-0000-0000-000000000005')
       returning 1) select count(*) from x$q$),
 ('F-STU-27 学生读与自己无关的搭档请求','aaaaaaaa-0000-0000-0000-000000000005','deny',
@@ -360,7 +401,26 @@ insert into authz_cases (label, sub, want, sql) values
 ('F-COA-08 教练按搭档码查找学生','aaaaaaaa-0000-0000-0000-000000000003','deny',
  $q$select count(*) from public.find_student_by_partner_code('STUDENTB05', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
 ('F-STU-29 用不存在的搭档码查找','aaaaaaaa-0000-0000-0000-000000000005','deny',
- $q$select count(*) from public.find_student_by_partner_code('ZZZZZZZZZZ', 'bbbbbbbb-0000-0000-0000-000000000001')$q$);
+ $q$select count(*) from public.find_student_by_partner_code('ZZZZZZZZZZ', 'bbbbbbbb-0000-0000-0000-000000000001')$q$),
+
+-- ==================== 参与与队伍（Phase 4 / P4-1 新增）====================
+('A28 学生读自己的参与记录','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.participations where student_id = public.my_student_id()$q$),
+('A29 管理员读全部参与记录','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$select count(*) from public.participations$q$),
+('F-STU-30 学生读别人的参与记录','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.participations where student_id <> public.my_student_id()$q$),
+-- Phase 4 产出的队伍是**提案**，学生看不到。规范把"发布分配"放在 Phase 5。
+('F-STU-31 学生读配对队伍（提案阶段不可见）','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.teams$q$),
+('F-STU-32 学生读队伍成员','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$select count(*) from public.team_members$q$),
+('F-COA-09 教练读配对队伍','aaaaaaaa-0000-0000-0000-000000000003','deny',
+ $q$select count(*) from public.teams$q$),
+('F-STU-33 学生自行创建参与记录','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (insert into public.participations (event_id, student_id, format_id, rating_snapshot)
+      select 'bbbbbbbb-0000-0000-0000-000000000001', public.my_student_id(), f.id, 10
+      from public.debate_formats f where f.code = 'PF' returning 1) select count(*) from x$q$);
 
 -- -----------------------------------------------------------------------------
 -- 执行授权用例
@@ -517,7 +577,47 @@ insert into constraint_cases (label, expect, sql) values
     select 'bbbbbbbb-0000-0000-0000-000000000001',
            'eeeeeeee-0000-0000-0000-000000000004',
            'eeeeeeee-0000-0000-0000-000000000005'
-    from public.partner_requests limit 1$q$);
+    from public.partner_requests limit 1$q$),
+
+-- ==================== 参与与队伍约束（Phase 4 / P4-1 新增）====================
+('C24 同一参与加入两支未解散队伍被拒绝','error',
+ $q$insert into public.team_members (team_id, participation_id)
+    values ('22222222-0000-0000-0000-000000000002',
+            '11111111-0000-0000-0000-000000000004')$q$),
+('C25 队伍与参与的赛制不一致被拒绝','error',
+ $q$with p as (
+      insert into public.participations (event_id, student_id, format_id, rating_snapshot)
+      select 'bbbbbbbb-0000-0000-0000-000000000001',
+             'eeeeeeee-0000-0000-0000-000000000004', f.id, 7
+      from public.debate_formats f where f.code = 'WSDC'
+      returning id
+    )
+    insert into public.team_members (team_id, participation_id)
+    select '22222222-0000-0000-0000-000000000002', p.id from p$q$),
+('C26 同一队伍同一发言位重复被 UNIQUE 拒绝','error',
+ $q$insert into public.team_members (team_id, participation_id, speaker_position)
+    values ('22222222-0000-0000-0000-000000000001',
+            '11111111-0000-0000-0000-000000000005', 1)$q$),
+('C27 评分快照超出 1-10 被 CHECK 拒绝','error',
+ $q$insert into public.participations (event_id, student_id, format_id, rating_snapshot)
+    select 'bbbbbbbb-0000-0000-0000-000000000001',
+           'eeeeeeee-0000-0000-0000-000000000004', f.id, 11
+    from public.debate_formats f where f.code = 'PF'$q$),
+('C28 参与序号为 0 被 CHECK 拒绝','error',
+ $q$insert into public.participations
+      (event_id, student_id, format_id, rating_snapshot, participation_number)
+    select 'bbbbbbbb-0000-0000-0000-000000000001',
+           'eeeeeeee-0000-0000-0000-000000000004', f.id, 7, 0
+    from public.debate_formats f where f.code = 'PF'$q$),
+-- 这一条是**正向**的：证明唯一约束不是 (event_id, student_id)，
+-- 而是三元组。规范明文要求"不要只对 (event_id, student_id) 加唯一"，
+-- 因为一个人在同一活动里可以有多于一次的参与（额外场次）。
+('C29 同一人在同一活动可以有第二次参与','ok',
+ $q$insert into public.participations
+      (event_id, student_id, format_id, rating_snapshot, participation_number, entitlement_type)
+    select 'bbbbbbbb-0000-0000-0000-000000000001',
+           'eeeeeeee-0000-0000-0000-000000000004', f.id, 7, 2, 'extra_paid'
+    from public.debate_formats f where f.code = 'PF'$q$);
 
 do $constraints$
 declare
@@ -561,7 +661,7 @@ declare
     'debate_formats','format_positions','student_format_profiles',
     'judge_format_qualifications','events','event_formats','registrations',
     'registration_format_preferences','audit_logs','system_settings','notices',
-      'partner_requests'];
+      'partner_requests','participations','teams','team_members'];
   t text; n int; failures int := 0; passed int := 0;
 begin
   set local role anon;
@@ -1005,6 +1105,9 @@ delete from public.registration_format_preferences;
 delete from public.registrations;
 -- partner_requests 通过 event_id 与 student_profiles 两个外键引用别的表，
 -- 因此必须在删除 events 与 student_profiles **之前**清理。
+delete from public.team_members;
+delete from public.teams;
+delete from public.participations;
 delete from public.partner_requests;
 delete from public.audit_logs;
 delete from public.notices where created_by::text like 'aaaaaaaa-0000-0000-0000-0000000000%';
