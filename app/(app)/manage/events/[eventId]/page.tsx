@@ -44,9 +44,14 @@ export default async function EventDetailPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight">{event.title}</h1>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/manage/events">返回活动列表</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href={`/manage/events/${event.id}/registrations`}>报名管理</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/manage/events">返回活动列表</Link>
+          </Button>
+        </div>
       </div>
 
       <Card>

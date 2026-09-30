@@ -33,9 +33,9 @@ const MANAGE_SECTIONS: ManageSection[] = [
   },
   {
     title: "报名管理",
-    description: "查看与人工修正学生报名、赛制偏好与搭档请求。",
-    ready: false,
-    phase: "Phase 3",
+    description: "查看与人工修正学生报名、标记未到场、按搭档码补报名。",
+    ready: true,
+    href: "/manage/events",
   },
   {
     title: "配对与比赛",
