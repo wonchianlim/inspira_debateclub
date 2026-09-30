@@ -96,11 +96,20 @@ async function studentsInMatch(
  *
  * @param liveAssignment 是否属于"现场指派"（规范要求现场指派时裁判必须已签到）
  */
+export type JudgeAssignmentClient = Awaited<ReturnType<typeof createUserSupabaseClient>>;
+
 export async function recommendJudgesForMatch(
   matchId: string,
-  options: { liveAssignment?: boolean } = {},
+  options: { liveAssignment?: boolean; injectedClient?: JudgeAssignmentClient } = {},
 ): Promise<JudgeRecommendation | null> {
-  const supabase = await createUserSupabaseClient();
+  /*
+   * 与配对生成（P4-6）同一做法：允许**集成测试**注入一个客户端。
+   *
+   * 本模块是 server-only 的，正常路径依赖 Next 的请求上下文（cookies），
+   * 因此无法在测试里直接调用 —— 而不验证就等于只有类型检查在保护它。
+   * 生产代码**不传**这个参数，权限仍由 RLS 与 Server Action 决定。
+   */
+  const supabase = options.injectedClient ?? (await createUserSupabaseClient());
   const liveAssignment = options.liveAssignment ?? false;
 
   // ---------------------------------------------------------------------------
