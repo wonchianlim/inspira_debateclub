@@ -51,6 +51,9 @@ export default async function EventDetailPage({
             <Link href={`/manage/events/${event.id}/live`}>现场看板</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
+            <Link href={`/manage/events/${event.id}/ballots`}>评分表复核</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href={`/manage/events/${event.id}/matches`}>比赛安排</Link>
           </Button>
           <Button asChild variant="outline" size="sm">

@@ -914,6 +914,9 @@ isOneToOne: false
                            },
 "start_match":
 { Args: { "p_match_id": string }; Returns: Database["public"]['Enums']["match_status"]
+                           },
+"transition_ballot":
+{ Args: { "p_ballot_id": string,"p_reason"?: string,"p_to": Database["public"]['Enums']["ballot_status"] }; Returns: Database["public"]['Enums']["ballot_status"]
                            }
           }
           Enums: {
