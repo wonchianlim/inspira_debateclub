@@ -84,6 +84,55 @@ export default async function JudgeBallotPage({
         </CardContent>
       </Card>
 
+      {/*
+        评分参照表（WSDC / BP 规范明确要求"打分时始终可见"）。
+        放在**卡片顶部**而不是填表组件里，是为了它在滚动时不会被字段淹没 ——
+        规范说的是"remain visible while judges score speakers"。
+      */}
+      {context.schema.guidance ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{context.schema.guidance.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            {context.schema.guidance.normalRange ? (
+              <p>
+                常规区间：
+                <strong className="ml-1">
+                  {context.schema.guidance.normalRange[0]}–{context.schema.guidance.normalRange[1]}
+                </strong>
+                {context.schema.guidance.defaultScore !== undefined ? (
+                  <span className="text-muted-foreground ml-2">
+                    （从这个分数开始想：{context.schema.guidance.defaultScore}）
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+
+            <div className="flex flex-col gap-1">
+              {context.schema.guidance.anchors.map((anchor) => (
+                <div key={anchor.score} className="flex flex-wrap items-baseline gap-2">
+                  <strong className="w-10 tabular-nums">{anchor.score}</strong>
+                  <span className="w-40">{anchor.label}</span>
+                  {anchor.note ? (
+                    <span className="text-muted-foreground text-xs">{anchor.note}</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {/*
+              参照表里**没有**列出的中间分数怎么处理，规范没有说。
+              不写这一句的话，裁判会以为只有列出的那几个分数能用。
+            */}
+            <p className="text-muted-foreground text-xs">
+              没有列出的分数也可以用 —— 参照表是让你把分数校准到同一个尺度上，
+              不是一份可以打的分数清单。
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">评分表</CardTitle>

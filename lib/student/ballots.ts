@@ -76,7 +76,7 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
         "ballot_templates(name, schema)), " +
         "ballot_scores(participation_id, score_type, score_value), " +
         "ballot_feedback(target_type, target_id, feedback_type, feedback_text), " +
-        "ballot_review_requests(student_id, status)",
+        "ballot_review_requests(requested_by_student_id, status)",
     )
     .eq("status", "published");
 
@@ -243,7 +243,7 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
       .filter((entry) => entry.entries.length > 0);
 
     const review = ((row.ballot_review_requests ?? []) as Row[]).find(
-      (request) => (request.student_id as string) === (studentProfile.id as string),
+      (request) => (request.requested_by_student_id as string) === (studentProfile.id as string),
     );
 
     results.push({

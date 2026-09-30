@@ -9,6 +9,8 @@ import { requireAnyRole } from "@/lib/auth/session";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 import { listMyPublishedBallots } from "@/lib/student/ballots";
 
+import { ReviewRequestForm } from "./review-request-form";
+
 export const metadata = { title: "我的评分表 · INSPIRA" };
 
 export const dynamic = "force-dynamic";
@@ -157,6 +159,14 @@ export default async function StudentBallotsPage() {
                     ))}
                   </div>
                 ) : null}
+
+                {/* 复核请求：同一份评分表只能提一次（数据库唯一约束强制） */}
+                <div className="border-border border-t pt-3">
+                  <ReviewRequestForm
+                    ballotId={ballot.ballotId}
+                    existingStatus={ballot.reviewStatus}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))}
