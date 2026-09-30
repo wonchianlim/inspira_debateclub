@@ -7,6 +7,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { recommendJudgesForMatch } from "@/lib/admin/judge-assignment";
+import { CLUB_DEFAULT_TIMEZONE, zonedDateOf } from "@/lib/domain/timezone";
 
 /**
  * 裁判推荐与指派的**集成测试**（Phase 5 / P5-4）。
@@ -92,7 +93,16 @@ describeWithDatabase("裁判推荐与指派（集成，使用真实数据库）"
       .from("events")
       .insert({
         title: EVENT_TITLE,
-        event_date: new Date(Date.now() + 3 * 86400_000).toISOString().slice(0, 10),
+        /*
+         * ⚠️ event_date 必须按**活动时区**推导，不能取 UTC 日期。
+         *
+         * 数据库约束要求它等于 starts_at 在 Asia/Shanghai 下的日期。
+         * 用 `toISOString().slice(0, 10)` 会在 UTC 16:00–24:00 之间
+         * （北京 0:00–8:00）差一天，**测试因此只在深夜失败**。
+         *
+         * 这个 bug 在 2026-10-01 凌晨真的发生了：白天跑都过，凌晨跑三个文件全红。
+         */
+        event_date: zonedDateOf(new Date(Date.now() + 3 * 86400_000), CLUB_DEFAULT_TIMEZONE),
         registration_opens_at: new Date(Date.now() - 86400_000).toISOString(),
         registration_closes_at: new Date(Date.now() + 86400_000).toISOString(),
         check_in_opens_at: new Date().toISOString(),

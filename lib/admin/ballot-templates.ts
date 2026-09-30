@@ -75,7 +75,28 @@ export async function listBallotTemplates(): Promise<BallotTemplateView[]> {
 }
 
 /** 还没有任何模板的赛制 —— 界面要明确提示"这个赛制还不能打分"。 */
-export async function listFormatsWithoutActiveTemplate(): Promise<FormatWithoutTemplate[]> {
+/**
+ * 列出"还没有启用模板"的赛制。
+ *
+ * ⚠️ 同时返回**赛制总数**，因为调用方必须能区分这两种情况：
+ *
+ *   - 所有赛制都已配置模板        → 正常
+ *   - **一个赛制都还没有**        → 基础数据缺失，必须提示
+ *
+ * 只返回"缺少模板的赛制"会让第二种情况**退化成空数组**，
+ * 而空数组在调用方看来就是"没有赛制缺少模板" = "全都配好了"。
+ *
+ * 这个 bug 在生产上真的发生了：`supabase db push` **不执行 seed.sql**，
+ * 于是生产库的 debate_formats 是空的，页面却显示"所有赛制都已配置"，
+ * 同时下拉框空白、模板列表为空 —— 三个症状同一个根因。
+ */
+export type FormatsWithoutTemplate = {
+  missing: FormatWithoutTemplate[];
+  /** 库里一共有多少个赛制。为 0 表示基础数据缺失。 */
+  totalFormats: number;
+};
+
+export async function listFormatsWithoutActiveTemplate(): Promise<FormatsWithoutTemplate> {
   const supabase = await createUserSupabaseClient();
 
   const [{ data: formats, error: formatError }, { data: templates, error: templateError }] =
@@ -89,14 +110,22 @@ export async function listFormatsWithoutActiveTemplate(): Promise<FormatWithoutT
 
   const withTemplate = new Set((templates ?? []).map((row) => row.format_id as string));
 
-  return (
-    (formats ?? []) as unknown as { id: string; code: string; name: string; team_size: number }[]
-  )
-    .filter((format) => !withTemplate.has(format.id))
-    .map((format) => ({
-      formatId: format.id,
-      code: format.code,
-      name: format.name,
-      teamSize: format.team_size,
-    }));
+  const rows = (formats ?? []) as unknown as {
+    id: string;
+    code: string;
+    name: string;
+    team_size: number;
+  }[];
+
+  return {
+    missing: rows
+      .filter((format) => !withTemplate.has(format.id))
+      .map((format) => ({
+        formatId: format.id,
+        code: format.code,
+        name: format.name,
+        teamSize: format.team_size,
+      })),
+    totalFormats: rows.length,
+  };
 }

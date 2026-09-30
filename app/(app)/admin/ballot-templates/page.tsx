@@ -20,10 +20,21 @@ export const dynamic = "force-dynamic";
 export default async function BallotTemplatesPage() {
   await requireAnyRole(["super_admin"]);
 
-  const [templates, missingFormats] = await Promise.all([
+  const [templates, formatState] = await Promise.all([
     listBallotTemplates(),
     listFormatsWithoutActiveTemplate(),
   ]);
+
+  const missingFormats = formatState.missing;
+  /*
+   * ⚠️ 必须单独判断"一个赛制都没有"。
+   *
+   * 否则它会退化成 missingFormats.length === 0，
+   * 页面就会在一个**空数据库**上说"所有赛制都已配置" ——
+   * 生产上真的这样显示了，同时下拉框空白、模板列表为空。
+   * 三个症状，同一个根因：db push 不执行 seed.sql。
+   */
+  const noFormatsAtAll = formatState.totalFormats === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,7 +47,24 @@ export default async function BallotTemplatesPage() {
 
       <p className="text-muted-foreground text-sm">{TEMPLATE_PERMISSION_NOTE}</p>
 
-      {missingFormats.length > 0 ? (
+      {noFormatsAtAll ? (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive text-base">数据库里没有任何赛制</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            <p>
+              这是基础数据缺失 —— 五种赛制（PF / JWSD / WSDC / BP / ONE_V_ONE）
+              应该在初始化数据库时写入。
+            </p>
+            <p className="text-muted-foreground">
+              常见原因：<code>supabase db push</code> 只执行迁移，
+              <strong>不会执行 seed.sql</strong>。请在 Supabase 的 SQL Editor 里 运行{" "}
+              <code>supabase/seed.sql</code>，然后刷新本页。
+            </p>
+          </CardContent>
+        </Card>
+      ) : missingFormats.length > 0 ? (
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive text-base">
