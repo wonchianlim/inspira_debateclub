@@ -46,6 +46,9 @@ export default async function EventDetailPage({
         <h1 className="text-xl font-semibold tracking-tight">{event.title}</h1>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">
+            <Link href={`/manage/events/${event.id}/matches`}>比赛安排</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href={`/manage/events/${event.id}/pairing`}>配对提案</Link>
           </Button>
           <Button asChild variant="outline" size="sm">

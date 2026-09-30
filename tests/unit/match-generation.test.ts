@@ -34,7 +34,7 @@ function baseInput(overrides: Partial<MatchGenerationInput> = {}): MatchGenerati
     teams: [team("t1", 3), team("t2", 4), team("t3", 8), team("t4", 9)],
     previousOpponentCounts: new Map(),
     previousSideACounts: new Map(),
-    previousMatchCount: 0,
+    previousSideBCounts: new Map(),
     roomNames: ["A101", "A102", "A103"],
     firstMatchStart: new Date("2026-10-01T01:00:00.000Z"),
     matchIntervalMinutes: 60,
@@ -130,7 +130,10 @@ describe("正反方分配（规范 10.5）", () => {
           ["heavy", 5],
           ["light", 0],
         ]),
-        previousMatchCount: 5,
+        previousSideBCounts: new Map([
+          ["heavy", 0],
+          ["light", 5],
+        ]),
       }),
     );
 
@@ -238,7 +241,10 @@ describe("确定性（规范 10.5 明文要求）", () => {
       ["s-t1", 1],
       ["s-t2", 2],
     ]),
-    previousMatchCount: 3,
+    previousSideBCounts: new Map([
+      ["s-t1", 3],
+      ["s-t2", 1],
+    ]),
   });
 
   it("相同输入重复运行结果完全一致", () => {

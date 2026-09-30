@@ -61,11 +61,17 @@ export type MatchGenerationInput = {
   previousOpponentCounts: ReadonlyMap<string, number>;
   /**
    * 每位学生历史上在"第一侧"（PF 的 PROP、BP 的 OG/OO）出场的次数。
-   * 用于让正反方尽量平衡。
+   * 与 `previousSideBCounts` 一起决定"这位学生这次更该去哪一侧"。
    */
   previousSideACounts: ReadonlyMap<string, number>;
-  /** 该赛制历史上出现过的比赛总数（用于推算"每位学生的两侧总场次"） */
-  previousMatchCount: number;
+  /**
+   * 每位学生历史上在"第二侧"（PF 的 OPP、BP 的 CG/CO）出场的次数。
+   *
+   * ⚠️ 初版这里是一个**全局的"比赛总数"**，并用 `总场次 − 2×第一侧次数` 来估计需求。
+   * 那个写法隐含了"每位学生打的场次一样多"，对学生人数与出场次数不同的事实不成立。
+   * 改成逐人记录两侧次数之后，需求就是精确的 `第二侧次数 − 第一侧次数`。
+   */
+  previousSideBCounts: ReadonlyMap<string, number>;
   /** 可用房间名，按顺序使用 */
   roomNames: readonly string[];
   /** 第一场的开始时间 */
@@ -144,14 +150,12 @@ function repeatOpponentCount(
 function teamSideANeed(
   team: MatchTeamInput,
   previousSideACounts: ReadonlyMap<string, number>,
-  previousMatchCount: number,
+  previousSideBCounts: ReadonlyMap<string, number>,
 ): number {
   let need = 0;
   for (const studentId of team.memberStudentIds) {
-    const sideACount = previousSideACounts.get(studentId) ?? 0;
-    // 假设他两侧总场次一样多（历史记录里没有第二侧的明细时用这个近似），
-    // 第一侧越少 → 越需要第一侧
-    need += previousMatchCount - 2 * sideACount;
+    // 精确需求：第二侧比第一侧多打了几次，就欠几次第一侧
+    need += (previousSideBCounts.get(studentId) ?? 0) - (previousSideACounts.get(studentId) ?? 0);
   }
   return need;
 }
@@ -311,12 +315,12 @@ export function generateMatches(input: MatchGenerationInput): MatchGenerationRes
       const needA = teamSideANeed(
         byId.get(a) as MatchTeamInput,
         input.previousSideACounts,
-        input.previousMatchCount,
+        input.previousSideBCounts,
       );
       const needB = teamSideANeed(
         byId.get(b) as MatchTeamInput,
         input.previousSideACounts,
-        input.previousMatchCount,
+        input.previousSideBCounts,
       );
       if (needA !== needB) return needB - needA; // 更需要第一侧的排前面
       return (seededRank.get(a) as number) - (seededRank.get(b) as number);

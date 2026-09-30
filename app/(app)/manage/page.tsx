@@ -45,9 +45,9 @@ const MANAGE_SECTIONS: ManageSection[] = [
   },
   {
     title: "比赛、房间与裁判指派",
-    description: "生成比赛与正反方、分配房间、指派裁判并发布。",
-    ready: false,
-    phase: "Phase 5",
+    description: "生成比赛与正反方、分配房间、发布名单、开始比赛。",
+    ready: true,
+    href: "/manage/events",
   },
 ];
 
