@@ -79,7 +79,7 @@ export function AppShell({
       </a>
 
       <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
-        <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1">
+        <div className="mx-auto flex min-h-15 w-full max-w-[1200px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1 md:min-h-18">
           <Link
             href="/"
             className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md focus-visible:ring-3 focus-visible:outline-none"
@@ -118,13 +118,13 @@ export function AppShell({
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 focus:outline-none"
+        className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 focus:outline-none md:px-6 lg:px-8"
       >
         {children}
       </main>
 
       <footer className="border-border border-t">
-        <div className="text-muted-foreground mx-auto w-full max-w-5xl px-4 py-6 text-xs">
+        <div className="text-muted-foreground mx-auto w-full max-w-[1200px] px-4 py-6 text-xs md:px-6 lg:px-8">
           {/*
               ⚠️ 这里曾经写着「当前为 Phase 1 基础设施阶段」。
 

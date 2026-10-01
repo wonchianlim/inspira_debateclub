@@ -25,61 +25,89 @@ export function RoleNav({ workspaces }: { workspaces: Workspace[] }) {
   const pathname = usePathname();
   const active = activeWorkspace(workspaces, pathname);
 
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      {/*
-        工作区切换：**只在真的有多个时显示**。
-        单角色用户看到这个只会多一行噪音 —— 规范 §1.4 原则 5「低视觉噪音」。
-      */}
-      {workspaces.length > 1 ? (
-        <nav
-          aria-label="Workspaces"
-          className="border-border flex items-center gap-0.5 border-r pr-4"
-        >
-          {workspaces.map((workspace) => {
-            const isCurrent = workspace.key === active.key;
-            return (
-              <Link
-                key={workspace.key}
-                href={workspace.href}
-                aria-current={isCurrent ? "true" : undefined}
-                className={cn(
-                  "focus-visible:ring-ring/50 inline-flex min-h-9 items-center rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:ring-3 focus-visible:outline-none",
-                  isCurrent
-                    ? "bg-brand-tint text-brand-foreground/90 text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {workspace.label}
-              </Link>
-            );
-          })}
-        </nav>
-      ) : null}
+  /*
+   * 移动端用 `<details>` 折叠导航（规范 §4.7）。
+   *
+   * ⚠️ 为什么用 `<details>` 而不是 `useState`：
+   *   - **不需要 JS**。水合失败或 JS 未加载时菜单照样能用。
+   *   - 原生就是键盘可操作的，`<summary>` 自带展开/收起语义，
+   *     屏幕阅读器直接认得，不用自己补 aria-expanded。
+   *   - 少一个客户端状态，就少一类"点了没反应"的问题。
+   */
+  const items = (
+    <ul className="flex flex-col gap-0.5 md:flex-row md:flex-wrap md:items-center">
+      {active.items.map((item) => {
+        const isCurrent = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        return (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              aria-current={isCurrent ? "page" : undefined}
+              className={cn(
+                "focus-visible:ring-ring/50 flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:outline-none",
+                isCurrent
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {item.label}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
-      <nav aria-label="Main navigation">
-        <ul className="flex flex-wrap items-center gap-0.5">
-          {active.items.map((item) => {
-            const isCurrent = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={isCurrent ? "page" : undefined}
-                  className={cn(
-                    "focus-visible:ring-ring/50 inline-flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:outline-none",
-                    isCurrent
-                      ? "text-foreground font-semibold"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+  const workspacesNav =
+    workspaces.length > 1 ? (
+      <nav aria-label="Workspaces" className="flex flex-wrap items-center gap-0.5">
+        {workspaces.map((workspace) => {
+          const isCurrent = workspace.key === active.key;
+          return (
+            <Link
+              key={workspace.key}
+              href={workspace.href}
+              aria-current={isCurrent ? "true" : undefined}
+              className={cn(
+                "focus-visible:ring-ring/50 inline-flex min-h-9 items-center rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:ring-3 focus-visible:outline-none",
+                isCurrent
+                  ? "bg-brand-tint text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {workspace.label}
+            </Link>
+          );
+        })}
       </nav>
-    </div>
+    ) : null;
+
+  return (
+    <>
+      {/* 桌面：工作区一行、导航一行，都在页头里 */}
+      <div className="hidden items-center gap-x-4 md:flex">
+        {workspaces.length > 1 ? (
+          <div className="border-border border-r pr-4">{workspacesNav}</div>
+        ) : null}
+        <nav aria-label="Main navigation">{items}</nav>
+      </div>
+
+      {/* 移动：折叠成一个按钮，展开后两组都在里面 */}
+      <details className="relative md:hidden">
+        <summary
+          className="border-border bg-background text-foreground focus-visible:ring-ring/50 flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-md border px-3 text-sm font-medium focus-visible:ring-3 focus-visible:outline-none"
+          aria-label="Main navigation"
+        >
+          {active.label}
+          <span aria-hidden="true" className="text-muted-foreground text-xs">
+            ▾
+          </span>
+        </summary>
+        <div className="bg-card border-border absolute right-0 z-50 mt-2 flex w-64 flex-col gap-3 rounded-lg border p-3 shadow-[var(--shadow-md)]">
+          {workspacesNav}
+          <nav aria-label="Main navigation">{items}</nav>
+        </div>
+      </details>
+    </>
   );
 }
