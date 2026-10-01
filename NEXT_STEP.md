@@ -458,6 +458,42 @@ newer ballot**"。后者需要：
 
 ---
 
+## 🐞 已修：`/admin/users` 显示"共 0 个账号"（PostgREST 关系不唯一）
+
+**症状**：生产上 `/admin/users` 显示「共 **0** 个账号」——**连超管自己都不在列表里**。
+服务器日志里的真话是：
+
+```
+[admin] 读取用户列表失败: Could not embed because more than one relationship
+        was found for 'profiles' and 'user_roles'      （PGRST201 / HTTP 300）
+```
+
+**原因**：`user_roles` 有**两条外键**指向 `profiles` ——
+`user_roles_profile_id_fkey`（谁拥有）与 `user_roles_created_by_fkey`（谁授予的）。
+因此 `user_roles(role)` 这种内嵌写法 PostgREST **不知道该走哪一条**，直接拒绝整个查询。
+修法是**指名外键**：`user_roles!user_roles_profile_id_fkey(role)`
+（角色筛选时用 `...!user_roles_profile_id_fkey!inner(role)`）。
+
+⚠️ **为什么测试没抓到**：单元测试用的是**假客户端**，而这是 PostgREST
+**查询规划阶段**的错误 —— 只有真的发一次请求才会出现。
+现在有了 `tests/integration/admin-user-list.test.ts`：它直接打本地 PostgREST，
+并且**自带反向确认**（不指名外键的旧写法**必须**仍然报 PGRST201 ——
+哪天它不报了，说明这个测试已经失效，该修测试而不是庆幸）。
+
+⚠️ **同类隐患**（数据库里只有三对"双外键"，另外两对目前没有被这样内嵌，
+但将来要嵌时必须指名）：
+`ballots → profiles`（`reopened_by` / `published_by`）、
+`partner_requests → student_profiles`（`requester_student_id` / `requested_student_id`）。
+
+### 🔴 还没修（但这是更深的一层）：读取失败被伪装成"没有数据"
+
+`listProfiles` 出错时 `console.error` 之后 `return []`，于是页面把**故障**显示成
+「共 0 个账号」。全项目**有 21 处**是这种写法 —— 任何读取故障都会表现成"这里没有数据"。
+**待办**：让读取层把"失败"和"真的没有"分开，页面显示错误状态；
+`/api/health` 报告"生产库最后应用的迁移"。产品负责人尚未拍板。
+
+---
+
 ## ⛔ 不要去"修"的一件事：用户**不能**被物理删除（这是设计）
 
 2026-10-01 产品负责人在 Supabase 控制台删刚注册的账号，得到

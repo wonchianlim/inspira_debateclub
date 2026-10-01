@@ -41,8 +41,24 @@ function escapeLikePattern(input: string): string {
   return input.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-const PROFILE_COLUMNS =
-  "id, first_name, last_name, display_name, email, phone, status, created_at, user_roles(role)";
+/**
+ * 用户列表读取的列。
+ *
+ * ⚠️ `user_roles` **必须指名外键**（`!user_roles_profile_id_fkey`）。
+ *
+ * `user_roles` 有**两条**外键指向 `profiles`：
+ *   - `user_roles_profile_id_fkey`（这个人拥有什么角色）
+ *   - `user_roles_created_by_fkey`（是谁授予的）
+ * 不指名的话 PostgREST 无法判断走哪一条，会直接返回 **HTTP 300 / PGRST201**
+ * （"more than one relationship was found"）。
+ *
+ * 2026-10-01 的真实故障就是这样：整个查询报错 → `listProfiles` 把错误吞掉返回空
+ * → `/admin/users` 显示"共 0 个账号"，**连超管自己都不在列表里**，
+ * 而页面上一个字都不说为什么。已用本地 PostgREST 复现（旧写法 300、新写法 200）。
+ */
+export const PROFILE_COLUMNS =
+  "id, first_name, last_name, display_name, email, phone, status, created_at, " +
+  "user_roles!user_roles_profile_id_fkey(role)";
 
 type ProfileRow = {
   id: string;
@@ -81,7 +97,10 @@ export async function listProfiles(filters: {
   // 需要按角色筛选时用 !inner：让"含有该角色的档案"成为连接条件，
   // 否则筛选只会影响连接结果、不会过滤掉档案本身。
   const columns = filters.role
-    ? PROFILE_COLUMNS.replace("user_roles(", "user_roles!inner(")
+    ? PROFILE_COLUMNS.replace(
+        "user_roles!user_roles_profile_id_fkey(",
+        "user_roles!user_roles_profile_id_fkey!inner(",
+      )
     : PROFILE_COLUMNS;
 
   let query = supabase
