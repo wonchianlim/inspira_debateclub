@@ -13,7 +13,7 @@ import {
 } from "@/lib/domain/event-lifecycle";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 
-export const metadata = { title: "活动管理 · INSPIRA" };
+export const metadata = { title: "Events · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -33,27 +33,27 @@ export default async function ManageEventsPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">活动管理</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">Events</h1>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href="/manage">返回俱乐部管理</Link>
+            <Link href="/manage">Back to Club Admin</Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/manage/events/new">新建活动</Link>
+            <Link href="/manage/events/new">Create event</Link>
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">按状态筛选</CardTitle>
+          <CardTitle className="text-base">Filter by status</CardTitle>
         </CardHeader>
         <CardContent>
           {/*
             状态筛选用链接而不是下拉表单：状态只有几种，点一下就能切换，
             比"选完再点筛选"少一步；地址栏同样能看到当前条件。
           */}
-          <nav aria-label="按状态筛选活动" className="flex flex-wrap gap-2">
+          <nav aria-label="Filter events by status" className="flex flex-wrap gap-2">
             <Link
               href="/manage/events"
               aria-current={status === undefined ? "true" : undefined}
@@ -61,7 +61,7 @@ export default async function ManageEventsPage({
                 status === undefined ? "bg-muted font-medium" : "text-muted-foreground"
               }`}
             >
-              全部
+              All
             </Link>
             {EVENT_STATUSES.map((value) => (
               <Link
@@ -82,19 +82,19 @@ export default async function ManageEventsPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            共 {events.length} 个活动
-            {events.length === 200 ? "（已达上限 200）" : ""}
+            {events.length} {events.length === 1 ? "event" : "events"}
+            {events.length === 200 ? " (200 is the limit)" : ""}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {events.length === 0 ? (
             <StatePanel
               variant="empty"
-              title="还没有活动"
-              description="点右上角「新建活动」创建第一个活动。创建后可以设置启用哪些赛制。"
+              title="No events yet"
+              description="Use Create event to add the first one. After that you can choose which formats it runs."
               action={
                 <Button asChild size="sm">
-                  <Link href="/manage/events/new">新建活动</Link>
+                  <Link href="/manage/events/new">Create event</Link>
                 </Button>
               }
             />
@@ -102,24 +102,24 @@ export default async function ManageEventsPage({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <caption className="sr-only">
-                  活动列表，包含名称、状态、开始时间与启用的赛制数量
+                  Event list: name, status, start time and number of formats enabled
                 </caption>
                 <thead>
                   <tr className="border-border border-b text-left">
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      活动名称
+                      Event
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      状态
+                      Status
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      开始时间（活动时区）
+                      Starts (event time zone)
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      启用赛制
+                      Formats
                     </th>
                     <th scope="col" className="py-2 font-medium">
-                      操作
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -147,13 +147,13 @@ export default async function ManageEventsPage({
                           {event.eventDate} · {event.timezone}
                         </span>
                       </td>
-                      <td className="py-3 pr-4">{event.enabledFormatCount} 个</td>
+                      <td className="py-3 pr-4">{event.enabledFormatCount}</td>
                       <td className="py-3">
                         <Link
                           href={`/manage/events/${event.id}`}
                           className="focus-visible:ring-ring/50 rounded underline focus-visible:ring-3"
                         >
-                          管理
+                          Manage
                         </Link>
                       </td>
                     </tr>

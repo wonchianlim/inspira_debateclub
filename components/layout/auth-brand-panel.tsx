@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 
 import { useMessages } from "@/lib/i18n/provider";
@@ -24,8 +26,14 @@ import { useMessages } from "@/lib/i18n/provider";
  * 规范也明确禁止把语义色/品牌橙当装饰。
  *
  * ⚠️ 它是 `use client` 组件：文案来自 `useMessages()`（客户端上下文）。
- * 服务端页面也能读文案，但登录表单本身是客户端组件，
- * 这里保持同一种取法，避免同一个页面出现两套取文案的方式。
+ *
+ * ⚠️ 这个指令**必须有**。2026-10-01 这里漏过一次，代价是登录页在服务端渲染时
+ * 直接抛错 —— 而**构建当时没报**，因为那时认证页还在读语言 cookie、属于动态渲染，
+ * Next 不会在构建时预渲染它。后来语言固定成英文、cookie 不再读，
+ * 页面变成可静态预渲染，构建才把它抓出来。
+ *
+ * 教训：**jsdom 里没有服务端/客户端边界**，所以组件测试会照常通过 ——
+ * 这类缺陷只有构建（或真实请求）才看得见。
  */
 export function AuthBrandPanel({ className }: { className?: string }) {
   const m = useMessages();

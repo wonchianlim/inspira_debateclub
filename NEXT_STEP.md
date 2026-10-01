@@ -469,8 +469,42 @@ newer ballot**"。后者需要：
 - **代码注释**：一直是中文，**不要动**（对产品负责人有价值，也不影响用户）；
 - **界面文案**：要改成英文的只有这一部分 —— 几十个页面、几百条字符串。
 
-**已完成（示范 + 他截图里的那一页）**：`/manage/events/new` 与共用的
-`event-form.tsx` 全部改成英文（字段标签、提示、时区选项、按钮、浏览器标题）。
+### ✅ 产品负责人已选 **A**（2026-10-01）
+
+> "A"
+
+即：**界面只保留英文**，文案直接写英文；语言切换器拿掉；
+`lib/i18n` 与 `messages/zh.ts` **留在仓库里不用**；
+`docs/` 与**代码注释保持中文**。
+
+**做完的：**
+
+- ✅ `/manage/events/new` 与共用的 `event-form.tsx`（他截图的那一页）
+- ✅ **语言固定为英文**：`lib/i18n/index.ts` 不再读语言 cookie、不再按语言取字典
+  （`getLocale()` 恒为 `en`）。这一改动有额外好处：认证页不再因为读 cookie 而动态渲染
+- ✅ **语言切换器已移除**（`components/layout/locale-switcher.tsx` 与
+  `lib/i18n/actions.ts` 一并删除 —— 它们是"切换"的机制，没有切换器就不需要）
+- ✅ 管理端批次 2 的第一批：`/manage` 首页、`/manage/events` 列表、`/manage/events/[id]` 详情
+
+### 🐞 这一轮抓到一个我自己在 4a 埋的缺陷（值得记住）
+
+`components/layout/auth-brand-panel.tsx` 调用了 `useMessages()`（客户端上下文），
+**却没有写 `"use client"`** —— 登录页在服务端渲染时会直接抛错。而当时：
+
+- `npm run test` **全绿**（jsdom 里没有服务端/客户端边界，组件照常渲染）；
+- `npm run build` **也全绿**（那时认证页还在读语言 cookie、属于动态渲染，
+  Next 不会在构建时预渲染它）。
+
+后来"语言固定为英文"让认证页变成可静态预渲染，**构建才把它抓出来**。
+
+**因此新增了一项静态检查**：`npm run check:client-boundary`
+（`scripts/check-client-boundary.mjs`）—— 扫描 `app/` 与 `components/` 下的 `.tsx`，
+凡是调用了客户端 Hook 却没有 `"use client"` 的就失败；并且**反向确认**
+（扫到 0 个带 `"use client"` 的文件也算失败，说明扫描逻辑坏了）。
+它已经接进 `npm run check`（现在是 **10 步**）。
+
+**教训**：`npm run test` 通过 **不能**证明"服务端渲染没问题" ——
+测试环境里没有这条边界。这一类缺陷只有构建或真实请求看得见。
 
 **⚠️ 需要产品负责人拍板一件事**（决定后面几十个页面怎么写）：
 

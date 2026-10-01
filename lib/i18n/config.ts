@@ -8,7 +8,14 @@
 export const LOCALES = ["en", "zh"] as const;
 export type Locale = (typeof LOCALES)[number];
 
-/** 默认英文（产品负责人 2026-10-01 决定）。 */
+/**
+ * 默认英文。
+ *
+ * ⚠️ 2026-10-01 产品负责人进一步决定：**界面只保留英文**
+ * （"i need everything to be in english as there are none chinese speakers"）。
+ * 因此现在不只是"默认"英文 —— 语言被固定为英文（见 `./index.ts` 的说明），
+ * 语言切换器已从页头移除。`zh` 字典保留在仓库里不用。
+ */
 export const DEFAULT_LOCALE: Locale = "en";
 
 /** 语言偏好存在这个 cookie 里。 */

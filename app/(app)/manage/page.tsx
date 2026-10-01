@@ -23,7 +23,7 @@ import {
 import { EVENT_STATUS_LABELS } from "@/lib/domain/event-lifecycle";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
-export const metadata = { title: "俱乐部管理 · INSPIRA" };
+export const metadata = { title: "Club Admin · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -103,11 +103,13 @@ export default async function ClubAdminHomePage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-h2 font-semibold tracking-tight">俱乐部管理</h1>
-          <p className="text-muted-foreground text-sm">办活动、处理问题，让辩论社正常运转。</p>
+          <h1 className="text-h2 font-semibold tracking-tight">Club Admin</h1>
+          <p className="text-muted-foreground text-sm">
+            Run events, resolve issues, and keep Debate Club moving.
+          </p>
         </div>
         <Button asChild>
-          <Link href="/manage/events/new">新建活动</Link>
+          <Link href="/manage/events/new">Create event</Link>
         </Button>
       </div>
 
@@ -115,7 +117,7 @@ export default async function ClubAdminHomePage() {
       {featuredEvent && featured ? (
         <section aria-labelledby="operational-heading" className="flex flex-col gap-3">
           <h2 id="operational-heading" className="text-title font-semibold">
-            {operational.kind === "in-progress" ? "正在进行" : "下一场"}
+            {operational.kind === "in-progress" ? "In progress" : "Next event"}
           </h2>
 
           <Card>
@@ -135,32 +137,32 @@ export default async function ClubAdminHomePage() {
               */}
               <dl className="grid gap-3 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-muted-foreground text-xs">报名（有效）</dt>
+                  <dt className="text-muted-foreground text-xs">Registrations</dt>
                   <dd className="text-h3 font-semibold">{featured.registeredCount}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">已排比赛</dt>
+                  <dt className="text-muted-foreground text-xs">Rounds scheduled</dt>
                   <dd className="text-h3 font-semibold">{featured.matchCount}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">评分表（已交 / 应交）</dt>
+                  <dt className="text-muted-foreground text-xs">Ballots (in / expected)</dt>
                   <dd className="text-h3 font-semibold">
                     {featured.ballotsExpectedCount - featured.ballotsUnsubmittedCount} /{" "}
                     {featured.ballotsExpectedCount}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">需要处理</dt>
+                  <dt className="text-muted-foreground text-xs">Needs attention</dt>
                   <dd className="text-h3 font-semibold">{attention.length}</dd>
                 </div>
               </dl>
 
               <div className="flex flex-wrap items-center gap-3">
                 <Button asChild size="sm">
-                  <Link href={`/manage/events/${featuredEvent.id}`}>管理这场活动</Link>
+                  <Link href={`/manage/events/${featuredEvent.id}`}>Manage event</Link>
                 </Button>
                 <span className="text-muted-foreground text-xs">
-                  开始时间：{localDateTime(featuredEvent.startsAt)}（{CLUB_DEFAULT_TIMEZONE}）
+                  Starts {localDateTime(featuredEvent.startsAt)} ({CLUB_DEFAULT_TIMEZONE})
                 </span>
               </div>
             </CardContent>
@@ -169,11 +171,11 @@ export default async function ClubAdminHomePage() {
       ) : events.length === 0 ? (
         <StatePanel
           variant="empty"
-          title="还没有任何活动"
-          description="先建一场活动：填好时间与赛制，再推进到「报名开放中」，学生就能报名了。"
+          title="No events yet"
+          description="Create an event, set its schedule and formats, then move it to registration open so students can register."
           action={
             <Button asChild variant="outline" size="sm">
-              <Link href="/manage/events/new">新建活动</Link>
+              <Link href="/manage/events/new">Create event</Link>
             </Button>
           }
         />
@@ -182,11 +184,11 @@ export default async function ClubAdminHomePage() {
       {/* ---------------- 需要处理 ---------------- */}
       <section aria-labelledby="attention-heading" className="flex flex-col gap-3">
         <h2 id="attention-heading" className="text-title font-semibold">
-          需要处理
+          Needs attention
         </h2>
         {attention.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            没有需要你处理的事。{featuredEvent ? "这一场目前一切正常。" : ""}
+            Nothing needs your attention.{featuredEvent ? " This event is on track." : ""}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -197,7 +199,7 @@ export default async function ClubAdminHomePage() {
               >
                 <span className="flex flex-wrap items-center gap-2">
                   <StatusBadge tone={item.severity === "high" ? "danger" : "warning"}>
-                    {item.severity === "high" ? "尽快" : "待办"}
+                    {item.severity === "high" ? "Urgent" : "To do"}
                   </StatusBadge>
                   {item.label}
                 </span>
@@ -206,7 +208,7 @@ export default async function ClubAdminHomePage() {
                   href={item.href}
                   className="focus-visible:ring-ring/50 rounded underline underline-offset-4 focus-visible:ring-3 focus-visible:outline-none"
                 >
-                  去处理
+                  Resolve
                 </Link>
               </li>
             ))}
@@ -218,18 +220,18 @@ export default async function ClubAdminHomePage() {
       <section aria-labelledby="following-heading" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="following-heading" className="text-title font-semibold">
-            接下来的活动
+            Upcoming events
           </h2>
           <Link
             href="/manage/events"
             className="focus-visible:ring-ring/50 rounded text-sm underline underline-offset-4 focus-visible:ring-3 focus-visible:outline-none"
           >
-            全部活动
+            All events
           </Link>
         </div>
 
         {following.length === 0 ? (
-          <p className="text-muted-foreground text-sm">之后暂时没有别的活动。</p>
+          <p className="text-muted-foreground text-sm">No other events are coming up.</p>
         ) : (
           <ul className="flex flex-col">
             {following.map((event) => (
@@ -255,10 +257,10 @@ export default async function ClubAdminHomePage() {
       {/* ---------------- 最近的管理操作 ---------------- */}
       <section aria-labelledby="activity-heading" className="flex flex-col gap-3">
         <h2 id="activity-heading" className="text-title font-semibold">
-          最近的管理操作
+          Recent admin activity
         </h2>
         {recentActivity.length === 0 ? (
-          <p className="text-muted-foreground text-sm">还没有产生审计记录。</p>
+          <p className="text-muted-foreground text-sm">No audit records yet.</p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {recentActivity.map((entry) => (
@@ -268,7 +270,8 @@ export default async function ClubAdminHomePage() {
                 </StatusBadge>
                 <span>{AUDIT_ENTITY_LABELS[entry.entityType] ?? entry.entityType}</span>
                 <span className="text-muted-foreground text-xs">
-                  {entry.actorName ?? "（系统操作，无操作者）"} · {localDateTime(entry.createdAt)}
+                  {entry.actorName ?? "(system action, no actor)"} ·{" "}
+                  {localDateTime(entry.createdAt)}
                 </span>
               </li>
             ))}
@@ -279,15 +282,15 @@ export default async function ClubAdminHomePage() {
       {/* ---------------- 常去的几处 ---------------- */}
       <section aria-labelledby="shortcuts-heading" className="flex flex-col gap-3">
         <h2 id="shortcuts-heading" className="text-title font-semibold">
-          常去的几处
+          Go to
         </h2>
         <ul className="flex flex-wrap gap-2">
           {[
-            { href: "/manage/events", label: "活动管理" },
-            { href: "/manage/notices", label: "通知管理" },
-            { href: "/admin/users", label: "用户管理" },
-            { href: "/admin/email", label: "邮件队列" },
-            { href: "/admin/audit", label: "审计日志" },
+            { href: "/manage/events", label: "Events" },
+            { href: "/manage/notices", label: "Announcements" },
+            { href: "/admin/users", label: "Users" },
+            { href: "/admin/email", label: "Email Queue" },
+            { href: "/admin/audit", label: "Audit Log" },
           ].map((entry) => (
             <li key={entry.href}>
               <Button asChild variant="outline" size="sm">

@@ -20,7 +20,7 @@ import { EventFormatsForm } from "./event-formats-form";
 import { StatusTransitionForm } from "./status-transition-form";
 import { EventForm } from "../event-form";
 
-export const metadata = { title: "活动详情 · INSPIRA" };
+export const metadata = { title: "Event · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -50,34 +50,34 @@ export default async function EventDetailPage({
         <h1 className="text-xl font-semibold tracking-tight">{event.title}</h1>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">
-            <Link href={`/manage/events/${event.id}/live`}>现场看板</Link>
+            <Link href={`/manage/events/${event.id}/live`}>Live board</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}/ballots`}>评分表复核</Link>
+            <Link href={`/manage/events/${event.id}/ballots`}>Ballots</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}/matches`}>比赛安排</Link>
+            <Link href={`/manage/events/${event.id}/matches`}>Rounds &amp; assignments</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}/pairing`}>配对提案</Link>
+            <Link href={`/manage/events/${event.id}/pairing`}>Teams &amp; pairings</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}/registrations`}>报名管理</Link>
+            <Link href={`/manage/events/${event.id}/registrations`}>Registrations</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href="/manage/events">返回活动列表</Link>
+            <Link href="/manage/events">Back to events</Link>
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">当前安排</CardTitle>
+          <CardTitle className="text-base">Current schedule</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">状态</dt>
+              <dt className="text-muted-foreground text-xs">Status</dt>
               <dd>
                 <StatusBadge tone={eventStatusTone(event.status)}>
                   {EVENT_STATUS_LABELS[event.status] ?? event.status}
@@ -85,48 +85,48 @@ export default async function EventDetailPage({
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">活动日期 / 时区</dt>
+              <dt className="text-muted-foreground text-xs">Date / time zone</dt>
               <dd>
                 {event.eventDate} · {event.timezone}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">地点</dt>
+              <dt className="text-muted-foreground text-xs">Location</dt>
               <dd>{describeEventLocation(event).label}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">报名开放</dt>
+              <dt className="text-muted-foreground text-xs">Registration opens</dt>
               <dd>{formatZoned(event.registrationOpensAt, event.timezone)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">报名截止</dt>
+              <dt className="text-muted-foreground text-xs">Registration closes</dt>
               <dd>{formatZoned(event.registrationClosesAt, event.timezone)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">签到开放</dt>
+              <dt className="text-muted-foreground text-xs">Check-in opens</dt>
               <dd>{formatZoned(event.checkInOpensAt, event.timezone)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">警示时间</dt>
+              <dt className="text-muted-foreground text-xs">Warning time</dt>
               <dd>{formatZoned(event.warningAt, event.timezone)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">活动开始</dt>
+              <dt className="text-muted-foreground text-xs">Starts</dt>
               <dd>{formatZoned(event.startsAt, event.timezone)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">活动结束</dt>
+              <dt className="text-muted-foreground text-xs">Ends</dt>
               <dd>{formatZoned(event.endsAt, event.timezone)}</dd>
             </div>
             {event.meetingUrl ? (
               <div className="flex flex-col gap-0.5 sm:col-span-2">
-                <dt className="text-muted-foreground text-xs">会议链接</dt>
+                <dt className="text-muted-foreground text-xs">Meeting link</dt>
                 <dd className="break-all">{event.meetingUrl}</dd>
               </div>
             ) : null}
             {event.notice ? (
               <div className="flex flex-col gap-0.5 sm:col-span-2">
-                <dt className="text-muted-foreground text-xs">活动说明</dt>
+                <dt className="text-muted-foreground text-xs">Event notes</dt>
                 <dd className="whitespace-pre-wrap">{event.notice}</dd>
               </div>
             ) : null}
@@ -136,7 +136,7 @@ export default async function EventDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">比赛设置</CardTitle>
+          <CardTitle className="text-base">Round settings</CardTitle>
         </CardHeader>
         <CardContent>
           <MatchSettingsForm
@@ -151,11 +151,11 @@ export default async function EventDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">状态流程</CardTitle>
+          <CardTitle className="text-base">Workflow</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-muted-foreground text-sm">
-            完整流程：{EVENT_HAPPY_PATH.map((status) => EVENT_STATUS_LABELS[status]).join(" → ")}
+            Full path: {EVENT_HAPPY_PATH.map((status) => EVENT_STATUS_LABELS[status]).join(" → ")}
           </p>
 
           {/*
@@ -168,8 +168,8 @@ export default async function EventDetailPage({
               role="alert"
               className="border-destructive/40 text-destructive rounded-md border px-3 py-2 text-sm"
             >
-              本活动还没有启用任何赛制。开启报名前请先在下方「活动赛制」里勾选至少一个，
-              否则学生报名时没有赛制可选。
+              No formats are enabled for this event. Tick at least one under Formats below before
+              opening registration, or students will have nothing to register for.
             </p>
           ) : null}
 
@@ -179,7 +179,7 @@ export default async function EventDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">活动赛制</CardTitle>
+          <CardTitle className="text-base">Formats</CardTitle>
         </CardHeader>
         <CardContent>
           <EventFormatsForm
@@ -192,7 +192,7 @@ export default async function EventDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">修改活动信息</CardTitle>
+          <CardTitle className="text-base">Edit event details</CardTitle>
         </CardHeader>
         <CardContent>
           <EventForm
@@ -223,12 +223,12 @@ export default async function EventDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">克隆活动</CardTitle>
+          <CardTitle className="text-base">Duplicate event</CardTitle>
         </CardHeader>
         <CardContent>
           <CloneEventForm
             eventId={event.id}
-            suggestedTitle={`${event.title}（副本）`}
+            suggestedTitle={`${event.title} (copy)`}
             suggestedStartsAtLocal={utcToZonedLocal(
               new Date(new Date(event.startsAt).getTime() + 7 * 24 * 60 * 60 * 1000),
               event.timezone,

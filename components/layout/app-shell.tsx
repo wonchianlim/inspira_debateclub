@@ -4,8 +4,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
-import { LocaleSwitcher } from "@/components/layout/locale-switcher";
-import { useLocale, useMessages } from "@/lib/i18n/provider";
+import { useMessages } from "@/lib/i18n/provider";
 
 export type NavItem = {
   href: string;
@@ -41,7 +40,6 @@ export function AppShell({
   userSlot?: React.ReactNode;
 }) {
   const m = useMessages();
-  const locale = useLocale();
 
   const resolvedNav =
     nav ??
@@ -114,7 +112,6 @@ export function AppShell({
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {resolvedNav}
-            <LocaleSwitcher current={locale} label={m.nav.language} />
             {userSlot}
           </div>
         </div>

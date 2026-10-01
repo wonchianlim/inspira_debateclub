@@ -1,40 +1,31 @@
-import { cookies } from "next/headers";
-
-import { DEFAULT_LOCALE, HTML_LANG, LOCALE_COOKIE, type Locale, isLocale } from "./config";
+import { DEFAULT_LOCALE, HTML_LANG, type Locale } from "./config";
 import { en, type Messages } from "./messages/en";
-import { zh } from "./messages/zh";
 
 export { LOCALES, DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_LABELS, HTML_LANG } from "./config";
 export type { Locale } from "./config";
 export type { Messages } from "./messages/en";
 
-const DICTIONARIES: Record<Locale, Messages> = { en, zh };
-
 /**
- * 读取当前语言（服务端）。
+ * ⚠️ 2026-10-01 产品负责人决定：**界面只保留英文**（"there are none chinese speakers"）。
  *
- * ⚠️ 用 cookie 而不是网址路径，因此**路由结构完全不动** ——
- * 38 个动态路由一个都不用挪。这是个登录后才用的内部系统，
- * 不需要按语言分网址。
+ * 因此这里**不再读语言 cookie、也不再按语言取字典** —— 语言固定为英文，
+ * 结果是确定的：不管浏览器里以前存过什么 cookie，页面都是英文。
  *
- * ⚠️ 在**服务端**读，所以第一次渲染就是正确的语言，不会先闪英文再变中文。
- * 那种闪烁是客户端方案绕不开的问题。
- *
- * cookie 缺失或值非法都回退到默认语言（英文），**不抛错** ——
- * 一个坏 cookie 不该让整个站点打不开。
+ * ⚠️ `messages/zh.ts` **保留在仓库里不用**（选项 A 的原话是"留着，将来要中文只是补文案"）。
+ * 将来真要中文时，要改回来的是这一个文件：把 `zh` 重新接上、把切换器加回去，
+ * 而不是重新设计一套取文案的机制。
  */
-export async function getLocale(): Promise<Locale> {
-  const store = await cookies();
-  const value = store.get(LOCALE_COOKIE)?.value;
-  return isLocale(value) ? value : DEFAULT_LOCALE;
+/** 当前语言。按产品决定固定为英文。 */
+export function getLocale(): Locale {
+  return DEFAULT_LOCALE;
 }
 
-/** 取当前语言的完整文案表。 */
+/** 取当前语言的文案表。按产品决定固定为英文。 */
 export async function getMessages(): Promise<Messages> {
-  return DICTIONARIES[await getLocale()];
+  return en;
 }
 
-/** 取当前语言在 `<html lang>` 上该写的值。 */
+/** `<html lang>`。按产品决定固定为英文。 */
 export async function getHtmlLang(): Promise<string> {
-  return HTML_LANG[await getLocale()];
+  return HTML_LANG[DEFAULT_LOCALE];
 }
