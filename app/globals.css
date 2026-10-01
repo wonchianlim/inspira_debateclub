@@ -161,6 +161,26 @@
   --text-caption: 0.75rem; /* 12 */
   --text-caption--line-height: 1.125rem; /* 18 */
 
+  /*
+   * 语义状态令牌（规范 §5.2）。
+   *
+   * ⚠️ 规范要求"Red is only for destructive actions and errors.
+   *    Green is only for success/complete. Amber is only for warning/pending.
+   *    **Do not use semantic colours decoratively.**"
+   *
+   * 暴露成 Tailwind 类之后：bg-info-bg / text-info / bg-success-bg / text-success …
+   * 组件里就**不该再出现写死的红绿黄**，否则规范那条约束立刻失效。
+   */
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-neutral-bg: var(--neutral-bg);
+
   /* 品牌令牌 —— 供 bg-brand / text-brand / border-brand 使用 */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);

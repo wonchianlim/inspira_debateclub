@@ -43,13 +43,13 @@ const STATE_CONFIG: Record<StateVariant, StateConfig> = {
     icon: TriangleAlert,
     role: "alert",
     defaultTitle: "出错了",
-    tone: "text-destructive",
+    tone: "text-danger",
   },
   unauthorized: {
     icon: ShieldX,
     role: "alert",
     defaultTitle: "你没有访问权限",
-    tone: "text-destructive",
+    tone: "text-danger",
   },
   success: {
     icon: CircleCheck,
