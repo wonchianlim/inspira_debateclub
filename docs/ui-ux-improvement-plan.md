@@ -188,7 +188,14 @@ shadcn 语义令牌（保留，供现有组件使用）
   逻辑集中在 `lib/domain/student-events-view.ts`（19 条测试，含乱填参数的收敛）。
   两处刻意差异：没做移动端筛选抽屉（改为可换行的链接组，零 JS）；
   没做搜索（活动量还没到需要它的程度，规范原文是 "only if event volume justifies it"）。
-- ⏳ 4b-3 活动详情（§8.3）、4b-4 我的评分表（§8.7）尚未开始。
+- ✅ **4b-3 学生活动详情 `/student/events/[eventId]`** —— 完成 §8.3 的 hero 摘要
+  （新组件 `components/domain/event-detail-hero.tsx`，13 条测试）+ 五节：
+  关于这场活动 / 时间安排 / 资格与赛制 / 我的报名 / 重要信息。
+  hero 的 CTA 是**页面内锚点**（在详情页上再指向本页等于点了没反应），
+  没有可做的事时完全不显示 CTA。
+  未做：§8.3 的 `Rounds and results`（学生端没有这个页面/数据）、
+  §8.4 的 Save draft 与 Submit 分离（数据库没有草稿态）。详见 `NEXT_STEP.md`。
+- ⏳ 4b-4 我的评分表（§8.7）尚未开始。
 
 **两处数据模型缺口已由产品负责人拍板并修好（2026-10-01）：**
 
