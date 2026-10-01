@@ -1,83 +1,134 @@
-# 下一步
+# 交接文档（新会话从这里开始）
 
-## 当前状态
+> 最后更新：2026-10-01。**本节之上是历史记录，可以只看这一节。**
 
-**Phase 1–8 已完成。Phase 9 只剩一件事。**
+---
+
+## 一分钟了解现状
+
+**INSPIRA 辩论社管理系统已经上线并在真实使用。**
+
+```
+生产网址   https://app.inspira.education
+数据库     Supabase Pro（新加坡），35 张表，29 个迁移
+网站       Vercel Pro（绑定自定义域名 —— vercel.app 在大陆被 DNS 污染）
+邮件       Resend，发件人 noreply@mail.inspira.education（QQ 邮箱实测收到）
+代码       GitHub 私有仓库 wonchianlim/inspira_debateclub
+成本       $45/月
+超管账号   wonchianlim@outlook.com
+```
+
+**仓库**：`/Users/chianlim/Documents/deepseek-harness/default-workspace/inspira`
+
+---
+
+## 🔴 立刻要做的第一件事
+
+**检查是否有未推送的提交：**
+
+```bash
+git log origin/main..HEAD --oneline
+```
+
+有的话让产品负责人用 **GitHub Desktop** 点 `Push origin`
+（我没有仓库凭据，推送会失败 —— 这是正常的，不要反复重试）。
+
+---
+
+## 当前正在进行的工作：UI/UX 改造
+
+规范：`/Users/chianlim/Documents/Codex/2026-10-01/referenced-chatgpt-conversation-this-is-an/outputs/inspira-debate-club-ui-ux-spec.md`
+计划：`docs/ui-ux-improvement-plan.md`
 
 | 阶段 | 状态 |
 |---|---|
-| Phase 1–8 | ✅ 完成 |
-| Phase 9 | 🟡 只剩「无障碍真实复查」 |
-| Phase 10 | ⛔ **等预算批准** |
+| 1 设计令牌底座 | ✅ 完成（含对比度自动化测试） |
+| 2 应用外壳 / 角色感知导航 | ✅ 完成 |
+| 3 状态体系 `StatusBadge` | ✅ **组件已完成并有测试** |
+| **3b 迁移 52 处旧 `<Badge>`** | ❌ **未做 —— 这是下一步** |
+| 4 页面级改造 | ⏳ |
+| 5 路由改名（`/dashboard`→`/home` 等） | ⏳ **最后做，必须保留旧路径跳转** |
+| 6 i18n 第 2–4 批 | ⏳ **推迟到阶段 4 之后**（否则文案搬两遍） |
 
-九项检查全部通过；40 个测试文件 / 910 条；数据库用例 251 条。
+### ⚠️ 阶段 3b 必须注意（我在这里失败过一次）
 
----
+**我用脚本横扫 15 个文件去替换 `variant={...}`，产生 88 个类型错误，已全部回退。**
 
-## ⚠️ 需要产品负责人回复的三件事
+原因：脚本只换了属性，**没换标签名** `<Badge>` → `<StatusBadge>`，
+于是生成了 `as StatusBadgeProps["tone"]` 这种错位代码。
 
-### 1. 发信邮箱的**授权码**（已确定用哪个邮箱）
-
-**产品负责人已确定：发信邮箱 = `debateclub@inspira.education`**
-
-⚠️ **方案已变更**：不再走腾讯云邮件推送，改用**企业邮箱自身的 SMTP**。
-
-这样**不需要子域名、不需要碰 DNS** —— 腾讯已经为 `inspira.education`
-配好了 SPF/DKIM，而企业邮箱的授权码支持 SMTP。
-（此前"必须用子域名"的建议建立在"走腾讯云邮件推送"的前提上，那个前提已经取消。）
-
-需要产品负责人做：
-
-1. 登录 `debateclub@inspira.education` 的网页版邮箱
-2. **设置 → 客户端设置 → 获取授权密码** → 拿到 **16 位授权码**
-   （⚠️ 有资料显示企业微信邮箱需先**开启安全登录**才会出现这个入口）
-3. 确认同一页的 **IMAP/SMTP 服务**已开启
-4. 把「**授权码** + 页面上显示的 **SMTP 服务器与端口**」用安全方式提供
-
-> ⚠️ **若 `debateclub@` 是「公共邮箱」**：公共邮箱是多人委托模式，
-> **通常没有独立密码与授权码**，因此**不能用于自动发信**。
-> 那种情况下需要另建一个**普通邮箱账号**（例如 `noreply@inspira.education`）。
-> 公共邮箱适合用来**收**学生回复（多人共同处理），不适合用来**发**。
-
-⚠️ **授权码请用安全方式提供**，不要直接贴在对话里。
-
-### 2. ✅ 月度预算上限 —— **已批准：$45/月**（2026-09-30）
+**正确做法：**
 
 ```
-Supabase Pro（新加坡区）   $25/月
-Vercel Pro                 $20/月
-Resend 邮件                $0（免费档）
-────────────────────────────────
-合计                       $45/月 ≈ $540/年（约 ¥3,900）
+✅ 逐文件手工改，一次 3–5 个文件，每批跑一次 npm run typecheck
+❌ 不要写脚本横扫
 ```
 
-另加域名续费约 $25/年（已在付）。
+**这不是机械替换，每处都要判断语义：**
 
-⚠️ **已知代价**：Vercel 在中国大陆**没有节点**，大陆访问的延迟与稳定性不确定。
-规范要求的"两条网络、无 VPN"测试可能会发现访问偏慢 —— 若如此，
-补救办法是换到新加坡 VPS（$6–12/月），**代码不用改**。
+| 界面文案 | 语气 |
+|---|---|
+| 胜 / 负 | `success` / `neutral` |
+| 报名开放 / 关闭 | `success` / `neutral` |
+| 已发布 / 草稿 | `success` / `neutral` |
+| 账号启用 / 停用 | `success` / `danger` |
+| 待审核 | **`warning`** ← 和"已发布"不同，不能套用 |
+| 超时未开始 | `danger` |
+| 邮件 已发送/失败/待发 | `success` / `danger` / `neutral` |
 
-### 3. 无障碍复查走哪条路
+**另外两类要分开**：
+- **25 处 `variant="outline" font-normal`** 是**元数据标签**（赛制代码、队伍名），
+  **本来就已经一致**，不是状态 —— 可改成中性 `MetaChip`，但优先级低
+- **18 处 `variant={条件}`** 才是真状态，**优先迁移这些**
 
-- **A**：允许安装 Playwright 浏览器（几百 MB），我跑自动化检查
-- **B**：用 `docs/accessibility-checklist.md` 自己过一遍
+建议先改这 5 个（学生直接看到）：`student/ballots`、`student/events`、
+`events`、`admin/users`、`admin/judges`。
 
 ---
 
-## 我可以继续做的（不依赖你）
+## 命令速查
 
-- 队列消费作业的骨架（等凭据才能真跑）
-- Phase 8 遗留的 4 处端到端验证
-- 其它收尾与文档
+```bash
+npm run check        # 九步检查链（format/lint/typecheck/test/build/四项静态检查）
+npm run db:verify    # 删库重建 + 重放迁移 + 251 条数据库用例
+npm run test:integration
+npm run db:test
+```
+
+**环境注意**（这台机器上踩过的坑）：
+
+```bash
+export HOME="$PWD/.sb-home"          # 否则 supabase CLI 写 ~/.supabase 会 EPERM
+export DOCKER_CONFIG="$PWD/.docker-home"
+# psql 不在 PATH，要用：
+docker exec -i supabase_db_inspira psql -U postgres -d postgres
+```
+
+**`.env.local`** 里有 Supabase 本地值与 `RESEND_API_KEY`，**已被 gitignore**。
 
 ---
 
-## 一、Phase 9 剩余
+## 这台机器 / 这个项目的硬规则
 
-- 无障碍真实复查（等选路）
+- **不加载境外浏览器资源**（有守卫测试；字体自托管在 `app/fonts/`，72KB）
+- **`"use server"` 文件只能导出异步函数**（常量放 `lib/validation/` 或 `lib/i18n/config.ts`）
+- **`.env.local` 里的东西绝不提交、绝不贴进对话**
+- **测试反向验证**：改坏实现，测试必须失败。**无法失败的测试和一个通过的测试长得一样。**
+- **检查失败时先怀疑检查**（a11y 检查误报过 4 次）
+- **不要凭记忆写数值/列名/文件数** —— 数据库会拦，文档不会
 
-## 二、Phase 10（等预算）
+---
 
-- 香港/新加坡部署、数据存放清单、费用估算、运维指南
-- 大陆测试矩阵（至少两条实际网络、无 VPN）
-- 邮件送达验证、备份恢复手册、上线清单、回滚方案
+## 产品负责人的偏好
+
+- **所有面向他的输出用简体中文**
+- 区分「我会做」与「你要做」，结尾给四行块
+  （你现在只需要做 / 成功时你会看到 / 请回复我 / 我收到后会做）
+- **不能花任何钱、不能用真实学生数据**，除非他明确批准
+- 遇到需要拍板的事**先问，不要替他决定**
+
+---
+
+## 历史记录（以下是过程，通常不必看）
+
+（原有内容见 git 历史与 `docs/phase-*-completion-report.md`）
