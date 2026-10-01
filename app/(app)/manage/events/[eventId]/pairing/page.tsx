@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { pairingProposalTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
@@ -90,9 +92,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                   {needsAttention.map((warning, index) => (
                     <li key={`${warning.code}-${index}`}>
                       {warning.formatCode ? (
-                        <Badge variant="outline" className="mr-2 font-normal">
-                          {warning.formatCode}
-                        </Badge>
+                        <MetaChip className="mr-2">{warning.formatCode}</MetaChip>
                       ) : null}
                       {warning.message}
                     </li>
@@ -106,9 +106,9 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                 提案信息
-                <Badge variant="outline" className="font-normal">
+                <StatusBadge tone={pairingProposalTone(overview.status)}>
                   {PAIRING_PROPOSAL_STATUS_LABELS[overview.status]}
-                </Badge>
+                </StatusBadge>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -172,24 +172,16 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                 <div key={team.teamId} className="border-border rounded-md border px-3 py-3">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <strong className="text-sm">{team.teamLabel ?? "（未编号）"}</strong>
-                    <Badge variant="outline" className="font-normal">
-                      {team.formatCode}
-                    </Badge>
+                    <MetaChip>{team.formatCode}</MetaChip>
                     {team.averageRating !== null ? (
                       <span className="text-muted-foreground text-xs">
                         平均评分 {team.averageRating}
                       </span>
                     ) : null}
-                    {team.locked ? (
-                      <Badge variant="secondary" className="font-normal">
-                        已锁定
-                      </Badge>
-                    ) : null}
-                    {team.manuallyEdited && !team.locked ? (
-                      <Badge variant="outline" className="font-normal">
-                        人工调整过
-                      </Badge>
-                    ) : null}
+                    {/* "已锁定"是状态：名单已冻结，不能再改。 */}
+                    {team.locked ? <StatusBadge>已锁定</StatusBadge> : null}
+                    {/* "人工调整过"是来源说明，不是状态。 */}
+                    {team.manuallyEdited && !team.locked ? <MetaChip>人工调整过</MetaChip> : null}
                   </div>
 
                   <ul className="mb-3 flex flex-col gap-1 text-sm">

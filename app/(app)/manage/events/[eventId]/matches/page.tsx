@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { matchStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
@@ -73,26 +75,17 @@ export default async function MatchesPage({ params }: { params: Promise<{ eventI
               <div key={match.matchId} className="border-border rounded-md border px-3 py-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <strong className="text-sm">第 {match.matchNumber} 场</strong>
-                  <Badge variant="outline" className="font-normal">
-                    {match.roomName}
-                  </Badge>
+                  <MetaChip>{match.roomName}</MetaChip>
                   <span className="text-muted-foreground text-xs">
                     {utcToZonedLocal(new Date(match.scheduledStart), CLUB_DEFAULT_TIMEZONE).replace(
                       "T",
                       " ",
                     )}
                   </span>
-                  <Badge
-                    variant={match.rosterLocked ? "secondary" : "outline"}
-                    className="font-normal"
-                  >
+                  <StatusBadge tone={matchStatusTone(match.status)}>
                     {STATUS_LABELS[match.status] ?? match.status}
-                  </Badge>
-                  {match.ironman ? (
-                    <Badge variant="outline" className="font-normal">
-                      铁人
-                    </Badge>
-                  ) : null}
+                  </StatusBadge>
+                  {match.ironman ? <MetaChip>铁人</MetaChip> : null}
                 </div>
 
                 <ul className="mb-2 flex flex-col gap-1 text-sm">

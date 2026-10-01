@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { ballotStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listEventBallots, listEventReviewRequests } from "@/lib/admin/ballot-review";
@@ -118,17 +120,10 @@ export default async function EventBallotsPage({
                           <strong className="text-sm">
                             第 {ballot.matchNumber} 场 · {ballot.roomName}
                           </strong>
-                          <Badge variant="outline" className="font-normal">
-                            {ballot.formatCode}
-                          </Badge>
-                          <Badge
-                            variant={
-                              isBallotSubmittedForDashboard(ballot.status) ? "secondary" : "outline"
-                            }
-                            className="font-normal"
-                          >
+                          <MetaChip>{ballot.formatCode}</MetaChip>
+                          <StatusBadge tone={ballotStatusTone(ballot.status)}>
                             {BALLOT_STATUS_TEXT[ballot.status]}
-                          </Badge>
+                          </StatusBadge>
                         </div>
                         <span className="text-muted-foreground text-xs">
                           裁判：{ballot.judgeName}

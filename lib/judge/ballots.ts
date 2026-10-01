@@ -3,6 +3,7 @@ import "server-only";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 import type { BallotData, BallotTemplateSchema } from "@/lib/domain/ballot-schema";
 import { emptyBallotData } from "@/lib/domain/ballot-schema";
+import type { BallotStatus } from "@/lib/domain/ballot-lifecycle";
 
 /**
  * 裁判填表的读取层（Phase 7 / P7-4）。
@@ -19,7 +20,7 @@ export type JudgeAssignedMatch = {
   scheduledStart: string;
   matchStatus: string;
   /** 这份评分表的状态；null 表示还没开始填 */
-  ballotStatus: string | null;
+  ballotStatus: BallotStatus | null;
   /** 是否已经有**该赛制的活跃模板** —— 没有的话裁判根本没法打分 */
   hasTemplate: boolean;
 };
@@ -72,11 +73,13 @@ export async function listMyAssignedMatches(): Promise<JudgeAssignedMatch[]> {
 
   const { data: ballots } =
     matchIds.length === 0
-      ? { data: [] as { match_id: string; status: string }[] }
+      ? { data: [] as { match_id: string; status: BallotStatus }[] }
       : await supabase.from("ballots").select("match_id, status").in("match_id", matchIds);
 
   const ballotByMatch = new Map(
-    (ballots ?? []).map((ballot) => [ballot.match_id as string, ballot.status as string] as const),
+    (ballots ?? []).map(
+      (ballot) => [ballot.match_id as string, ballot.status as BallotStatus] as const,
+    ),
   );
 
   return ((data ?? []) as unknown as Row[])
@@ -126,7 +129,7 @@ export type BallotContext = {
   /** 队伍 id → 队员学生 id，`teamFromSpeakers` 型总项需要 */
   teamMembersByTeam: Record<string, string[]>;
   ballotId: string | null;
-  ballotStatus: string | null;
+  ballotStatus: BallotStatus | null;
   winnerTeamId: string | null;
   reasonForDecision: string | null;
   data: BallotData;
@@ -274,7 +277,7 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
       return accumulator;
     }, {}),
     ballotId: (ballotData?.id as string | undefined) ?? null,
-    ballotStatus: (ballotData?.status as string | undefined) ?? null,
+    ballotStatus: (ballotData?.status as BallotStatus | undefined) ?? null,
     winnerTeamId: (ballotData?.winner_team_id as string | undefined) ?? null,
     reasonForDecision: (ballotData?.reason_for_decision as string | undefined) ?? null,
     data,

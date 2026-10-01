@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { judgeApprovalTone, profileStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatePanel } from "@/components/domain/state-panel";
@@ -141,22 +142,16 @@ export default async function AdminJudgesPage({
                           </div>
                         </td>
                         <td className="py-3 pr-4">
-                          <Badge
-                            variant={judge.profileStatus === "active" ? "secondary" : "destructive"}
-                          >
+                          <StatusBadge tone={profileStatusTone(judge.profileStatus)}>
                             {PROFILE_STATUS_LABELS[judge.profileStatus as ProfileStatus] ??
                               judge.profileStatus}
-                          </Badge>
+                          </StatusBadge>
                         </td>
                         <td className="py-3 pr-4">
                           <div className="flex flex-col gap-1">
-                            <Badge
-                              variant={
-                                judge.approvalStatus === "approved" ? "secondary" : "outline"
-                              }
-                            >
+                            <StatusBadge tone={judgeApprovalTone(judge.approvalStatus)}>
                               {JUDGE_APPROVAL_LABELS[judge.approvalStatus] ?? judge.approvalStatus}
-                            </Badge>
+                            </StatusBadge>
                             {/*
                               把"能不能被指派"直接写出来。
                               这就是 Phase 5 排赛时会用到的判断，管理员现在就能看懂结果。

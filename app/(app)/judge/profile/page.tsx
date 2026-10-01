@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { judgeApprovalTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREA_ROLES } from "@/lib/auth/roles";
@@ -56,20 +58,16 @@ export default async function JudgeProfilePage() {
         <CardContent className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
           <span>
             状态
-            <Badge variant="outline" className="ml-2 font-normal">
+            <StatusBadge tone={judgeApprovalTone(profile.approvalStatus)} className="ml-2">
               {APPROVAL_LABELS[profile.approvalStatus] ?? profile.approvalStatus}
-            </Badge>
+            </StatusBadge>
           </span>
           <span className="flex items-center gap-2">
             可执裁
             {profile.qualifiedFormats.length === 0 ? (
               <span className="text-muted-foreground">（暂未取得任何赛制资格）</span>
             ) : (
-              profile.qualifiedFormats.map((code) => (
-                <Badge key={code} variant="secondary" className="font-normal">
-                  {code}
-                </Badge>
-              ))
+              profile.qualifiedFormats.map((code) => <MetaChip key={code}>{code}</MetaChip>)
             )}
           </span>
         </CardContent>

@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { noticeStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listNotices, noticeStatusOf } from "@/lib/admin/notices";
@@ -98,9 +99,9 @@ export default async function ManageNoticesPage() {
                           ) : null}
                         </td>
                         <td className="py-3 pr-4">
-                          <Badge variant={status === "published" ? "secondary" : "outline"}>
+                          <StatusBadge tone={noticeStatusTone(status)}>
                             {STATUS_LABELS[status]}
-                          </Badge>
+                          </StatusBadge>
                         </td>
                         <td className="py-3 pr-4">
                           {notice.publishedAt

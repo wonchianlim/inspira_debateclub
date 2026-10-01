@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { eventStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listEvents } from "@/lib/admin/events";
@@ -127,9 +128,9 @@ export default async function ManageEventsPage({
                     <tr key={event.id} className="border-border border-b last:border-0">
                       <td className="py-3 pr-4">{event.title}</td>
                       <td className="py-3 pr-4">
-                        <Badge variant={event.status === "draft" ? "outline" : "secondary"}>
+                        <StatusBadge tone={eventStatusTone(event.status)}>
                           {EVENT_STATUS_LABELS[event.status] ?? event.status}
-                        </Badge>
+                        </StatusBadge>
                       </td>
                       <td className="py-3 pr-4">
                         {/*

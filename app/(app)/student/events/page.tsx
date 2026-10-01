@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { registrationStatusTone, registrationWindowTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
@@ -63,13 +64,13 @@ export default async function StudentEventsPage() {
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                     {event.title}
-                    <Badge variant={windowState === "open" ? "secondary" : "outline"}>
+                    <StatusBadge tone={registrationWindowTone(windowState)}>
                       {WINDOW_LABELS[windowState] ?? windowState}
-                    </Badge>
+                    </StatusBadge>
                     {event.myRegistrationStatus ? (
-                      <Badge variant="outline" className="font-normal">
+                      <StatusBadge tone={registrationStatusTone(event.myRegistrationStatus)}>
                         {REGISTRATION_STATUS_LABELS[event.myRegistrationStatus]}
-                      </Badge>
+                      </StatusBadge>
                     ) : null}
                   </CardTitle>
                 </CardHeader>

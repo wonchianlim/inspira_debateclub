@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { profileStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -153,9 +155,9 @@ export default async function AdminUsersPage({
                       <td className="py-3 pr-4">{profile.displayName}</td>
                       <td className="text-muted-foreground py-3 pr-4">{profile.email}</td>
                       <td className="py-3 pr-4">
-                        <Badge variant={profile.status === "active" ? "secondary" : "destructive"}>
+                        <StatusBadge tone={profileStatusTone(profile.status)}>
                           {PROFILE_STATUS_LABELS[profile.status]}
-                        </Badge>
+                        </StatusBadge>
                       </td>
                       <td className="py-3 pr-4">
                         {profile.roles.length === 0 ? (
@@ -163,9 +165,7 @@ export default async function AdminUsersPage({
                         ) : (
                           <span className="flex flex-wrap gap-1">
                             {profile.roles.map((role) => (
-                              <Badge key={role} variant="outline">
-                                {ROLE_LABELS[role]}
-                              </Badge>
+                              <MetaChip key={role}>{ROLE_LABELS[role]}</MetaChip>
                             ))}
                           </span>
                         )}

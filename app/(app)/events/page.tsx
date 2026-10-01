@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { eventStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listEvents } from "@/lib/admin/events";
@@ -60,9 +61,9 @@ export default async function EventsPage() {
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                   {event.title}
-                  <Badge variant={event.status === "draft" ? "outline" : "secondary"}>
+                  <StatusBadge tone={eventStatusTone(event.status)}>
                     {EVENT_STATUS_LABELS[event.status] ?? event.status}
-                  </Badge>
+                  </StatusBadge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-muted-foreground flex flex-col gap-1 text-sm">

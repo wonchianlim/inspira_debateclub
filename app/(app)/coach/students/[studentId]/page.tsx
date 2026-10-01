@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREA_ROLES } from "@/lib/auth/roles";
@@ -53,11 +53,7 @@ export default async function CoachStudentPage({
             {student.formats.length === 0 ? (
               <span className="text-muted-foreground">（暂无）</span>
             ) : (
-              student.formats.map((code) => (
-                <Badge key={code} variant="outline" className="font-normal">
-                  {code}
-                </Badge>
-              ))
+              student.formats.map((code) => <MetaChip key={code}>{code}</MetaChip>)
             )}
           </span>
         </CardContent>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -62,11 +62,7 @@ export default function ManageHomePage() {
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                 {section.title}
-                {section.ready ? null : (
-                  <Badge variant="outline" className="font-normal">
-                    待建设 · {section.phase}
-                  </Badge>
-                )}
+                {section.ready ? null : <MetaChip>待建设 · {section.phase}</MetaChip>}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">

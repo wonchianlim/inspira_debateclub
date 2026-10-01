@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { auditActionTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -125,9 +126,9 @@ export default async function AdminAuditPage({
                   className="border-border flex flex-col gap-1 border-b pb-3 last:border-0"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge variant={entry.action === "delete" ? "destructive" : "outline"}>
+                    <StatusBadge tone={auditActionTone(entry.action)}>
                       {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
-                    </Badge>
+                    </StatusBadge>
                     <span className="font-medium">
                       {AUDIT_ENTITY_LABELS[entry.entityType] ?? entry.entityType}
                     </span>

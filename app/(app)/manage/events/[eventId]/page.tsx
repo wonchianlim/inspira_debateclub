@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { eventStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
@@ -77,9 +78,9 @@ export default async function EventDetailPage({
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">状态</dt>
               <dd>
-                <Badge variant={event.status === "draft" ? "outline" : "secondary"}>
+                <StatusBadge tone={eventStatusTone(event.status)}>
                   {EVENT_STATUS_LABELS[event.status] ?? event.status}
-                </Badge>
+                </StatusBadge>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">

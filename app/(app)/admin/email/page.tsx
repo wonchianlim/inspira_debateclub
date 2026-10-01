@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { emailDeliveryTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEmailOutbox } from "@/lib/admin/email-outbox";
@@ -106,15 +108,10 @@ export default async function AdminEmailPage() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <strong className="font-mono text-xs">{row.toEmail}</strong>
-                  <Badge variant="outline" className="font-normal">
-                    {row.templateKey}
-                  </Badge>
-                  <Badge
-                    variant={row.status === "failed" ? "destructive" : "secondary"}
-                    className="font-normal"
-                  >
+                  <MetaChip>{row.templateKey}</MetaChip>
+                  <StatusBadge tone={emailDeliveryTone(row.status)}>
                     {STATUS_LABELS[row.status] ?? row.status}
-                  </Badge>
+                  </StatusBadge>
                   {row.attempts > 0 ? (
                     <span className="text-muted-foreground text-xs">已尝试 {row.attempts} 次</span>
                   ) : null}

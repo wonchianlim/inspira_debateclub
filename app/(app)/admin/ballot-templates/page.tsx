@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -122,17 +123,13 @@ export default async function BallotTemplatesPage() {
               <div key={template.templateId} className="border-border rounded-md border px-3 py-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <strong className="text-sm">{template.name}</strong>
-                  <Badge variant="outline" className="font-normal">
-                    {template.formatCode}
-                  </Badge>
-                  <Badge variant="outline" className="font-normal">
-                    第 {template.version} 版
-                  </Badge>
-                  {template.active ? (
-                    <Badge variant="secondary" className="font-normal">
-                      当前使用
-                    </Badge>
-                  ) : null}
+                  <MetaChip>{template.formatCode}</MetaChip>
+                  <MetaChip>第 {template.version} 版</MetaChip>
+                  {/*
+                    "当前使用"是**状态**（这个版本正在生效），
+                    Active 家族 = 深蓝底白字，和现场看板的"进行中"同一语义。
+                  */}
+                  {template.active ? <StatusBadge tone="active">当前使用</StatusBadge> : null}
                   <span className="text-muted-foreground text-xs">
                     {template.fieldCount} 个字段
                   </span>

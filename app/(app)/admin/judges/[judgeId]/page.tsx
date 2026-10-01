@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { judgeApprovalTone, profileStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getJudgeDetail } from "@/lib/admin/judges";
@@ -39,6 +40,8 @@ export default async function AdminJudgeDetailPage({
     .filter((format) => eligibleIds.includes(format.id))
     .map((format) => format.code);
 
+  // 这两个布尔值只用于下方的说明文字与表单可用性；
+  // 徽章的颜色已经由 status-tone.ts 的映射表决定，不再在这里判断。
   const isApproved = judge.approvalStatus === "approved";
   const accountActive = judge.profileStatus === "active";
 
@@ -64,17 +67,17 @@ export default async function AdminJudgeDetailPage({
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">账号状态</dt>
               <dd>
-                <Badge variant={accountActive ? "secondary" : "destructive"}>
+                <StatusBadge tone={profileStatusTone(judge.profileStatus)}>
                   {PROFILE_STATUS_LABELS[judge.profileStatus] ?? judge.profileStatus}
-                </Badge>
+                </StatusBadge>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">审批状态</dt>
               <dd>
-                <Badge variant={isApproved ? "secondary" : "outline"}>
+                <StatusBadge tone={judgeApprovalTone(judge.approvalStatus)}>
                   {JUDGE_APPROVAL_LABELS[judge.approvalStatus] ?? judge.approvalStatus}
-                </Badge>
+                </StatusBadge>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">

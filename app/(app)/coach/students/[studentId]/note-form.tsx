@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { FormMessage } from "@/components/domain/form-message";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
 import { Button } from "@/components/ui/button";
 import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
@@ -67,9 +67,8 @@ export function CoachNotes({
               className="border-border flex flex-col gap-2 rounded-md border px-3 py-2"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="font-normal">
-                  只有你能看到
-                </Badge>
+                {/* 这是对笔记可见范围的**说明**，不是工作流状态 —— 用中性标签。 */}
+                <MetaChip>只有你能看到</MetaChip>
                 <span className="text-muted-foreground text-xs">
                   {utcToZonedLocal(new Date(note.createdAt), CLUB_DEFAULT_TIMEZONE).replace(
                     "T",

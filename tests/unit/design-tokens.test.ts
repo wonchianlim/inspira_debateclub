@@ -1,8 +1,7 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
+
+import { contrast, css, resolveHex, token } from "../helpers/design-tokens";
 
 /**
  * 设计令牌的**自动化约束**（UI/UX 规范 §5）。
@@ -14,40 +13,10 @@ import { describe, expect, it } from "vitest";
  *
  * 它防的是这样一类改动：有人觉得橙色按钮好看，把它设成主按钮背景，
  * 而白字在橙上只有 2.96:1 —— **那样按钮上的字会读不清，而且没人会发现。**
+ *
+ * 令牌的读取与换算在 `tests/helpers/design-tokens.ts`，
+ * 因为状态徽章的对比度检查也要用同一份换算代码。
  */
-
-const css = readFileSync(path.join(process.cwd(), "app/globals.css"), "utf8");
-
-/** 从 :root 里取一个令牌的值。 */
-function token(name: string): string {
-  const match = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
-  if (!match?.[1]) throw new Error(`找不到令牌 --${name}`);
-  return match[1].trim();
-}
-
-/** 解析 #rrggbb 或 var(--x) 链。 */
-function resolveHex(value: string, depth = 0): string {
-  if (depth > 8) throw new Error(`令牌引用过深：${value}`);
-  const ref = /var\(--([a-z0-9-]+)\)/i.exec(value);
-  if (ref?.[1]) return resolveHex(token(ref[1]), depth + 1);
-  const hex = /#([0-9a-f]{6})/i.exec(value);
-  if (!hex?.[1]) throw new Error(`不是可解析的颜色：${value}`);
-  return `#${hex[1].toLowerCase()}`;
-}
-
-function luminance(hex: string): number {
-  const h = hex.replace("#", "");
-  const channel = (i: number) => {
-    const c = parseInt(h.slice(i, i + 2), 16) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
-}
-
-function contrast(a: string, b: string): number {
-  const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
-  return ((x ?? 0) + 0.05) / ((y ?? 0) + 0.05);
-}
 
 describe("品牌色必须来自规范，不能是随手写的近似值", () => {
   it("Navy 与 Orange 就是规范给的那两个十六进制值", () => {

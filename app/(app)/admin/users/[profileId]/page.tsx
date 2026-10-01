@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { profileStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProfileDetail } from "@/lib/admin/users";
@@ -61,9 +63,9 @@ export default async function AdminUserDetailPage({
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">账号状态</dt>
               <dd>
-                <Badge variant={profile.status === "active" ? "secondary" : "destructive"}>
+                <StatusBadge tone={profileStatusTone(profile.status)}>
                   {PROFILE_STATUS_LABELS[profile.status]}
-                </Badge>
+                </StatusBadge>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
@@ -101,11 +103,7 @@ export default async function AdminUserDetailPage({
                 {profile.roles.length === 0 ? (
                   <span className="text-muted-foreground">（无角色）</span>
                 ) : (
-                  profile.roles.map((role) => (
-                    <Badge key={role} variant="outline">
-                      {ROLE_LABELS[role]}
-                    </Badge>
-                  ))
+                  profile.roles.map((role) => <MetaChip key={role}>{ROLE_LABELS[role]}</MetaChip>)
                 )}
               </dd>
             </div>

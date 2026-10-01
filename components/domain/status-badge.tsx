@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * 语义状态徽章（UI/UX 规范 §5.2、§1.4 原则 4「Status over decoration」）。
+ * 语义状态徽章（UI/UX 规范 §13.4「Status chips」）。
  *
  * ⚠️ 为什么需要它：在它之前，全项目有 52 处 `<Badge>`，各自决定用什么颜色 ——
  * 于是"已发布"在一处是灰、在另一处是蓝，"待处理"有的黄有的红。
@@ -13,19 +13,59 @@ import { cn } from "@/lib/utils";
  * 用法：**先决定语气（tone），再决定文案**。颜色不再由调用方挑。
  *
  * ⚠️ 规范 §5.2 的硬约束：
- *   "Do not use semantic colours decoratively."
- *   红只用于错误与破坏性操作，绿只用于成功，琥珀只用于警告/等待。
+ *   "Red is only for destructive actions and errors.
+ *    Green is only for success/complete. Amber is only for warning/pending.
+ *    Do not use semantic colours decoratively."
  *   因此这里的 tone 是有语义的，不该拿来"让页面好看一点"。
+ *
+ * ⚠️ 七种语气与规范 §13.4 那张表**一一对应**（不是六种也不是八种）：
+ *
+ *   | 规范里的 Status family | 例子                                | 本组件的语气 |
+ *   |------------------------|-------------------------------------|--------------|
+ *   | Neutral                | Draft, Not started, Archived        | neutral      |
+ *   | Information            | Published, Pairing released         | info         |
+ *   | Attention              | Registration open, Needs attention  | attention    |
+ *   | Pending                | Ballot pending, Awaiting approval   | warning      |
+ *   | Success                | Registered, Submitted, Complete     | success      |
+ *   | Active                 | In progress, Live                   | active       |
+ *   | Error                  | Failed, Conflict, Declined          | danger       |
+ *
+ * 具体某个业务状态该用哪一种，**不要在这里临时判断** ——
+ * 统一写在 `components/domain/status-tone.ts`，那里一处改动全站生效。
  */
-export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";
+export type StatusTone =
+  /** 中性：草稿、已归档、未开始 */
+  | "neutral"
+  /** 信息：已发布、配对已放出、反馈可看 */
+  | "info"
+  /** 注意：报名开放、签到开放、需要你处理 */
+  | "attention"
+  /** 等待：待审批、已排定、评分表待提交 */
+  | "warning"
+  /** 成功：已报名、已签到、已提交、已完成、已批准 */
+  | "success"
+  /** 进行中：比赛进行中、当前使用的版本 */
+  | "active"
+  /** 错误：失败、冲突、已拒绝、已取消 */
+  | "danger";
 
-const TONE_CLASSES: Record<StatusTone, string> = {
+/**
+ * 语气 → Tailwind class。
+ *
+ * ⚠️ 导出它是为了给**测试**用：对比度检查必须作用在组件真正会渲染出来的
+ * class 上。如果测试另外手抄一份"哪个语气配哪个底色"，两者一旦不同步，
+ * 测试就会一边通过一边失去意义（规范 §5.2 要求的是自动验证，不是自动装样子）。
+ */
+export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-neutral-bg text-muted-foreground",
   info: "bg-info-bg text-info",
-  success: "bg-success-bg text-success",
+  // 规范：orange/warning tint with **dark** text（橙底上不用白字，对比度不够）
+  attention: "bg-brand-tint text-foreground",
   warning: "bg-warning-bg text-warning",
+  success: "bg-success-bg text-success",
+  // 规范：navy background, white text plus text label
+  active: "bg-primary text-primary-foreground",
   danger: "bg-danger-bg text-danger",
-  brand: "bg-brand-tint text-foreground",
 };
 
 export function StatusBadge({
@@ -39,7 +79,7 @@ export function StatusBadge({
       data-tone={tone}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
-        TONE_CLASSES[tone],
+        STATUS_TONE_CLASSES[tone],
         className,
       )}
       {...props}
@@ -60,10 +100,11 @@ export function StatusDot({ tone, className }: { tone: StatusTone; className?: s
   const dot: Record<StatusTone, string> = {
     neutral: "bg-muted-foreground",
     info: "bg-info",
-    success: "bg-success",
+    attention: "bg-brand",
     warning: "bg-warning",
+    success: "bg-success",
+    active: "bg-primary",
     danger: "bg-danger",
-    brand: "bg-brand",
   };
   return (
     <span

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { registrationStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
@@ -158,9 +159,9 @@ export default async function EventRegistrationsPage({
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex flex-col gap-1">
-                          <Badge variant={row.status === "registered" ? "secondary" : "outline"}>
+                          <StatusBadge tone={registrationStatusTone(row.status)}>
                             {REGISTRATION_STATUS_LABELS[row.status] ?? row.status}
-                          </Badge>
+                          </StatusBadge>
                           {row.issues.length > 0 ? (
                             <span className="text-destructive text-xs">
                               {row.issues.map(registrationIssueLabel).join("、")}

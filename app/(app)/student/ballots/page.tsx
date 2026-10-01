@@ -1,7 +1,8 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREA_ROLES } from "@/lib/auth/roles";
@@ -136,22 +137,23 @@ export default async function StudentBallotsPage() {
                     第 {ballot.matchNumber} 场 · {ballot.roomName}
                   </CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="font-normal">
-                      {ballot.formatCode}
-                    </Badge>
-                    <Badge variant="outline" className="font-normal">
-                      {ballot.myTeamLabel}
-                    </Badge>
+                    {/*
+                      赛制代码与队伍名是**属性**，不是状态 —— 用中性标签，
+                      不染语义色（规范 §5.2 禁止把语义色当装饰）。
+                    */}
+                    <MetaChip>{ballot.formatCode}</MetaChip>
+                    <MetaChip>{ballot.myTeamLabel}</MetaChip>
                     {/*
                       BP 用排名而不是胜负，因此这里在没有胜方时要显示名次。
                       否则 BP 的学生会看到一片空白，以为系统坏了。
+                      名次是**数据**不是"成功" —— 绿色只留给胜利。
                     */}
                     {ballot.myRank !== null ? (
-                      <Badge variant="secondary">第 {ballot.myRank} 名</Badge>
+                      <StatusBadge>第 {ballot.myRank} 名</StatusBadge>
                     ) : ballot.outcome ? (
-                      <Badge variant={ballot.outcome === "win" ? "default" : "outline"}>
+                      <StatusBadge tone={ballot.outcome === "win" ? "success" : "neutral"}>
                         {ballot.outcome === "win" ? "胜" : "负"}
-                      </Badge>
+                      </StatusBadge>
                     ) : null}
                   </div>
                 </div>

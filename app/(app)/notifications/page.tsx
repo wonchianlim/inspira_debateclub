@@ -1,5 +1,6 @@
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listVisibleNotices } from "@/lib/admin/notices";
 import { requireSession } from "@/lib/auth/session";
@@ -44,17 +45,16 @@ export default async function NotificationsPage() {
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                   {notice.title}
-                  <Badge variant="outline" className="font-normal">
+                  <MetaChip>
                     {NOTICE_AUDIENCE_LABELS[notice.audienceType] ?? notice.audienceType}
-                  </Badge>
+                  </MetaChip>
                   {/*
                     未读的用一条左边框标出来 —— 通知中心唯一有用的信息就是
                     "哪几条是新的"。做过"全部已读"会把这个信息抹掉，因此没做。
                   */}
                   {notice.readAt === null ? (
-                    <Badge variant="default" className="font-normal">
-                      未读
-                    </Badge>
+                    // 「未读」是 Active 家族：它是当前这一条，不是「成功」。
+                    <StatusBadge tone="active">未读</StatusBadge>
                   ) : null}
                 </CardTitle>
               </CardHeader>

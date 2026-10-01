@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { MetaChip } from "@/components/domain/meta-chip";
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { ballotStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREA_ROLES } from "@/lib/auth/roles";
@@ -61,23 +63,18 @@ export default async function JudgeAreaPage() {
                       <strong className="text-sm">
                         第 {match.matchNumber} 场 · {match.roomName}
                       </strong>
-                      <Badge variant="outline" className="font-normal">
-                        {match.formatCode}
-                      </Badge>
-                      <Badge
-                        variant={
-                          match.ballotStatus === "submitted" || match.ballotStatus === "published"
-                            ? "secondary"
-                            : "outline"
-                        }
-                        className="font-normal"
+                      <MetaChip>{match.formatCode}</MetaChip>
+                      {/*
+                        还没开始填的情况是 Neutral（规范 §13.4：Not started），
+                        不是错误也不是成功。
+                      */}
+                      <StatusBadge
+                        tone={match.ballotStatus ? ballotStatusTone(match.ballotStatus) : "neutral"}
                       >
                         {match.ballotStatus
-                          ? (BALLOT_STATUS_LABELS[
-                              match.ballotStatus as keyof typeof BALLOT_STATUS_LABELS
-                            ] ?? match.ballotStatus)
+                          ? (BALLOT_STATUS_LABELS[match.ballotStatus] ?? match.ballotStatus)
                           : "尚未开始填写"}
-                      </Badge>
+                      </StatusBadge>
                     </div>
                     <span className="text-muted-foreground text-xs">
                       {utcToZonedLocal(

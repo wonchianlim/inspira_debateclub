@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 
 import { FormMessage } from "@/components/domain/form-message";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { reviewRequestTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,15 +75,10 @@ export function ReviewRequestPanel({
             <strong>
               第 {request.matchNumber} 场 · {request.roomName}
             </strong>
-            <Badge variant="outline" className="font-normal">
-              {request.formatCode}
-            </Badge>
-            <Badge
-              variant={request.status === "open" ? "default" : "secondary"}
-              className="font-normal"
-            >
+            <MetaChip>{request.formatCode}</MetaChip>
+            <StatusBadge tone={reviewRequestTone(request.status)}>
               {statusLabels[request.status] ?? request.status}
-            </Badge>
+            </StatusBadge>
             <span className="text-muted-foreground text-xs">
               {request.studentName} ·{" "}
               {utcToZonedLocal(new Date(request.createdAt), CLUB_DEFAULT_TIMEZONE).replace(

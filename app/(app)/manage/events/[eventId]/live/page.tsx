@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatePanel } from "@/components/domain/state-panel";
-import { Badge } from "@/components/ui/badge";
+import { MetaChip } from "@/components/domain/meta-chip";
+import { StatusBadge } from "@/components/domain/status-badge";
+import { liveStateTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/admin/events";
@@ -111,25 +113,14 @@ export default async function LivePage({ params }: { params: Promise<{ eventId: 
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                     第 {match.matchNumber} 场 · {match.roomName}
-                    <Badge variant="outline" className="font-normal">
-                      {match.formatCode}
-                    </Badge>
-                    <Badge
-                      variant={urgency === "act-now" ? "destructive" : "secondary"}
-                      className="font-normal"
-                    >
+                    <MetaChip>{match.formatCode}</MetaChip>
+                    <StatusBadge tone={liveStateTone(match.live.state)}>
                       {LIVE_STATE_TEXT[match.live.state]}
-                    </Badge>
+                    </StatusBadge>
                     {match.live.overdue ? (
-                      <Badge variant="destructive" className="font-normal">
-                        超时未开始
-                      </Badge>
+                      <StatusBadge tone="danger">超时未开始</StatusBadge>
                     ) : null}
-                    {match.ironman ? (
-                      <Badge variant="outline" className="font-normal">
-                        铁人
-                      </Badge>
-                    ) : null}
+                    {match.ironman ? <MetaChip>铁人</MetaChip> : null}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3 text-sm">

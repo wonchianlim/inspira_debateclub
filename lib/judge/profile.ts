@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { JudgeHistoryEntry } from "@/lib/domain/judge-history";
+import type { JudgeApprovalStatus } from "@/lib/domain/judge-eligibility";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -16,7 +17,7 @@ import { createUserSupabaseClient } from "@/lib/supabase/server";
 export type JudgeProfile = {
   judgeId: string;
   displayName: string;
-  approvalStatus: string;
+  approvalStatus: JudgeApprovalStatus;
   paradigm: string | null;
   experienceNotes: string | null;
   /** 可执裁的赛制 */
@@ -40,7 +41,7 @@ export async function getMyJudgeProfile(): Promise<JudgeProfile | null> {
 
   type Row = {
     id: string;
-    approval_status: string;
+    approval_status: JudgeApprovalStatus;
     paradigm: string | null;
     experience_notes: string | null;
     profiles: { display_name: string } | null;
