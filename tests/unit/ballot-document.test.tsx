@@ -66,25 +66,25 @@ const BALLOT: StudentBallot = {
 describe("这一场是什么", () => {
   it("场次与房间是标题", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
-    expect(screen.getByRole("heading", { name: "第 3 场 · A101" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Round 3 · A101" })).toBeInTheDocument();
   });
 
   it("结果放在最上面（学生最先想知道的就是赢没赢）", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
-    expect(screen.getByText("胜")).toBeInTheDocument();
+    expect(screen.getByText("Win")).toBeInTheDocument();
   });
 
   it("BP 这类没有胜负的赛制显示名次", () => {
     const { container } = render(
       <BallotDocument ballot={{ ...BALLOT, outcome: null, myRank: 2 }} anonymousLabel={null} />,
     );
-    expect(within(container).getByText("第 2 名")).toBeInTheDocument();
+    expect(within(container).getByText("Rank 2")).toBeInTheDocument();
   });
 
   it("显示赛制与模板名", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
     expect(screen.getByText("PF")).toBeInTheDocument();
-    expect(screen.getByText(/公共论坛式辩论（PF）/)).toBeInTheDocument();
+    expect(screen.getByText(/公共论坛式辩论/)).toBeInTheDocument();
   });
 
   /**
@@ -93,12 +93,12 @@ describe("这一场是什么", () => {
    */
   it("显示本场裁判的姓名", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
-    expect(screen.getByText("裁判：虚构裁判丁")).toBeInTheDocument();
+    expect(screen.getByText("Judge: 虚构裁判丁")).toBeInTheDocument();
   });
 
   it("拿不到姓名时退回匿名序号 —— 而不是显示空白或编一个名字", () => {
-    render(<BallotDocument ballot={{ ...BALLOT, judgeName: null }} anonymousLabel="裁判 2" />);
-    expect(screen.getByText("裁判 2")).toBeInTheDocument();
+    render(<BallotDocument ballot={{ ...BALLOT, judgeName: null }} anonymousLabel="Judge 2" />);
+    expect(screen.getByText("Judge 2")).toBeInTheDocument();
   });
 });
 
@@ -124,15 +124,15 @@ describe("分数用模板里的标签", () => {
   it("两队总分列出，并标出我方", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
     expect(screen.getByText("53")).toBeInTheDocument();
-    expect(screen.getByText("（我方）")).toBeInTheDocument();
+    expect(screen.getByText("(my team)")).toBeInTheDocument();
   });
 });
 
 describe("裁判给我们的反馈：做得好的 / 应该改进的必须分开", () => {
   it("两节各有标题", () => {
     render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
-    expect(screen.getByRole("heading", { name: "做得好的地方" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "应该改进的地方" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What went well" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What to improve" })).toBeInTheDocument();
   });
 
   it("反馈文字保留换行（规范明确要求 preserve line breaks）", () => {
@@ -209,10 +209,10 @@ describe("空内容不渲染成空标题", () => {
       teamLists: [],
     };
     render(<BallotDocument ballot={empty} anonymousLabel={null} />);
-    expect(screen.queryByText("我的分数")).toBeNull();
-    expect(screen.queryByText("两队总分")).toBeNull();
-    expect(screen.queryByText("交锋与论点")).toBeNull();
+    expect(screen.queryByText("My scores")).toBeNull();
+    expect(screen.queryByText("Team totals")).toBeNull();
+    expect(screen.queryByText("Clashes and arguments")).toBeNull();
     // 场次本身仍然要在
-    expect(screen.getByRole("heading", { name: "第 3 场 · A101" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Round 3 · A101" })).toBeInTheDocument();
   });
 });

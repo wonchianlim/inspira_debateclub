@@ -52,7 +52,7 @@ describe("按比赛分组", () => {
       anonymousJudgeLabel(1),
       anonymousJudgeLabel(2),
     ]);
-    expect(anonymousJudgeLabel(0)).toBe("裁判 1");
+    expect(anonymousJudgeLabel(0)).toBe("Judge 1");
   });
 
   it("分组不改变传入的数组（纯函数）", () => {

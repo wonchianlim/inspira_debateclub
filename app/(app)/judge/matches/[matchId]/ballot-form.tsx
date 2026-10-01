@@ -68,7 +68,7 @@ function ListField({
   disabled: boolean;
   onChange: (entries: ListEntry[]) => void;
 }) {
-  const itemLabel = field.itemLabel ?? "条目";
+  const itemLabel = field.itemLabel ?? "Entry";
   const maxItems = field.maxItems ?? 5;
   const hasSubFields = (field.itemFields ?? []).length > 0;
 
@@ -89,7 +89,7 @@ function ListField({
       <Label className="text-xs">
         {field.label}
         <span className="text-muted-foreground ml-1 font-normal">
-          （至少 {field.minItems ?? 1} 条，最多 {maxItems} 条）
+          ({field.minItems ?? 1} to {maxItems} entries)
         </span>
       </Label>
 
@@ -101,7 +101,7 @@ function ListField({
             </span>
             {/* 左侧的 span 不是 label，span 不提供可访问名称，因此这里必须显式给 */}
             <textarea
-              aria-label={`${field.label}第 ${index + 1} 条`}
+              aria-label={`${field.label} entry ${index + 1}`}
               rows={2}
               disabled={disabled}
               value={hasSubFields ? (toObject(entry).text ?? "") : (entry as string)}
@@ -123,7 +123,7 @@ function ListField({
                 disabled={disabled}
                 onClick={() => onChange(rows.filter((_, i) => i !== index))}
               >
-                删除
+                Remove
               </Button>
             ) : null}
           </div>
@@ -155,7 +155,7 @@ function ListField({
           className="self-start"
           onClick={() => onChange([...rows, hasSubFields ? {} : ""])}
         >
-          + 添加{itemLabel}
+          + Add {itemLabel}
         </Button>
       ) : null}
     </div>
@@ -195,7 +195,7 @@ function RankingField({
       <Label className="text-xs">
         {field.label}
         <span className="text-muted-foreground ml-1 font-normal">
-          （每支队伍一个名次，不能重复）
+          (one rank per team, no duplicates)
         </span>
       </Label>
       {labels.map((label, index) => {
@@ -213,7 +213,7 @@ function RankingField({
             <span className="w-20 text-sm">{label}</span>
             {/* 同上：左侧的 span 不是 label */}
             <select
-              aria-label={`${label}的队伍`}
+              aria-label={`Team for ${label}`}
               disabled={disabled}
               value={selected}
               onChange={(event) => {
@@ -225,7 +225,7 @@ function RankingField({
               }}
               className="border-input bg-background h-9 w-72 rounded-md border px-2 text-sm"
             >
-              <option value="">请选择</option>
+              <option value="">Choose</option>
               {teams
                 .filter((team) => !takenElsewhere.has(team.teamId))
                 .map((team) => (
@@ -436,7 +436,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
       */}
       <div className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-10 -mx-1 rounded-md border px-3 py-2 backdrop-blur">
         <p className="text-sm font-medium">
-          第 {context.matchNumber} 场 · {context.roomName}
+          Round {context.matchNumber} · {context.roomName}
           <span className="text-muted-foreground ml-2 text-xs font-normal">
             {context.formatCode} · {context.templateName}
           </span>
@@ -447,7 +447,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
             " ",
           )}
           （{CLUB_DEFAULT_TIMEZONE}）
-          {context.ballotStatus ? ` · 当前状态：${context.ballotStatus}` : ""}
+          {context.ballotStatus ? ` · Status: ${context.ballotStatus}` : ""}
         </p>
       </div>
 
@@ -490,7 +490,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
         */}
         {autosave === "failed" && retryCount >= AUTOSAVE_MAX_RETRIES ? (
           <div className="border-border flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm">
-            <span>保存失败了好几次。你写的内容还在这页上，没有丢。</span>
+            <span>Could not save after several tries. Your work is still on this page.</span>
             <Button
               type="button"
               variant="outline"
@@ -500,23 +500,24 @@ export function BallotForm({ context }: { context: BallotContext }) {
                 void saveNow();
               }}
             >
-              重试保存
+              Try saving again
             </Button>
           </div>
         ) : null}
 
         {autosave === "conflict" ? (
           <div className="border-warning bg-warning-bg rounded-md border px-3 py-3 text-sm">
-            <p className="font-medium">这份评分表在别处被改过，自动保存已停止</p>
+            <p className="font-medium">This ballot changed elsewhere, so autosave has stopped</p>
             <p className="text-muted-foreground mt-1 text-xs">
-              继续自动保存会覆盖对方刚写的内容，所以停下来了。你现在写的都还在这一页上， 请二选一：
+              Continuing to autosave would overwrite what the other side just wrote, so it stopped.
+              Your work is still on this page. Choose one:
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <Link
                 href={`/judge/matches/${context.matchId}`}
                 className="focus-visible:ring-ring/50 rounded text-sm underline underline-offset-4 focus-visible:ring-3 focus-visible:outline-none"
               >
-                载入最新版本（丢弃我这里的改动）
+                Load the latest version (discard my changes)
               </Link>
               <Button
                 type="button"
@@ -525,7 +526,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
                 disabled={busy}
                 onClick={() => saveNow(true)}
               >
-                仍然保存我的内容
+                Keep my version
               </Button>
             </div>
           </div>
@@ -541,13 +542,13 @@ export function BallotForm({ context }: { context: BallotContext }) {
           */
           <div className="border-border rounded-md border px-3 py-3 text-sm">
             <p>
-              这份评分表已经提交，当前为「{context.ballotStatus}」，不能直接修改。
-              如需更正，请联系管理员重开。
+              This ballot is submitted and is now “{context.ballotStatus}”. It cannot be edited
+              directly; to correct it, ask an administrator to reopen it.
             </p>
             <dl className="text-muted-foreground mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs">
               {context.submittedAt ? (
                 <div className="flex gap-1">
-                  <dt>提交时间</dt>
+                  <dt>Submitted</dt>
                   <dd className="text-foreground">
                     {utcToZonedLocal(new Date(context.submittedAt), CLUB_DEFAULT_TIMEZONE).replace(
                       "T",
@@ -559,7 +560,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
               ) : null}
               {context.ballotId ? (
                 <div className="flex gap-1">
-                  <dt>评分表编号</dt>
+                  <dt>Ballot ID</dt>
                   {/* 等宽字体：裁判把编号抄给管理员时不该看错字母 */}
                   <dd className="text-foreground font-mono">{context.ballotId}</dd>
                 </div>
@@ -576,7 +577,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
                 {speaker.displayName}
                 {speaker.speakerPosition > 0 ? (
                   <span className="text-muted-foreground ml-2 text-xs">
-                    第 {speaker.speakerPosition} 位发言
+                    Speaker {speaker.speakerPosition}
                   </span>
                 ) : null}
               </legend>
@@ -602,7 +603,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
                         }}
                         className="border-input bg-background h-9 w-56 rounded-md border px-2 text-sm"
                       >
-                        <option value="">请选择</option>
+                        <option value="">Choose</option>
                         {field.options.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.value} · {option.label}
@@ -638,7 +639,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
         {/* ---- 按队伍的字段：标量与**可重复列表** ---- */}
         {teamFields.length > 0 ? (
           <fieldset className="border-border rounded-md border px-3 py-3">
-            <legend className="px-1 text-sm font-medium">按队伍</legend>
+            <legend className="px-1 text-sm font-medium">By team</legend>
             {context.teams.map((team) => (
               <div key={team.teamId} className="mb-4 flex flex-col gap-2">
                 <span className="text-sm font-medium">{team.teamLabel ?? team.position}</span>
@@ -683,7 +684,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
         {/* ---- 整场的字段 ---- */}
         {matchFields.length > 0 ? (
           <fieldset className="border-border rounded-md border px-3 py-3">
-            <legend className="px-1 text-sm font-medium">整场</legend>
+            <legend className="px-1 text-sm font-medium">Whole round</legend>
             {matchFields.map((field) =>
               field.type === "ranking" ? (
                 <RankingField
@@ -729,7 +730,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
                     }}
                     className="border-input bg-background h-9 max-w-72 rounded-md border px-2 text-sm"
                   >
-                    <option value="">请选择</option>
+                    <option value="">Choose</option>
                     {field.options.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.value} · {option.label}
@@ -743,7 +744,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
                     {field.label}
                     {field.minLength ? (
                       <span className="text-muted-foreground ml-1 font-normal">
-                        （建议至少 {field.minLength} 字）
+                        (at least {field.minLength} characters suggested)
                       </span>
                     ) : null}
                   </Label>
@@ -766,7 +767,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
 
         {context.schema.winnerRequired || context.schema.reasonForDecisionRequired ? (
           <fieldset className="border-border rounded-md border px-3 py-3">
-            <legend className="px-1 text-sm font-medium">判决</legend>
+            <legend className="px-1 text-sm font-medium">Decision</legend>
             {/*
             规范 §9.3：「radio group for winner」。
             用 radio 而不是下拉框：选项通常只有 2–4 个，铺开更少一次点击，
@@ -777,7 +778,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
           */}
             {context.schema.winnerRequired ? (
               <fieldset className="mb-3">
-                <legend className="text-xs">胜方</legend>
+                <legend className="text-xs">Winner</legend>
                 <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2">
                   {context.teams.map((team) => {
                     const id = `winner-${team.teamId}`;
@@ -810,7 +811,7 @@ export function BallotForm({ context }: { context: BallotContext }) {
             {context.schema.reasonForDecisionRequired ? (
               <div className="flex flex-col gap-1">
                 <Label htmlFor="reasonForDecision" className="text-xs">
-                  判决理由
+                  Reason for decision
                 </Label>
                 <textarea
                   id="reasonForDecision"
@@ -826,8 +827,8 @@ export function BallotForm({ context }: { context: BallotContext }) {
                   className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
                 />
                 <p id="reasonForDecision-hint" className="text-muted-foreground text-xs">
-                  建议至少 100 字；不到也可以提交，理由写得清不清楚比字数重要。 已写{" "}
-                  {review.reasonLength} 字。
+                  100 characters or more is suggested, but a shorter one can still be submitted:
+                  clarity matters more than length. {review.reasonLength} characters so far.
                 </p>
               </div>
             ) : null}
@@ -858,10 +859,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                 void saveNow();
               }}
             >
-              {savingDraft ? "保存中…" : "保存草稿"}
+              {savingDraft ? "Saving…" : "Save draft"}
             </Button>
             <Button type="button" disabled={busy} onClick={() => setConfirming(true)}>
-              提交评分表
+              Submit ballot
             </Button>
           </div>
         ) : null}
@@ -879,17 +880,19 @@ export function BallotForm({ context }: { context: BallotContext }) {
             className="border-border bg-muted/40 rounded-md border px-4 py-4"
           >
             <h2 id="submit-confirm-heading" className="text-sm font-medium">
-              确认提交这份评分表？
+              Submit this ballot?
             </h2>
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               <div className="flex gap-2">
-                <dt className="text-muted-foreground">胜方</dt>
-                <dd>{review.winnerLabel ?? "（还没有选）"}</dd>
+                <dt className="text-muted-foreground">Winner</dt>
+                <dd>{review.winnerLabel ?? "(not chosen yet)"}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="text-muted-foreground">判决理由</dt>
+                <dt className="text-muted-foreground">Reason</dt>
                 <dd>
-                  {review.reasonLength > 0 ? `已写 ${review.reasonLength} 字` : "（还没有写）"}
+                  {review.reasonLength > 0
+                    ? `${review.reasonLength} characters written`
+                    : "(nothing written yet)"}
                 </dd>
               </div>
             </dl>
@@ -897,7 +900,8 @@ export function BallotForm({ context }: { context: BallotContext }) {
             {review.missing.length > 0 ? (
               <div className="mt-3">
                 <p className="text-warning text-sm" role="alert">
-                  还有 {review.missing.length} 项必填内容没填，现在提交会被服务端拒绝：
+                  {review.missing.length} required items are still missing; submitting now will be
+                  refused:
                 </p>
                 <ul className="text-muted-foreground mt-1 list-disc pl-5 text-xs">
                   {review.missing.slice(0, 8).map((item) => (
@@ -906,24 +910,25 @@ export function BallotForm({ context }: { context: BallotContext }) {
                 </ul>
                 {review.missing.length > 8 ? (
                   <p className="text-muted-foreground mt-1 text-xs">
-                    还有 {review.missing.length - 8} 项……
+                    and {review.missing.length - 8} more…
                   </p>
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm">必填内容看起来都填齐了。</p>
+              <p className="text-sm">Everything required looks filled in.</p>
             )}
 
             <p className="text-muted-foreground mt-3 text-xs">
-              提交之后这份评分表**不能直接修改**；如需更正，要请管理员重开。
+              After submitting, this ballot cannot be edited directly; ask an administrator to
+              reopen it if it needs correcting.
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={busy}>
-                {submitting ? "提交中…" : "确认提交"}
+                {submitting ? "Submitting…" : "Confirm and submit"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
-                返回检查
+                Back to the ballot
               </Button>
             </div>
           </section>

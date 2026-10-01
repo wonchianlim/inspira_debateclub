@@ -10,7 +10,7 @@ import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
 import { BallotForm } from "./ballot-form";
 
-export const metadata = { title: "填写评分表 · INSPIRA" };
+export const metadata = { title: "Ballot · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +33,14 @@ export default async function JudgeBallotPage({
   if (!context) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-semibold tracking-tight">填写评分表</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">Ballot</h1>
         <StatePanel
           variant="empty"
-          title="无法打开这张评分表"
-          description="可能的原因：这场比赛没有指派给你，或者这个赛制还没有配置评分表模板。如果确认已被指派，请联系管理员配置模板。"
+          title="Could not open this ballot"
+          description="Either this round is not assigned to you, or no ballot template is configured for its format. If you know you are assigned, ask an administrator to configure the template."
         />
         <Button asChild variant="outline" size="sm" className="self-start">
-          <Link href="/judge">返回裁判区域</Link>
+          <Link href="/judge">Back to the judge workspace</Link>
         </Button>
       </div>
     );
@@ -50,7 +50,7 @@ export default async function JudgeBallotPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight">
-          第 {context.matchNumber} 场 · {context.roomName}
+          Round {context.matchNumber} · {context.roomName}
         </h1>
         <Button asChild variant="outline" size="sm">
           <Link href="/judge">返回裁判区域</Link>
@@ -59,15 +59,15 @@ export default async function JudgeBallotPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">比赛信息</CardTitle>
+          <CardTitle className="text-base">Round information</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
           <div>
-            <p className="text-muted-foreground text-xs">赛制</p>
+            <p className="text-muted-foreground text-xs">Format</p>
             <p>{context.formatCode}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">计划开始</p>
+            <p className="text-muted-foreground text-xs">Scheduled start</p>
             <p>
               {utcToZonedLocal(new Date(context.scheduledStart), CLUB_DEFAULT_TIMEZONE).replace(
                 "T",
@@ -76,9 +76,9 @@ export default async function JudgeBallotPage({
             </p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">使用的评分表模板</p>
+            <p className="text-muted-foreground text-xs">Ballot template</p>
             <p>
-              {context.templateName}（第 {context.templateVersion} 版）
+              {context.templateName} (version {context.templateVersion})
             </p>
           </div>
         </CardContent>
@@ -97,13 +97,13 @@ export default async function JudgeBallotPage({
           <CardContent className="flex flex-col gap-3 text-sm">
             {context.schema.guidance.normalRange ? (
               <p>
-                常规区间：
+                Usual range:
                 <strong className="ml-1">
                   {context.schema.guidance.normalRange[0]}–{context.schema.guidance.normalRange[1]}
                 </strong>
                 {context.schema.guidance.defaultScore !== undefined ? (
                   <span className="text-muted-foreground ml-2">
-                    （从这个分数开始想：{context.schema.guidance.defaultScore}）
+                    (start from {context.schema.guidance.defaultScore})
                   </span>
                 ) : null}
               </p>
@@ -126,8 +126,8 @@ export default async function JudgeBallotPage({
               不写这一句的话，裁判会以为只有列出的那几个分数能用。
             */}
             <p className="text-muted-foreground text-xs">
-              没有列出的分数也可以用 —— 参照表是让你把分数校准到同一个尺度上，
-              不是一份可以打的分数清单。
+              Scores not listed here are still allowed. The reference is there to calibrate everyone
+              to the same scale, not to list every score you may give.
             </p>
           </CardContent>
         </Card>
@@ -135,7 +135,7 @@ export default async function JudgeBallotPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">评分表</CardTitle>
+          <CardTitle className="text-base">Ballot</CardTitle>
         </CardHeader>
         <CardContent>
           <BallotForm context={context} />

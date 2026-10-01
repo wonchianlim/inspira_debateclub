@@ -35,7 +35,7 @@ const CONTEXT: BallotContext = {
     fields: [
       {
         key: "content",
-        label: "内容",
+        label: "Content",
         type: "score",
         scope: "speaker",
         required: true,
@@ -108,7 +108,7 @@ describe("浏览器真正会提交什么（这一组是为了那个真实缺陷�
 
   it("判决理由会真的出现在提交数据里", () => {
     const { container } = render(<BallotForm context={CONTEXT} />);
-    fireEvent.change(screen.getByLabelText("判决理由"), {
+    fireEvent.change(screen.getByLabelText("Reason for decision"), {
       target: { value: "我方在交锋上占优。" },
     });
     expect(new FormData(formElement(container)).get("reasonForDecision")).toBe(
@@ -136,18 +136,18 @@ describe("浏览器真正会提交什么（这一组是为了那个真实缺陷�
 describe("提交前的一步确认（规范 §9.3：Submission dialog）", () => {
   it("点「提交评分表」不会立刻提交，而是先给出摘要", () => {
     render(<BallotForm context={CONTEXT} />);
-    expect(screen.queryByRole("heading", { name: "确认提交这份评分表？" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Submit this ballot?" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "提交评分表" }));
-    expect(screen.getByRole("heading", { name: "确认提交这份评分表？" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit ballot" }));
+    expect(screen.getByRole("heading", { name: "Submit this ballot?" })).toBeInTheDocument();
   });
 
   it("摘要里列出还缺的必填项（裁判不用提交一次才知道缺什么）", () => {
     render(<BallotForm context={CONTEXT} />);
-    fireEvent.click(screen.getByRole("button", { name: "提交评分表" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit ballot" }));
     // 空表：胜方、判决理由、张三的内容 都还没填
-    expect(screen.getByRole("alert")).toHaveTextContent("必填内容没填");
-    expect(screen.getByText("张三 · 内容")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("required items are still missing");
+    expect(screen.getByText("张三 · Content")).toBeInTheDocument();
   });
 
   it("填齐之后摘要说「都填齐了」，并提醒提交后不能直接改", () => {
@@ -165,18 +165,23 @@ describe("提交前的一步确认（规范 §9.3：Submission dialog）", () =>
         }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "提交评分表" }));
-    expect(screen.getByText("必填内容看起来都填齐了。")).toBeInTheDocument();
-    expect(screen.getByText(/不能直接修改/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "确认提交" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit ballot" }));
+    expect(screen.getByText("Everything required looks filled in.")).toBeInTheDocument();
+    expect(screen.getByText(/cannot be edited/)).toBeInTheDocument();
+    /**
+     * ⚠️ 这里必须是**确认按钮自己的名字**（"Confirm and submit"），
+     * 而不是 "Submit ballot" —— 后者是打开确认区的那个按钮。
+     * 两者同名时这条断言会匹配到触发按钮，于是**即使确认按钮没渲染也会通过**。
+     */
+    expect(screen.getByRole("button", { name: "Confirm and submit" })).toBeInTheDocument();
   });
 
   it("「返回检查」可以退回去继续改", () => {
     render(<BallotForm context={CONTEXT} />);
-    fireEvent.click(screen.getByRole("button", { name: "提交评分表" }));
-    fireEvent.click(screen.getByRole("button", { name: "返回检查" }));
-    expect(screen.queryByRole("heading", { name: "确认提交这份评分表？" })).toBeNull();
-    expect(screen.getByRole("button", { name: "提交评分表" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit ballot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the ballot" }));
+    expect(screen.queryByRole("heading", { name: "Submit this ballot?" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Submit ballot" })).toBeInTheDocument();
   });
 });
 
@@ -192,10 +197,10 @@ describe("已提交的评分表是只读的", () => {
         }}
       />,
     );
-    expect(screen.queryByRole("button", { name: "提交评分表" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "保存草稿" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit ballot" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
     expect(screen.getByRole("radio", { name: "队伍 1" })).toBeDisabled();
-    expect(screen.getByText(/如需更正，请联系管理员重开/)).toBeInTheDocument();
+    expect(screen.getByText(/ask an administrator to reopen/)).toBeInTheDocument();
   });
 
   /**
@@ -213,9 +218,9 @@ describe("已提交的评分表是只读的", () => {
         }}
       />,
     );
-    expect(screen.getByText("提交时间")).toBeInTheDocument();
+    expect(screen.getByText("Submitted")).toBeInTheDocument();
     expect(screen.getByText(/2026-10-20 19:30/)).toBeInTheDocument();
-    expect(screen.getByText("评分表编号")).toBeInTheDocument();
+    expect(screen.getByText("Ballot ID")).toBeInTheDocument();
     expect(screen.getByText("bb000000-0000-0000-0000-000000000002")).toBeInTheDocument();
   });
 });

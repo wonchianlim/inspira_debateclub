@@ -40,7 +40,8 @@ export type BallotGroup<T extends GroupableBallot> = {
 
 /** 组内的匿名名称。只有一位裁判时不使用。 */
 export function anonymousJudgeLabel(index: number): string {
-  return `裁判 ${index + 1}`;
+  // 界面语言固定为英文（2026-10-01）。学生在"我的评分表"里看到的就是这个标签。
+  return `Judge ${index + 1}`;
 }
 
 /** 新的在前；同一开始时间按 matchId、ballotId 兜底，保证顺序确定。 */

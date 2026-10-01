@@ -47,7 +47,7 @@ export function BallotDocument({
     utcToZonedLocal(new Date(iso), CLUB_DEFAULT_TIMEZONE).replace("T", " ");
 
   // 姓名优先；拿不到姓名时退回匿名序号（序号本身就写着"裁判 N"，不再加前缀）
-  const judgeLabel = ballot.judgeName ? `裁判：${ballot.judgeName}` : anonymousLabel;
+  const judgeLabel = ballot.judgeName ? `Judge: ${ballot.judgeName}` : anonymousLabel;
 
   // 模板里"做得好的地方 / 应该改进的地方"这两类反馈，规范要求分开呈现。
   // 用模板字段的 key 判断，而不是猜中文标签 —— 标签是可以被管理员改的。
@@ -59,29 +59,29 @@ export function BallotDocument({
 
   return (
     <article
-      aria-label={`第 ${ballot.matchNumber} 场${judgeLabel ? ` · ${judgeLabel}` : ""}的评分表`}
+      aria-label={`Ballot for round ${ballot.matchNumber}${judgeLabel ? ` · ${judgeLabel}` : ""}`}
       className="border-border rounded-lg border px-4 py-4 md:px-5 md:py-5"
     >
       {/* ---------------- 这一场是什么 ---------------- */}
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-title font-semibold">
-            第 {ballot.matchNumber} 场 · {ballot.roomName}
+            Round {ballot.matchNumber} · {ballot.roomName}
           </h3>
           <MetaChip>{ballot.formatCode}</MetaChip>
           {judgeLabel ? <MetaChip>{judgeLabel}</MetaChip> : null}
           {/* 结果放在最上面：学生打开这一页最先想知道的就是"我赢了没有" */}
           {ballot.myRank !== null ? (
-            <StatusBadge>第 {ballot.myRank} 名</StatusBadge>
+            <StatusBadge>Rank {ballot.myRank}</StatusBadge>
           ) : ballot.outcome ? (
             <StatusBadge tone={ballot.outcome === "win" ? "success" : "neutral"}>
-              {ballot.outcome === "win" ? "胜" : "负"}
+              {ballot.outcome === "win" ? "Win" : "Loss"}
             </StatusBadge>
           ) : null}
         </div>
         <p className="text-muted-foreground text-xs">
           {localDateTime(ballot.scheduledStart)}（{CLUB_DEFAULT_TIMEZONE}）
-          {ballot.templateName ? ` · 使用模板：${ballot.templateName}` : ""}
+          {ballot.templateName ? ` · Template: ${ballot.templateName}` : ""}
         </p>
       </header>
 
@@ -89,7 +89,7 @@ export function BallotDocument({
       {ballot.myScores.length > 0 || ballot.myTotals.length > 0 || ballot.matchScores.length > 0 ? (
         <section aria-labelledby={`scores-${ballot.ballotId}`} className="mt-5">
           <h4 id={`scores-${ballot.ballotId}`} className="text-sm font-medium">
-            我的分数
+            My scores
           </h4>
           {/*
             用表格：分数是"标签 → 数值"的对照，表格天然是对的东西。
@@ -146,7 +146,7 @@ export function BallotDocument({
       {ballot.sideTotals.some((side) => side.total !== null) ? (
         <section aria-labelledby={`totals-${ballot.ballotId}`} className="mt-5">
           <h4 id={`totals-${ballot.ballotId}`} className="text-sm font-medium">
-            两队总分
+            Team totals
           </h4>
           <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {ballot.sideTotals.map((side) => (
@@ -154,7 +154,7 @@ export function BallotDocument({
                 {side.label}
                 <strong className="ml-1">{side.total ?? "—"}</strong>
                 {side.teamId === ballot.myTeamId ? (
-                  <span className="text-muted-foreground ml-1 text-xs">（我方）</span>
+                  <span className="text-muted-foreground ml-1 text-xs">(my team)</span>
                 ) : null}
               </li>
             ))}
@@ -166,12 +166,12 @@ export function BallotDocument({
       {ballot.teamFeedback.length > 0 ? (
         <section aria-labelledby={`feedback-${ballot.ballotId}`} className="mt-5">
           <h4 id={`feedback-${ballot.ballotId}`} className="text-sm font-medium">
-            裁判给{ballot.myTeamLabel}的反馈
+            Judge feedback for {ballot.myTeamLabel}
           </h4>
 
           {strengthFeedback.length > 0 ? (
             <div className="mt-2">
-              <h5 className="text-success text-xs font-semibold">做得好的地方</h5>
+              <h5 className="text-success text-xs font-semibold">What went well</h5>
               {strengthFeedback.map((entry) => (
                 <p key={entry.key} className="mt-1 text-sm whitespace-pre-wrap">
                   {entry.value}
@@ -182,7 +182,7 @@ export function BallotDocument({
 
           {improveFeedback.length > 0 ? (
             <div className="mt-3">
-              <h5 className="text-warning text-xs font-semibold">应该改进的地方</h5>
+              <h5 className="text-warning text-xs font-semibold">What to improve</h5>
               {improveFeedback.map((entry) => (
                 <p key={entry.key} className="mt-1 text-sm whitespace-pre-wrap">
                   {entry.value}
@@ -204,7 +204,7 @@ export function BallotDocument({
       {ballot.matchText.length > 0 ? (
         <section aria-labelledby={`reason-${ballot.ballotId}`} className="mt-5">
           <h4 id={`reason-${ballot.ballotId}`} className="text-sm font-medium">
-            裁判的整体说明
+            Judge comments
           </h4>
           {ballot.matchText.map((entry) => (
             <div key={entry.key} className="mt-2">
@@ -219,7 +219,7 @@ export function BallotDocument({
       {ballot.matchLists.length > 0 || ballot.teamLists.length > 0 ? (
         <section aria-labelledby={`lists-${ballot.ballotId}`} className="mt-5">
           <h4 id={`lists-${ballot.ballotId}`} className="text-sm font-medium">
-            交锋与论点
+            Clashes and arguments
           </h4>
           {ballot.matchLists.map((list) => (
             <div key={list.key} className="mt-2">
@@ -236,7 +236,7 @@ export function BallotDocument({
           {ballot.teamLists.map((list) => (
             <div key={list.key} className="mt-2">
               <h5 className="text-muted-foreground text-xs font-semibold">
-                {ballot.myTeamLabel}的{list.label}
+                {ballot.myTeamLabel}: {list.label}
               </h5>
               <ul className="mt-1 list-disc pl-5 text-sm">
                 {list.entries.map((entry, index) => (
