@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/session";
-import { navForRoles } from "@/lib/auth/roles";
+import { workspacesForRoles } from "@/lib/auth/roles";
+import { getMessages } from "@/lib/i18n";
 import { AppShell } from "@/components/layout/app-shell";
 import { RoleNav } from "@/components/layout/role-nav";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,22 @@ export const dynamic = "force-dynamic";
 
 export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+  const m = await getMessages();
+
+  const workspaces = workspacesForRoles(session.roles, {
+    overview: m.nav.overview,
+    events: m.nav.events,
+    notifications: m.nav.notifications,
+    student: "Student",
+    judge: "Judge",
+    coach: "Coach",
+    clubManagement: m.nav.clubManagement,
+    admin: m.nav.admin,
+  });
 
   return (
     <AppShell
-      nav={<RoleNav items={navForRoles(session.roles)} />}
+      nav={<RoleNav workspaces={workspaces} />}
       userSlot={
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground hidden text-xs sm:inline">
@@ -32,7 +45,7 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
           </span>
           <form action={signOutAction}>
             <Button type="submit" variant="ghost" size="sm">
-              登出
+              {m.nav.signOut}
             </Button>
           </form>
         </div>

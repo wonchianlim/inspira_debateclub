@@ -69,21 +69,131 @@ export type RoleNavItem = { href: string; label: string };
  * 说明：隐藏导航项只是**改善体验**，不是安全措施——
  * 直接输入地址仍然要到服务端的区域布局去校验（见 app/(app)/ 下各区域的 layout.tsx）。
  */
-export function navForRoles(roles: readonly AppRole[]): RoleNavItem[] {
-  // 概览、活动、通知是所有已登录用户都有的入口
-  const items: RoleNavItem[] = [
-    { href: "/dashboard", label: "概览" },
-    { href: "/events", label: "活动" },
-    { href: "/notifications", label: "通知" },
+/**
+ * 工作区（UI/UX 规范 §3、§4.6）。
+ *
+ * ⚠️ 规范 §0.1 对旧界面的第一条批评就是：
+ *   "A shallow header with Overview, Events, Notifications, Club Management,
+ *    and System Management **shown together**."
+ *
+ * 也就是说：把四种角色的入口平铺在同一个页头里，**用户分不清自己此刻是"谁"**。
+ * 一个既是裁判又是管理员的人，看到的是两套混在一起的入口。
+ *
+ * 现在按**工作区**分组：
+ *   - 每个工作区有自己的名字、落地页与自己的导航项
+ *   - 页头只显示**当前所在工作区**的导航
+ *   - 有多个工作区时，用切换器跳转（规范 §3 要求）
+ */
+export type Workspace = {
+  key: string;
+  /** 切换器上显示的工作区名。 */
+  label: string;
+  href: string;
+  /** 命中的路径前缀，用来判断"当前在哪个工作区"。顺序即优先级。 */
+  match: string[];
+  items: RoleNavItem[];
+};
+
+/**
+ * 按角色列出可用的工作区。
+ *
+ * ⚠️ 这里只影响**导航显示**，不是授权。真正的权限在服务端各区域的 layout 与 RLS 里 ——
+ * 隐藏入口从来不是安全措施。
+ */
+export function workspacesForRoles(
+  roles: readonly AppRole[],
+  labels: {
+    overview: string;
+    events: string;
+    notifications: string;
+    student: string;
+    judge: string;
+    coach: string;
+    clubManagement: string;
+    admin: string;
+  },
+): Workspace[] {
+  /* 概览、活动、通知是所有已登录用户共有的 —— 归入「概览」工作区。 */
+  const shared: RoleNavItem[] = [
+    { href: "/dashboard", label: labels.overview },
+    { href: "/events", label: labels.events },
+    { href: "/notifications", label: labels.notifications },
   ];
 
-  if (roles.includes("student")) items.push({ href: "/student", label: "学生" });
-  if (roles.includes("judge")) items.push({ href: "/judge", label: "裁判" });
-  if (roles.includes("coach")) items.push({ href: "/coach", label: "教练" });
-  if (roles.includes("club_manager") || roles.includes("super_admin")) {
-    items.push({ href: "/manage", label: "俱乐部管理" });
-  }
-  if (roles.includes("super_admin")) items.push({ href: "/admin", label: "系统管理" });
+  const list: Workspace[] = [
+    {
+      key: "overview",
+      label: labels.overview,
+      href: "/dashboard",
+      match: ["/dashboard", "/events", "/notifications"],
+      items: shared,
+    },
+  ];
 
-  return items;
+  if (roles.includes("student")) {
+    list.push({
+      key: "student",
+      label: labels.student,
+      href: "/student",
+      match: ["/student"],
+      items: [...shared, { href: "/student", label: labels.student }],
+    });
+  }
+  if (roles.includes("judge")) {
+    list.push({
+      key: "judge",
+      label: labels.judge,
+      href: "/judge",
+      match: ["/judge"],
+      items: [...shared, { href: "/judge", label: labels.judge }],
+    });
+  }
+  if (roles.includes("coach")) {
+    list.push({
+      key: "coach",
+      label: labels.coach,
+      href: "/coach",
+      match: ["/coach"],
+      items: [...shared, { href: "/coach", label: labels.coach }],
+    });
+  }
+  if (roles.includes("club_manager") || roles.includes("super_admin")) {
+    list.push({
+      key: "manage",
+      label: labels.clubManagement,
+      href: "/manage",
+      match: ["/manage"],
+      items: [...shared, { href: "/manage", label: labels.clubManagement }],
+    });
+  }
+  if (roles.includes("super_admin")) {
+    list.push({
+      key: "admin",
+      label: labels.admin,
+      href: "/admin",
+      match: ["/admin"],
+      items: [...shared, { href: "/admin", label: labels.admin }],
+    });
+  }
+
+  return list;
+}
+
+/** 根据当前路径判断在哪个工作区。匹配不到就回到第一个（概览）。 */
+export function activeWorkspace(workspaces: readonly Workspace[], pathname: string): Workspace {
+  const bySpecificity = [...workspaces].sort(
+    (a, b) => longestMatch(b, pathname) - longestMatch(a, pathname),
+  );
+  const hit = bySpecificity.find((w) => longestMatch(w, pathname) > 0);
+  return hit ?? (workspaces[0] as Workspace);
+}
+
+function longestMatch(workspace: Workspace, pathname: string): number {
+  return workspace.match.reduce(
+    (best, prefix) =>
+      pathname === prefix || pathname.startsWith(`${prefix}/`)
+        ? Math.max(best, prefix.length)
+        : best,
+    0,
+  );
 }
