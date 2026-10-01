@@ -14,79 +14,153 @@
  * 会导致字体栈解析不确定，已在 P1-2 修正。
  */
 :root {
-  /*
-   * INSPIRA 品牌色（依 INSPIRA_Brand_VI_Brief，2026-08-06）
+  /* ===========================================================================
+   * 第一层：规范令牌（UI/UX Spec §5.1）
    *
-   * ⚠️ 这些 oklch 数值是**脚本从十六进制算出来的**，不是手填的近似值。
-   *    换算方式：hex → sRGB → 线性 RGB → Oklab → OKLCH。
+   * ⚠️ 这一层是**唯一的事实来源**。下面第二层的 shadcn 令牌全部由它派生。
    *
-   * ⚠️ 关于橙色：规范要求"橙色作强调色，不作大面积背景"。
-   *    这**不只是审美** —— 实测对比度：
-   *      白字 / #FE643D  =  2.96:1   ❌ 低于正文要求的 4.5:1
-   *      橙字 / #FBFAF7  =  2.83:1   ❌
-   *      白字 / #071B45  = 16.78:1   ✅
-   *    所以**主按钮一律用 Navy**，橙色只用于非文字处
-   *    （焦点环、强调边、图标、状态点）。
-   */
+   * 为什么分两层：shadcn 的组件依赖 `--background` / `--primary` 这类名字，
+   * 而规范用的是 `--canvas` / `--ink` / `--brand-navy-950`。
+   * 如果直接把规范那套写进去而不做映射，**所有 shadcn 组件的颜色会立刻消失**
+   * ——按钮、输入框、弹窗全部变透明。所以是**并存 + 映射**，不是替换。
+   * =========================================================================== */
 
-  /* 底与字：暖象牙，不是纯白 —— 规范要求，且长时间阅读更柔和 */
-  --background: oklch(0.985 0.0041 91.45); /* #FBFAF7 */
-  --foreground: oklch(0.2363 0.0835 262.49); /* #071B45 16.07:1 ✅ */
+  /* 品牌 */
+  --brand-navy-950: #071b45;
+  --brand-navy-900: #0b2457;
+  --brand-navy-800: #12326b;
+  --brand-navy-100: #e8edf5;
+  --brand-navy-50: #f3f6fa;
+  --brand-orange-600: #e94e2c;
+  --brand-orange-500: #fe643d;
+  --brand-orange-100: #ffe4dc;
+  --brand-orange-50: #fff3ef;
 
-  --card: oklch(1 0 89.88); /* #FFFFFF */
-  --card-foreground: oklch(0.2363 0.0835 262.49);
-  --popover: oklch(1 0 89.88);
-  --popover-foreground: oklch(0.2363 0.0835 262.49);
+  /* 中性 */
+  --canvas: #f7f6f2;
+  --surface: #ffffff;
+  --surface-subtle: #fbfaf7;
+  --ink: #101828;
+  --text: #344054;
+  --text-muted-token: #667085;
+  --text-disabled: #98a2b3;
+  --border-token: #e4e1da;
+  --border-strong: #cfcbc2;
+  --overlay: rgb(7 27 69 / 52%);
 
-  /* 主操作：Navy 承载权威（16.78:1 ✅） */
-  --primary: oklch(0.2363 0.0835 262.49); /* #071B45 */
-  --primary-foreground: oklch(1 0 89.88);
+  /* 语义状态 */
+  --info: #175cd3;
+  --info-bg: #eff8ff;
+  --success: #067647;
+  --success-bg: #ecfdf3;
+  --warning: #b54708;
+  --warning-bg: #fffaeb;
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --neutral-bg: #f2f4f7;
 
-  --secondary: oklch(0.9613 0.007 88.64); /* #F4F2ED */
-  --secondary-foreground: oklch(0.2363 0.0835 262.49);
+  /* 焦点与选中
+   *
+   * ⚠️ 焦点环用**蓝色**而不是品牌橙（产品负责人 2026-10-01 决定）。
+   * 橙色已经在表达"选中/当前/强调"，焦点环再用橙会与之混淆 ——
+   * 蓝色是"键盘焦点"的通用语义，不容易被误解。 */
+  --focus-ring: #2e6bd1;
+  --selection: #fff0eb;
 
-  --muted: oklch(0.9613 0.007 88.64);
-  --muted-foreground: oklch(0.5014 0.0244 261.7); /* #5C6472 5.71:1 ✅ */
+  /* 圆角 */
+  --radius-sm-token: 6px;
+  --radius-md-token: 10px;
+  --radius-lg-token: 14px;
+  --radius-xl-token: 18px;
+  --radius-pill: 999px;
 
-  /* 悬停/选中底色：极淡的 Navy 调，克制 */
-  --accent: oklch(0.9576 0.0087 264.52); /* #EEF1F7 */
-  --accent-foreground: oklch(0.2363 0.0835 262.49);
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 8px 24px rgb(7 27 69 / 8%);
+  --shadow-dialog: 0 24px 64px rgb(7 27 69 / 20%);
 
-  /* 危险色刻意【不用】品牌橙，否则用户分不清"强调"与"出错" */
-  --destructive: oklch(0.5433 0.174 29.7); /* #C0392B */
+  /* 动效 */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  --border: oklch(0.9043 0.0129 86.83); /* #E3DFD6 */
-  --input: oklch(0.9043 0.0129 86.83);
+  /* ===========================================================================
+   * 第二层：shadcn 语义令牌 —— **全部派生自上面**
+   *
+   * 改品牌色时**只改第一层**，这一层不需要动。
+   * =========================================================================== */
 
-  /* 焦点环用品牌橙 —— 非文字元素，2.96:1 的限制不适用；且极难被忽略 */
-  --ring: oklch(0.6948 0.1958 35.24); /* #FE643D */
+  --background: var(--canvas);
+  --foreground: var(--ink);
 
-  /* 品牌橙作为独立令牌，供明确需要强调的地方使用 */
-  --brand: oklch(0.6948 0.1958 35.24);
-  --brand-foreground: oklch(1 0 89.88);
-  --brand-tint: oklch(0.9656 0.0176 39.4); /* #FFF0EB 极淡橙底 */
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
 
-  /* 图表：Navy → 橙 → 中性，符合 70/20/10 的比例 */
-  --chart-1: oklch(0.2363 0.0835 262.49);
-  --chart-2: oklch(0.6948 0.1958 35.24);
-  --chart-3: oklch(0.5014 0.0244 261.7);
-  --chart-4: oklch(0.9043 0.0129 86.83);
-  --chart-5: oklch(0.2264 0 89.88);
+  /* 主操作：Navy 承载权威（白字在 Navy 上 16.78:1） */
+  --primary: var(--brand-navy-950);
+  --primary-foreground: #ffffff;
 
-  /* 圆角略收 —— 规范要"严谨、权威"，过圆会显低龄 */
-  --radius: 0.5rem;
+  --secondary: var(--neutral-bg);
+  --secondary-foreground: var(--ink);
 
-  --sidebar: oklch(0.985 0.0041 91.45);
-  --sidebar-foreground: oklch(0.2363 0.0835 262.49);
-  --sidebar-primary: oklch(0.2363 0.0835 262.49);
-  --sidebar-primary-foreground: oklch(1 0 89.88);
-  --sidebar-accent: oklch(0.9576 0.0087 264.52);
-  --sidebar-accent-foreground: oklch(0.2363 0.0835 262.49);
-  --sidebar-border: oklch(0.9043 0.0129 86.83);
-  --sidebar-ring: oklch(0.6948 0.1958 35.24);
+  --muted: var(--neutral-bg);
+  --muted-foreground: var(--text-muted-token);
+
+  --accent: var(--brand-navy-50);
+  --accent-foreground: var(--brand-navy-950);
+
+  --destructive: var(--danger);
+
+  --border: var(--border-token);
+  --input: var(--border-token);
+  --ring: var(--focus-ring);
+
+  /* 品牌橙：只用于非文字处（对比度 2.96:1，不能承载正文） */
+  --brand: var(--brand-orange-500);
+  --brand-foreground: var(--brand-navy-950);
+  --brand-tint: var(--brand-orange-50);
+
+  --chart-1: var(--brand-navy-950);
+  --chart-2: var(--brand-orange-500);
+  --chart-3: var(--text-muted-token);
+  --chart-4: var(--border-token);
+  --chart-5: var(--neutral-bg);
+
+  --radius: var(--radius-md-token);
+
+  --sidebar: var(--surface-subtle);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--brand-navy-950);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-navy-50);
+  --sidebar-accent-foreground: var(--brand-navy-950);
+  --sidebar-border: var(--border-token);
+  --sidebar-ring: var(--focus-ring);
 }
 
 @theme inline {
+  /*
+   * 字号阶梯（规范 §5.3）。桌面/移动两档，用 text-display / text-h1 … 调用。
+   * 行高按规范的比例给出。
+   */
+  --text-display: 2.75rem; /* 44px */
+  --text-display--line-height: 3.25rem; /* 52 */
+  --text-h1: 2rem; /* 32 */
+  --text-h1--line-height: 2.5rem; /* 40 */
+  --text-h2: 1.5rem; /* 24 */
+  --text-h2--line-height: 2rem; /* 32 */
+  --text-h3: 1.25rem; /* 20 */
+  --text-h3--line-height: 1.75rem; /* 28 */
+  --text-title: 1rem; /* 16 */
+  --text-title--line-height: 1.5rem; /* 24 */
+  --text-label: 0.8125rem; /* 13 */
+  --text-label--line-height: 1.125rem; /* 18 */
+  --text-caption: 0.75rem; /* 12 */
+  --text-caption--line-height: 1.125rem; /* 18 */
+
   /* 品牌令牌 —— 供 bg-brand / text-brand / border-brand 使用 */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
