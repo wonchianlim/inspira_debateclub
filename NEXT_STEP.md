@@ -458,6 +458,35 @@ newer ballot**"。后者需要：
 
 ---
 
+## ⛔ 不要去"修"的一件事：用户**不能**被物理删除（这是设计）
+
+2026-10-01 产品负责人在 Supabase 控制台删刚注册的账号，得到
+"Database error deleting user"。**这是数据库在按设计阻止**，已实测复现：
+
+```
+ERROR: update or delete on table "users" violates foreign key constraint
+       "profiles_id_fkey" on table "profiles"
+```
+
+原因：`profiles.id → auth.users(id)` **没有** `ON DELETE CASCADE`（默认 `NO ACTION`），
+而注册触发器会立刻建 `profiles` 行 —— 所以**每个账号都删不掉**。
+另有约 20 张表引用 `profiles`，其中**只有** `coach_notes` 与 `notice_reads` 是级联删除，
+`audit_logs` 与 `email_outbox` 是"置空"，其余一律没有级联。
+
+**这是刻意的**：删一个账号若级联下去，会连带删掉他的评分表、赛果与审计痕迹 ——
+而"绝不让对当前资料/评分的修改改写已完成的辩论"是本项目反复在守的一条。
+
+**正确做法**（产品里已经写着）：`admin/users/[profileId]` 页面上有
+「⚠️ 本系统**不做物理删除**。要注销一个账号，请把状态改为「已停用」」。
+状态共三种（`PROFILE_STATUSES`）：`active` / `inactive` / `suspended`，
+其中 `suspended` = 不能登录。
+
+⚠️ **将来若有人想"顺手"给 `profiles` 加级联删除，先读这一节。**
+真要支持"彻底删除"，只能针对**没有任何历史**的账号，并且要先检查再删、删除动作进审计
+（产品负责人尚未拍板，见下）。
+
+---
+
 ## 🔴 生产上的真实故障：注册确认链接指向 localhost（2026-10-01）
 
 **现象**：产品负责人在生产上注册，邮件里的确认链接是
