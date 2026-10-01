@@ -15,7 +15,7 @@ import { REGISTRATION_STATUS_LABELS } from "@/lib/validation/registrations";
 
 import { AddRegistrationForm, RegistrationStatusForm } from "./registration-forms";
 
-export const metadata = { title: "报名管理 · INSPIRA" };
+export const metadata = { title: "Registrations · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -45,27 +45,27 @@ export default async function EventRegistrationsPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">报名管理 · {event.title}</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">Registrations · {event.title}</h1>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/manage/events/${event.id}`}>返回活动</Link>
+          <Link href={`/manage/events/${event.id}`}>Back to event</Link>
         </Button>
       </div>
 
       <dl className="grid gap-3 text-sm sm:grid-cols-4">
         <div className="border-border rounded-md border px-3 py-2">
-          <dt className="text-muted-foreground text-xs">有效报名</dt>
+          <dt className="text-muted-foreground text-xs">Active registrations</dt>
           <dd className="text-lg">{active.length}</dd>
         </div>
         <div className="border-border rounded-md border px-3 py-2">
-          <dt className="text-muted-foreground text-xs">需要处理</dt>
+          <dt className="text-muted-foreground text-xs">Needs attention</dt>
           <dd className="text-lg">{withIssues.length}</dd>
         </div>
         <div className="border-border rounded-md border px-3 py-2">
-          <dt className="text-muted-foreground text-xs">已取消</dt>
+          <dt className="text-muted-foreground text-xs">Cancelled</dt>
           <dd className="text-lg">{cancelled.length}</dd>
         </div>
         <div className="border-border rounded-md border px-3 py-2">
-          <dt className="text-muted-foreground text-xs">未到场</dt>
+          <dt className="text-muted-foreground text-xs">No show</dt>
           <dd className="text-lg">{noShow.length}</dd>
         </div>
       </dl>
@@ -78,7 +78,7 @@ export default async function EventRegistrationsPage({
         <Card>
           <CardHeader>
             <CardTitle className="text-destructive text-base">
-              配对前需要处理（{withIssues.length} 人）
+              Needs attention before pairing ({withIssues.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -102,7 +102,7 @@ export default async function EventRegistrationsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">人工补报名</CardTitle>
+          <CardTitle className="text-base">Add a registration manually</CardTitle>
         </CardHeader>
         <CardContent>
           <AddRegistrationForm eventId={event.id} />
@@ -111,38 +111,40 @@ export default async function EventRegistrationsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">全部报名（{registrations.length}）</CardTitle>
+          <CardTitle className="text-base">All registrations ({registrations.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {registrations.length === 0 ? (
             <StatePanel
               variant="empty"
-              title="还没有人报名"
-              description="报名开放后，学生自助报名的人会出现在这里。也可以在上面按搭档码人工补报名。"
+              title="No registrations yet"
+              description="Once registration is open, students who register appear here. You can also add one above using a partner code."
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <caption className="sr-only">报名列表，包含学生、状态、偏好与需处理的问题</caption>
+                <caption className="sr-only">
+                  Registration list: student, status, format preferences and issues to resolve
+                </caption>
                 <thead>
                   <tr className="border-border border-b text-left">
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      学生
+                      Student
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      状态
+                      Status
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      赛制偏好
+                      Format preferences
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      可参加赛制
+                      Eligible formats
                     </th>
                     <th scope="col" className="py-2 pr-4 font-medium">
-                      报名时间
+                      Registered at
                     </th>
                     <th scope="col" className="py-2 font-medium">
-                      修改状态
+                      Change status
                     </th>
                   </tr>
                 </thead>
@@ -169,8 +171,8 @@ export default async function EventRegistrationsPage({
                           ) : null}
                         </div>
                       </td>
-                      <td className="py-3 pr-4">{row.preferenceCount} 个</td>
-                      <td className="py-3 pr-4">{row.eligibleFormatCount} 个</td>
+                      <td className="py-3 pr-4">{row.preferenceCount}</td>
+                      <td className="py-3 pr-4">{row.eligibleFormatCount}</td>
                       <td className="text-muted-foreground py-3 pr-4 text-xs">
                         {utcToZonedLocal(new Date(row.registeredAt), CLUB_DEFAULT_TIMEZONE).replace(
                           "T",

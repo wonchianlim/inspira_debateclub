@@ -21,10 +21,10 @@ export function GenerateForm({ eventId }: { eventId: string }) {
       <input type="hidden" name="eventId" value={eventId} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "生成中…" : "生成配对提案"}
+          {pending ? "Generating…" : "Generate pairings"}
         </Button>
         <span className="text-muted-foreground text-xs">
-          已锁定或人工调整过的队伍会被保留，不会被覆盖。
+          Locked and hand-edited teams are kept and will not be overwritten.
         </span>
       </div>
       <FormMessage status={state.status} message={state.message} />
@@ -41,7 +41,7 @@ export function TeamLockButton({ teamId, locked }: { teamId: string; locked: boo
       <input type="hidden" name="teamId" value={teamId} />
       <input type="hidden" name="locked" value={locked ? "false" : "true"} />
       <Button type="submit" size="sm" variant={locked ? "secondary" : "outline"} disabled={pending}>
-        {pending ? "…" : locked ? "已锁定（点击解锁）" : "锁定"}
+        {pending ? "…" : locked ? "Locked (click to unlock)" : "Lock"}
       </Button>
       <FormMessage status={state.status} message={state.message} />
     </form>
@@ -61,12 +61,12 @@ export function DissolveTeamButton({ teamId }: { teamId: string }) {
         variant="ghost"
         disabled={pending}
         onClick={(event) => {
-          if (!window.confirm("确定要解散这支队伍吗？相关同学的参与记录不会被删除。")) {
+          if (!window.confirm("Disband this team? The students' participation records are kept.")) {
             event.preventDefault();
           }
         }}
       >
-        {pending ? "…" : "解散"}
+        {pending ? "…" : "Disband"}
       </Button>
       <FormMessage status={state.status} message={state.message} />
     </form>
@@ -82,10 +82,10 @@ export function ConfirmProposalButton({ proposalId }: { proposalId: string }) {
       <input type="hidden" name="proposalId" value={proposalId} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "确认中…" : "确认这份提案"}
+          {pending ? "Confirming…" : "Confirm this proposal"}
         </Button>
         <span className="text-muted-foreground text-xs">
-          确认后队伍变为「已确认」。此前的每次改动都已记录在审计日志里。
+          Confirming marks the teams as confirmed. Every change so far is already in the audit log.
         </span>
       </div>
       <FormMessage status={state.status} message={state.message} />

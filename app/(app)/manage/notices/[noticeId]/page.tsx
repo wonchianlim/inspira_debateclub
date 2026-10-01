@@ -14,7 +14,7 @@ import { NoticeForm } from "../notice-form";
 
 import { DeleteNoticeForm } from "./delete-notice-form";
 
-export const metadata = { title: "通知详情 · INSPIRA" };
+export const metadata = { title: "Announcement · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -56,13 +56,13 @@ export default async function NoticeDetailPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight">{notice.title}</h1>
         <Button asChild variant="outline" size="sm">
-          <Link href="/manage/notices">返回通知列表</Link>
+          <Link href="/manage/notices">Back to announcements</Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">修改通知</CardTitle>
+          <CardTitle className="text-base">Edit announcement</CardTitle>
         </CardHeader>
         <CardContent>
           <NoticeForm
@@ -81,7 +81,7 @@ export default async function NoticeDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">删除</CardTitle>
+          <CardTitle className="text-base">Delete</CardTitle>
         </CardHeader>
         <CardContent>
           <DeleteNoticeForm noticeId={notice.id} />

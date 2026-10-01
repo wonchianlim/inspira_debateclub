@@ -25,15 +25,24 @@ export type PairingWarning = {
   source?: "allocation";
 };
 
-/** 警告代号的中文归类，用于界面分组显示。 */
-export function warningCategory(code: string): "需要处理" | "仅供参考" {
+/**
+ * 警告归到哪一组（用于界面分组）。
+ *
+ * ⚠️ 返回的是**稳定的英文键**，不是给人看的标签 ——
+ * 界面语言固定为英文（2026-10-01 产品负责人决定），而"键"不该跟着语言变：
+ * 用中文当键会让"比较用的字符串"和"显示用的字符串"混在一起，
+ * 换个语言就得改判断逻辑。英文标签由界面自己给。
+ */
+export type PairingWarningCategory = "action" | "info";
+
+export function warningCategory(code: string): PairingWarningCategory {
   switch (code) {
     // 这两类意味着有人**打不上辩论**，管理员必须处理
     case "no_viable_format":
     case "incomplete_team_remainder":
     case "partner_group_too_large":
-      return "需要处理";
+      return "action";
     default:
-      return "仅供参考";
+      return "info";
   }
 }

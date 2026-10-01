@@ -18,9 +18,9 @@ import {
 } from "@/lib/validation/notices";
 
 const PUBLISH_MODE_LABELS: Record<(typeof PUBLISH_MODES)[number], string> = {
-  draft: "先存草稿（只有管理员能看到）",
-  now: "立即发布",
-  scheduled: "定时发布",
+  draft: "Save as draft (admins only)",
+  now: "Publish now",
+  scheduled: "Schedule",
 };
 
 export type NoticeFormDefaults = {
@@ -68,7 +68,7 @@ export function NoticeForm({
       <FormMessage status={state.status} message={state.message} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">标题</Label>
+        <Label htmlFor="title">Title</Label>
         <Input
           id="title"
           name="title"
@@ -86,7 +86,7 @@ export function NoticeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="body">内容</Label>
+        <Label htmlFor="body">Body</Label>
         <textarea
           id="body"
           name="body"
@@ -100,7 +100,7 @@ export function NoticeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="audienceType">接收对象</Label>
+        <Label htmlFor="audienceType">Audience</Label>
         <select
           id="audienceType"
           name="audienceType"
@@ -128,7 +128,7 @@ export function NoticeForm({
       */}
       {audience === "event" ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="eventId">活动</Label>
+          <Label htmlFor="eventId">Event</Label>
           <select
             id="eventId"
             name="eventId"
@@ -136,7 +136,7 @@ export function NoticeForm({
             disabled={pending}
             className={selectClass}
           >
-            <option value="">请选择活动</option>
+            <option value="">Choose an event</option>
             {eventOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.title}
@@ -153,7 +153,7 @@ export function NoticeForm({
 
       {audience === "role" ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="role">角色</Label>
+          <Label htmlFor="role">Role</Label>
           <select
             id="role"
             name="role"
@@ -161,7 +161,7 @@ export function NoticeForm({
             disabled={pending}
             className={selectClass}
           >
-            <option value="">请选择角色</option>
+            <option value="">Choose a role</option>
             {APP_ROLES.map((role) => (
               <option key={role} value={role}>
                 {ROLE_LABELS[role]}
@@ -178,7 +178,7 @@ export function NoticeForm({
 
       {audience === "format" ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="formatId">赛制</Label>
+          <Label htmlFor="formatId">Format</Label>
           <select
             id="formatId"
             name="formatId"
@@ -186,7 +186,7 @@ export function NoticeForm({
             disabled={pending}
             className={selectClass}
           >
-            <option value="">请选择赛制</option>
+            <option value="">Choose a format</option>
             {formatOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.code} · {option.name}
@@ -202,7 +202,7 @@ export function NoticeForm({
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="publishMode">发布方式</Label>
+        <Label htmlFor="publishMode">Publishing</Label>
         <select
           id="publishMode"
           name="publishMode"
@@ -223,7 +223,7 @@ export function NoticeForm({
 
       {publishMode === "scheduled" ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="publishedAtLocal">发布时间（{defaults.timezone}）</Label>
+          <Label htmlFor="publishedAtLocal">Publish at ({defaults.timezone})</Label>
           <Input
             id="publishedAtLocal"
             name="publishedAtLocal"
@@ -240,7 +240,7 @@ export function NoticeForm({
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="expiresAtLocal">过期时间（可选，{defaults.timezone}）</Label>
+        <Label htmlFor="expiresAtLocal">Expires at (optional, {defaults.timezone})</Label>
         <Input
           id="expiresAtLocal"
           name="expiresAtLocal"
@@ -249,7 +249,7 @@ export function NoticeForm({
           disabled={pending}
         />
         <p className="text-muted-foreground text-xs">
-          留空表示不过期。过期后普通用户不再看到这条通知。
+          Leave blank for no expiry. After it expires, regular users stop seeing it.
         </p>
         {error("expiresAtLocal") ? (
           <p role="alert" className="text-destructive text-xs">
@@ -259,13 +259,12 @@ export function NoticeForm({
       </div>
 
       <div className="border-border text-muted-foreground rounded-md border px-3 py-2 text-xs">
-        ⚠️ 本阶段的通知只出现在系统内部（登录后可见）。
-        <strong>电子邮件投递将在 Phase 9 实现</strong> —— 发布通知<strong>不会</strong>
-        立刻发邮件给任何人。
+        Notices appear inside the system only, to signed-in users. For email delivery, see System
+        Admin → Email Queue.
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "保存中…" : mode === "create" ? "创建通知" : "保存修改"}
+        {pending ? "Saving…" : mode === "create" ? "Create announcement" : "Save changes"}
       </Button>
     </form>
   );

@@ -18,10 +18,10 @@ export function GenerateMatchesForm({ eventId }: { eventId: string }) {
       <input type="hidden" name="eventId" value={eventId} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "生成中…" : "生成比赛"}
+          {pending ? "Generating…" : "Generate rounds"}
         </Button>
         <span className="text-muted-foreground text-xs">
-          已经开始的比赛会被保留，不会被重新分组覆盖。
+          Rounds that already started are kept; regrouping will not overwrite them.
         </span>
       </div>
       <FormMessage status={state.status} message={state.message} />
@@ -51,7 +51,7 @@ export function MatchStatusButtons({
           <form action={publishAction}>
             <input type="hidden" name="matchId" value={matchId} />
             <Button type="submit" size="sm" variant="outline" disabled={publishing}>
-              {publishing ? "…" : "发布名单"}
+              {publishing ? "…" : "Publish roster"}
             </Button>
           </form>
         ) : null}
@@ -60,11 +60,11 @@ export function MatchStatusButtons({
           <form action={startAction}>
             <input type="hidden" name="matchId" value={matchId} />
             <Button type="submit" size="sm" disabled={starting}>
-              {starting ? "…" : "开始比赛"}
+              {starting ? "…" : "Start round"}
             </Button>
           </form>
         ) : (
-          <span className="text-muted-foreground text-xs">名单已锁定</span>
+          <span className="text-muted-foreground text-xs">Roster locked</span>
         )}
       </div>
       <FormMessage status={publishState.status} message={publishState.message} />

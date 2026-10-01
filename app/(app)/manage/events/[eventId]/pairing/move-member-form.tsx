@@ -27,7 +27,11 @@ export function MoveMemberForm({
   const [state, formAction, pending] = useActionState(moveTeamMemberAction, INITIAL_FORM_STATE);
 
   if (otherTeams.length === 0) {
-    return <span className="text-muted-foreground text-xs">（本赛制没有其他队伍可移动）</span>;
+    return (
+      <span className="text-muted-foreground text-xs">
+        (no other team in this format to move to)
+      </span>
+    );
   }
 
   return (
@@ -36,7 +40,7 @@ export function MoveMemberForm({
       <input type="hidden" name="participationId" value={participationId} />
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={`move-${participationId}`} className="sr-only">
-          把 {studentName} 移到
+          Move {studentName} to
         </label>
         <select
           id={`move-${participationId}`}
@@ -46,7 +50,7 @@ export function MoveMemberForm({
           className="border-input bg-background h-8 rounded-md border px-2 text-xs"
         >
           <option value="" disabled>
-            移到…
+            Move to…
           </option>
           {otherTeams.map((team) => (
             <option key={team.teamId} value={team.teamId}>
@@ -55,7 +59,7 @@ export function MoveMemberForm({
           ))}
         </select>
         <Button type="submit" size="sm" variant="ghost" disabled={pending}>
-          {pending ? "…" : "移动"}
+          {pending ? "…" : "Move"}
         </Button>
       </div>
       <FormMessage status={state.status} message={state.message} />

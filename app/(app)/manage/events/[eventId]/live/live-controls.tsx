@@ -24,7 +24,7 @@ export function ManualCheckInButton({
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="studentId" value={studentId} />
       <Button type="submit" size="sm" variant="outline" disabled={pending}>
-        {pending ? "…" : `给 ${studentName} 签到`}
+        {pending ? "…" : `Check in ${studentName}`}
       </Button>
       <FormMessage status={state.status} message={state.message} />
     </form>

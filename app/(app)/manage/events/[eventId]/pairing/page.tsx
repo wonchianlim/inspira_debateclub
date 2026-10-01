@@ -23,7 +23,7 @@ import {
 } from "./pairing-controls";
 import { MoveMemberForm } from "./move-member-form";
 
-export const metadata = { title: "配对提案 · INSPIRA" };
+export const metadata = { title: "Teams & pairings · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -40,27 +40,28 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
   if (!event) notFound();
 
   const needsAttention =
-    overview?.warnings.filter((w) => warningCategory(w.code) === "需要处理") ?? [];
-  const informational =
-    overview?.warnings.filter((w) => warningCategory(w.code) === "仅供参考") ?? [];
+    overview?.warnings.filter((w) => warningCategory(w.code) === "action") ?? [];
+  const informational = overview?.warnings.filter((w) => warningCategory(w.code) === "info") ?? [];
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">配对提案 · {event.title}</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">
+          Teams &amp; pairings · {event.title}
+        </h1>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}/registrations`}>报名管理</Link>
+            <Link href={`/manage/events/${event.id}/registrations`}>Registrations</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/manage/events/${event.id}`}>返回活动</Link>
+            <Link href={`/manage/events/${event.id}`}>Back to event</Link>
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">生成</CardTitle>
+          <CardTitle className="text-base">Generate</CardTitle>
         </CardHeader>
         <CardContent>
           <GenerateForm eventId={event.id} />
@@ -70,8 +71,8 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
       {!overview ? (
         <StatePanel
           variant="empty"
-          title="还没有生成过配对提案"
-          description="点上面的「生成配对提案」开始。系统会按学生的赛制偏好与评分分配队伍，并把取舍的理由列出来。"
+          title="No pairing proposal yet"
+          description="Use Generate pairings above to start. Teams are built from each student's format preferences and rating, and the trade-offs are listed for you."
         />
       ) : (
         <>
@@ -84,7 +85,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
             <Card className="border-destructive">
               <CardHeader>
                 <CardTitle className="text-destructive text-base">
-                  需要你处理（{needsAttention.length} 条）
+                  Needs your attention ({needsAttention.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -105,7 +106,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
           <Card>
             <CardHeader>
               <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                提案信息
+                Proposal details
                 <StatusBadge tone={pairingProposalTone(overview.status)}>
                   {PAIRING_PROPOSAL_STATUS_LABELS[overview.status]}
                 </StatusBadge>
@@ -114,7 +115,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
             <CardContent className="flex flex-col gap-3">
               <dl className="grid gap-3 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-muted-foreground text-xs">生成时间</dt>
+                  <dt className="text-muted-foreground text-xs">Generated at</dt>
                   <dd>
                     {utcToZonedLocal(new Date(overview.generatedAt), CLUB_DEFAULT_TIMEZONE).replace(
                       "T",
@@ -123,15 +124,15 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">队伍数</dt>
+                  <dt className="text-muted-foreground text-xs">Teams</dt>
                   <dd>{overview.teams.length}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">未被分配</dt>
+                  <dt className="text-muted-foreground text-xs">Unallocated</dt>
                   <dd>{overview.unallocatedNames.length}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-xs">算法版本</dt>
+                  <dt className="text-muted-foreground text-xs">Algorithm version</dt>
                   <dd className="font-mono text-xs">{overview.algorithmVersion}</dd>
                 </div>
               </dl>
@@ -146,13 +147,14 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  没有分到队伍的同学（{overview.unallocatedNames.length}）
+                  Students without a team ({overview.unallocatedNames.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-2 text-sm">
-                  这些同学已报名，但系统没能给他们安排辩论。常见原因：没有填写赛制偏好、
-                  没有赛制资格，或愿意去同一赛制的人数不足以凑齐一支队伍。
+                  These students registered but could not be placed. Usual causes: no format
+                  preferences, no eligible format, or too few people choosing the same format to
+                  fill a team.
                 </p>
                 <ul className="flex flex-col gap-1 text-sm">
                   {overview.unallocatedNames.map((student) => (
@@ -165,23 +167,25 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">队伍（{overview.teams.length}）</CardTitle>
+              <CardTitle className="text-base">Teams ({overview.teams.length})</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {overview.teams.map((team) => (
                 <div key={team.teamId} className="border-border rounded-md border px-3 py-3">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <strong className="text-sm">{team.teamLabel ?? "（未编号）"}</strong>
+                    <strong className="text-sm">{team.teamLabel ?? "(unnumbered)"}</strong>
                     <MetaChip>{team.formatCode}</MetaChip>
                     {team.averageRating !== null ? (
                       <span className="text-muted-foreground text-xs">
-                        平均评分 {team.averageRating}
+                        Average rating {team.averageRating}
                       </span>
                     ) : null}
                     {/* "已锁定"是状态：名单已冻结，不能再改。 */}
-                    {team.locked ? <StatusBadge>已锁定</StatusBadge> : null}
+                    {team.locked ? <StatusBadge>Locked</StatusBadge> : null}
                     {/* "人工调整过"是来源说明，不是状态。 */}
-                    {team.manuallyEdited && !team.locked ? <MetaChip>人工调整过</MetaChip> : null}
+                    {team.manuallyEdited && !team.locked ? (
+                      <MetaChip>Edited by hand</MetaChip>
+                    ) : null}
                   </div>
 
                   <ul className="mb-3 flex flex-col gap-1 text-sm">
@@ -194,7 +198,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                             {member.school ? (
                               <span className="text-muted-foreground"> · {member.school}</span>
                             ) : null}
-                            <span className="text-muted-foreground"> · 评分 {member.rating}</span>
+                            <span className="text-muted-foreground"> · rating {member.rating}</span>
                           </span>
                           {participationId && !team.locked ? (
                             <MoveMemberForm
@@ -209,7 +213,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
                                 )
                                 .map((other) => ({
                                   teamId: other.teamId,
-                                  label: other.teamLabel ?? "（未编号队伍）",
+                                  label: other.teamLabel ?? "(unnumbered team)",
                                 }))}
                             />
                           ) : null}
@@ -230,7 +234,7 @@ export default async function PairingPage({ params }: { params: Promise<{ eventI
           {informational.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">其他提示（{informational.length} 条）</CardTitle>
+                <CardTitle className="text-base">Other notes ({informational.length})</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <p className="text-muted-foreground text-xs">{WARNING_IS_INFORMATIONAL}</p>

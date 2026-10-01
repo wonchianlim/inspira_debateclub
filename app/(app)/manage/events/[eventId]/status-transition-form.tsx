@@ -42,13 +42,13 @@ export function StatusTransitionForm({
 
       {allowed.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          「{EVENT_STATUS_LABELS[currentStatus]}」是终态，不能再变更状态。
+          “{EVENT_STATUS_LABELS[currentStatus]}” is final; the status cannot change again.
         </p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {advance.map((status) => (
             <Button key={status} type="submit" name="toStatus" value={status} disabled={pending}>
-              {pending ? "处理中…" : `推进到「${EVENT_STATUS_LABELS[status]}」`}
+              {pending ? "Working…" : `Move to ${EVENT_STATUS_LABELS[status]}`}
             </Button>
           ))}
 
@@ -65,19 +65,21 @@ export function StatusTransitionForm({
                 故意不用 window.confirm 之外的复杂弹窗，避免在无脚本或屏幕阅读器下不可用。
               */
               onClick={(event) => {
-                if (!window.confirm("确定要取消这个活动吗？取消后状态不能恢复。")) {
+                if (
+                  !window.confirm("Cancel this event? The status cannot be restored afterwards.")
+                ) {
                   event.preventDefault();
                 }
               }}
             >
-              取消活动
+              Cancel event
             </Button>
           ) : null}
         </div>
       )}
 
       <p className="text-muted-foreground text-xs">
-        每次状态变更都会自动写入审计日志（谁、什么时候、从什么状态改到什么状态）。
+        Every status change is written to the audit log: who, when, and from which status to which.
       </p>
     </form>
   );

@@ -43,7 +43,7 @@ export function MatchSettingsForm({
       <FormMessage status={state.status} message={state.message} />
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="matchStartAtLocal">第一场比赛开始时间（{timezone}）</Label>
+        <Label htmlFor="matchStartAtLocal">First round starts ({timezone})</Label>
         <Input
           id="matchStartAtLocal"
           name="matchStartAtLocal"
@@ -53,12 +53,13 @@ export function MatchSettingsForm({
           className="max-w-72"
         />
         <p className="text-muted-foreground text-xs">
-          留空表示沿用活动的开始时间。这就是加入本设置之前的行为。
+          Leave blank to use the event start time, which is how this behaved before the setting
+          existed.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="matchIntervalMinutes">每场比赛之间间隔多少分钟</Label>
+        <Label htmlFor="matchIntervalMinutes">Minutes between rounds</Label>
         <Input
           id="matchIntervalMinutes"
           name="matchIntervalMinutes"
@@ -69,11 +70,11 @@ export function MatchSettingsForm({
           disabled={pending}
           className="max-w-32"
         />
-        <p className="text-muted-foreground text-xs">5 到 600 分钟之间。默认 60。</p>
+        <p className="text-muted-foreground text-xs">Between 5 and 600 minutes. Default 60.</p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="roomNamesText">可用房间（一行一个）</Label>
+        <Label htmlFor="roomNamesText">Available rooms (one per line)</Label>
         <textarea
           id="roomNamesText"
           name="roomNamesText"
@@ -84,16 +85,17 @@ export function MatchSettingsForm({
           className="border-input bg-background max-w-72 rounded-md border px-3 py-2 font-mono text-sm"
         />
         <p className="text-muted-foreground text-xs">
-          按这里的顺序依次分配。留空则沿用默认（从 A101 开始）。重复的房间名会自动去掉一个。
+          Assigned in this order. Leave blank for the default, starting at A101. A duplicated room
+          name is dropped.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <Button type="submit" disabled={pending} className="self-start">
-          {pending ? "保存中…" : "保存比赛设置"}
+          {pending ? "Saving…" : "Save round settings"}
         </Button>
         <p className="text-muted-foreground text-xs">
-          这里只影响**以后重新生成**的比赛。已经排好的比赛不会自动改变。
+          This only affects rounds generated again later. Rounds already scheduled do not change.
         </p>
       </div>
     </form>

@@ -47,10 +47,10 @@ export function ReviewRequestPanel({
   if (requests.length === 0) return null;
 
   const statusLabels: Record<string, string> = {
-    open: "待处理",
-    reviewing: "处理中",
-    resolved: "已处理",
-    rejected: "已驳回",
+    open: "Open",
+    reviewing: "In progress",
+    resolved: "Resolved",
+    rejected: "Declined",
   };
 
   const open = requests.filter((request) => request.status === "open");
@@ -58,9 +58,9 @@ export function ReviewRequestPanel({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-2">
-        <h2 className="text-base font-medium">学生的复核请求</h2>
+        <h2 className="text-base font-medium">Review requests from students</h2>
         <span className="text-muted-foreground text-xs">
-          共 {requests.length} 条{open.length > 0 ? `，其中 ${open.length} 条待处理` : ""}
+          {requests.length} total{open.length > 0 ? `, ${open.length} open` : ""}
         </span>
       </div>
 
@@ -73,7 +73,7 @@ export function ReviewRequestPanel({
         >
           <div className="flex flex-wrap items-center gap-2">
             <strong>
-              第 {request.matchNumber} 场 · {request.roomName}
+              Round {request.matchNumber} · {request.roomName}
             </strong>
             <MetaChip>{request.formatCode}</MetaChip>
             <StatusBadge tone={reviewRequestTone(request.status)}>
@@ -92,7 +92,7 @@ export function ReviewRequestPanel({
 
           {request.adminResponse ? (
             <p className="text-muted-foreground">
-              你的回复：<span className="text-foreground">{request.adminResponse}</span>
+              Your reply: <span className="text-foreground">{request.adminResponse}</span>
             </p>
           ) : null}
 
@@ -101,13 +101,13 @@ export function ReviewRequestPanel({
               {activeId === request.requestId ? (
                 <div className="flex flex-col gap-1">
                   <Label htmlFor={`response-${request.requestId}`} className="text-xs">
-                    回复学生（结束处理时必填，至少 5 个字）
+                    Reply to the student (required to resolve or decline; at least 5 characters)
                   </Label>
                   <Input
                     id={`response-${request.requestId}`}
                     value={response}
                     disabled={pending}
-                    placeholder="例如：已核对录像，第二点确实漏记，已请裁判重开更正。"
+                    placeholder="e.g. Checked the recording; the second point was indeed missed, and the judge has been asked to correct it."
                     onChange={(event) => setResponse(event.target.value)}
                     className="max-w-2xl"
                   />
@@ -128,9 +128,9 @@ export function ReviewRequestPanel({
                       disabled={pending || (target !== "reviewing" && response.trim().length < 5)}
                       onClick={() => setActiveId(request.requestId)}
                     >
-                      {target === "reviewing" ? "标为处理中" : null}
-                      {target === "resolved" ? "已处理（回复学生）" : null}
-                      {target === "rejected" ? "驳回（说明原因）" : null}
+                      {target === "reviewing" ? "Mark as in progress" : null}
+                      {target === "resolved" ? "Resolve and reply" : null}
+                      {target === "rejected" ? "Decline with a reason" : null}
                     </Button>
                   </form>
                 ))}
@@ -138,7 +138,7 @@ export function ReviewRequestPanel({
 
               {activeId === request.requestId && response.trim().length < 5 ? (
                 <span className="text-muted-foreground text-xs">
-                  请先写回复，再点「已处理」或「驳回」
+                  Write the reply first, then choose Resolve or Decline
                 </span>
               ) : null}
             </div>

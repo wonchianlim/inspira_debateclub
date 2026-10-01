@@ -31,7 +31,7 @@ export function EventFormatsForm({
       <FormMessage status={state.status} message={state.message} />
 
       <fieldset className="flex flex-col gap-3" disabled={pending}>
-        <legend className="sr-only">本活动启用的赛制</legend>
+        <legend className="sr-only">Formats enabled for this event</legend>
 
         {formats.map((format) => (
           <div key={format.id} className="flex items-start gap-3">
@@ -48,8 +48,8 @@ export function EventFormatsForm({
                 {format.code} · {format.name}
               </label>
               <span className="text-muted-foreground text-xs">
-                {format.teamSize} 人一队，每场 {format.teamsPerMatch} 队
-                {format.active ? "" : "（该赛制已全局停用，不建议在本活动启用）"}
+                {format.teamSize} per team, {format.teamsPerMatch} teams per round
+                {format.active ? "" : " (globally disabled; better not to enable it here)"}
               </span>
             </div>
           </div>
@@ -57,7 +57,7 @@ export function EventFormatsForm({
       </fieldset>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "保存中…" : "保存活动赛制"}
+        {pending ? "Saving…" : "Save formats"}
       </Button>
     </form>
   );

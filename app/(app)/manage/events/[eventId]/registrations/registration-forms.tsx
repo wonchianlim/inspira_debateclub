@@ -14,11 +14,11 @@ import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
 import { ADMIN_REGISTRATION_STATUSES } from "@/lib/validation/admin-registrations";
 
 const STATUS_LABELS: Record<(typeof ADMIN_REGISTRATION_STATUSES)[number], string> = {
-  registered: "已报名",
-  cancelled: "已取消",
-  late_cancelled: "已取消（迟）",
-  checked_in: "已签到",
-  no_show: "未到场",
+  registered: "Registered",
+  cancelled: "Cancelled",
+  late_cancelled: "Cancelled late",
+  checked_in: "Checked in",
+  no_show: "No show",
 };
 
 /** 单条报名的状态修改。管理员可以直接选任何合法状态。 */
@@ -42,7 +42,7 @@ export function RegistrationStatusForm({
           name="status"
           defaultValue={currentStatus}
           disabled={pending}
-          aria-label="报名状态"
+          aria-label="Registration status"
           className="border-input bg-background h-8 rounded-md border px-2 text-xs focus-visible:ring-3 focus-visible:outline-none"
         >
           {ADMIN_REGISTRATION_STATUSES.map((status) => (
@@ -52,7 +52,7 @@ export function RegistrationStatusForm({
           ))}
         </select>
         <Button type="submit" size="sm" variant="outline" disabled={pending}>
-          {pending ? "…" : "保存"}
+          {pending ? "…" : "Save"}
         </Button>
       </div>
       <FormMessage status={state.status} message={state.message} />
@@ -70,21 +70,22 @@ export function AddRegistrationForm({ eventId }: { eventId: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="eventId" value={eventId} />
-      <Label htmlFor="partnerCode">按搭档码补报名</Label>
+      <Label htmlFor="partnerCode">Add by partner code</Label>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           id="partnerCode"
           name="partnerCode"
-          placeholder="例如 JX4GXKDGUS"
+          placeholder="e.g. JX4GXKDGUS"
           disabled={pending}
           className="max-w-56 font-mono uppercase"
         />
         <Button type="submit" disabled={pending}>
-          {pending ? "处理中…" : "补报名"}
+          {pending ? "Working…" : "Add registration"}
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        用于学生现场报名、或帮学生恢复被误取消的报名。如果已有报名记录，会改回「已报名」而不是新增一条。
+        For registering a student on the day, or restoring one that was cancelled by mistake. If a
+        record already exists it is set back to registered instead of duplicating.
       </p>
       <FormMessage status={state.status} message={state.message} />
     </form>

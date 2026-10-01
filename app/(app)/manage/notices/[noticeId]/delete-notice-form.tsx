@@ -15,8 +15,8 @@ export function DeleteNoticeForm({ noticeId }: { noticeId: string }) {
       <input type="hidden" name="noticeId" value={noticeId} />
       <FormMessage status={state.status} message={state.message} />
       <p className="text-muted-foreground text-sm">
-        删除后这条通知会从界面上撤下。审计日志里仍会保留它的完整内容与删除者，
-        因此「删除」不等于「抹掉痕迹」。
+        Deleting removes it from the interface. The audit log keeps its full content and who deleted
+        it, so deleting is not erasing the record.
       </p>
       <Button
         type="submit"
@@ -24,10 +24,10 @@ export function DeleteNoticeForm({ noticeId }: { noticeId: string }) {
         disabled={pending}
         className="self-start"
         onClick={(event) => {
-          if (!window.confirm("确定要删除这条通知吗？")) event.preventDefault();
+          if (!window.confirm("Delete this announcement?")) event.preventDefault();
         }}
       >
-        {pending ? "删除中…" : "删除这条通知"}
+        {pending ? "Deleting…" : "Delete this announcement"}
       </Button>
     </form>
   );

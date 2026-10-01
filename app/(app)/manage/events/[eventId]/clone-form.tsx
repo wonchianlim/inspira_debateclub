@@ -34,8 +34,9 @@ export function CloneEventForm({
     return (
       <div className="flex flex-col gap-3">
         <p className="text-muted-foreground text-sm">
-          以这个活动为模板新建一个活动，所有时间按新开始时间整体平移，活动赛制一并复制。 新活动是
-          <strong>独立</strong>的，与原活动没有任何共享。
+          Create a new event from this one. Every time shifts with the new start, and the formats
+          are copied. The new event is
+          <strong>independent</strong> of the original; nothing is shared.
         </p>
         <Button
           type="button"
@@ -43,7 +44,7 @@ export function CloneEventForm({
           className="self-start"
           onClick={() => setOpen(true)}
         >
-          克隆这个活动
+          Duplicate this event
         </Button>
       </div>
     );
@@ -55,7 +56,7 @@ export function CloneEventForm({
       <FormMessage status={state.status} message={state.message} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="clone-title">新活动名称</Label>
+        <Label htmlFor="clone-title">New event name</Label>
         <Input
           id="clone-title"
           name="title"
@@ -67,7 +68,7 @@ export function CloneEventForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="clone-startsAtLocal">新活动开始时间（活动时区）</Label>
+        <Label htmlFor="clone-startsAtLocal">New start time (event time zone)</Label>
         <Input
           id="clone-startsAtLocal"
           name="startsAtLocal"
@@ -77,17 +78,17 @@ export function CloneEventForm({
           disabled={pending}
         />
         <p className="text-muted-foreground text-xs">
-          其余时间点（报名开放/截止、签到、警示、结束）会按这个时间整体平移，保持相对安排不变。
-          新活动从「草稿」状态开始。
+          The other times - registration opens and closes, check-in, warning and end - shift by the
+          same amount, so the relative schedule is unchanged. The new event starts as a draft.
         </p>
       </div>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "克隆中…" : "确认克隆"}
+          {pending ? "Duplicating…" : "Duplicate event"}
         </Button>
         <Button type="button" variant="ghost" disabled={pending} onClick={() => setOpen(false)}>
-          取消
+          Cancel
         </Button>
       </div>
     </form>

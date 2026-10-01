@@ -36,7 +36,7 @@ export function ReviewButtons({
   const [showReason, setShowReason] = useState(false);
 
   if (!canReopen && !canPublish) {
-    return <span className="text-muted-foreground text-xs">当前状态无需操作</span>;
+    return <span className="text-muted-foreground text-xs">Nothing to do in this state</span>;
   }
 
   return (
@@ -51,7 +51,7 @@ export function ReviewButtons({
           <>
             <input type="hidden" name="to" value="published" />
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "…" : "发布"}
+              {pending ? "…" : "Publish"}
             </Button>
           </>
         ) : null}
@@ -62,7 +62,7 @@ export function ReviewButtons({
           {showReason ? (
             <div className="flex flex-col gap-1">
               <Label htmlFor={`reason-${ballotId}`} className="text-xs">
-                重开理由（至少 5 个字，会记入审计日志）
+                Reason for reopening (at least 5 characters; goes into the audit log)
               </Label>
               <Input
                 id={`reason-${ballotId}`}
@@ -87,10 +87,10 @@ export function ReviewButtons({
               disabled={pending || (showReason && reason.trim().length < 5)}
               onClick={() => setShowReason(true)}
             >
-              {pending ? "…" : "重开（要求更正）"}
+              {pending ? "…" : "Reopen (ask for a correction)"}
             </Button>
             {showReason && reason.trim().length < 5 ? (
-              <span className="text-muted-foreground text-xs">请先填写理由</span>
+              <span className="text-muted-foreground text-xs">Enter a reason first</span>
             ) : null}
           </form>
         </div>

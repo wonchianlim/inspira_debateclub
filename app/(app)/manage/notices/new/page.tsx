@@ -10,7 +10,7 @@ import { CLUB_DEFAULT_TIMEZONE } from "@/lib/domain/timezone";
 
 import { NoticeForm } from "../notice-form";
 
-export const metadata = { title: "新建通知 · INSPIRA" };
+export const metadata = { title: "New announcement · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -21,15 +21,15 @@ export default async function NewNoticePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">新建通知</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">New announcement</h1>
         <Button asChild variant="outline" size="sm">
-          <Link href="/manage/notices">返回通知列表</Link>
+          <Link href="/manage/notices">Back to announcements</Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">通知内容</CardTitle>
+          <CardTitle className="text-base">Announcement</CardTitle>
         </CardHeader>
         <CardContent>
           <NoticeForm

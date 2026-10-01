@@ -20,7 +20,7 @@ import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 import { ReviewButtons } from "./review-buttons";
 import { ReviewRequestPanel } from "./review-request-panel";
 
-export const metadata = { title: "评分表复核 · INSPIRA" };
+export const metadata = { title: "Ballots · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -56,9 +56,9 @@ export default async function EventBallotsPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">评分表复核</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">Ballots</h1>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/manage/events/${eventId}`}>返回活动</Link>
+          <Link href={`/manage/events/${eventId}`}>Back to event</Link>
         </Button>
       </div>
 
@@ -67,8 +67,8 @@ export default async function EventBallotsPage({
       {ballots.length === 0 ? (
         <StatePanel
           variant="empty"
-          title="还没有任何评分表"
-          description="裁判开始填表之后，这里会显示每一场的进度，你可以复核、要求更正或发布。"
+          title="No ballots yet"
+          description="Once judges start filling them in, every round shows its progress here. You can review, ask for a correction, or publish."
         />
       ) : (
         <>
@@ -77,26 +77,27 @@ export default async function EventBallotsPage({
             把它算成已交会让这里显示"全部交齐"而实际还差一份。
           */}
           <p className="text-muted-foreground text-sm">
-            共 {ballots.length} 份评分表，其中 {notSubmitted.length} 份还没交齐
-            {overdue.length > 0 ? `，其中 ${overdue.length} 份已超时` : ""}。
+            {ballots.length} ballots, {notSubmitted.length} not in yet
+            {overdue.length > 0 ? `, ${overdue.length} overdue` : ""}.
           </p>
 
           {overdue.length > 0 ? (
             <Card className="border-destructive">
               <CardHeader>
                 <CardTitle className="text-destructive text-base">
-                  这些评分表已经超时（比赛开始超过 90 分钟仍未提交）
+                  These ballots are overdue (more than 90 minutes after the round started)
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 text-sm">
                 {overdue.map((entry) => (
                   <div key={entry.ballot.ballotId}>
-                    第 {entry.ballot.matchNumber} 场 · {entry.ballot.roomName}（裁判：
-                    {entry.ballot.judgeName}）—— 已超过 {entry.overdue.minutesOverdue} 分钟
+                    Round {entry.ballot.matchNumber} · {entry.ballot.roomName} (judge:
+                    {entry.ballot.judgeName}) — {entry.overdue.minutesOverdue} minutes overdue
                   </div>
                 ))}
                 <p className="text-muted-foreground mt-1 text-xs">
-                  超时只是提示，不会阻止任何操作。请联系对应裁判，或在必要时重开评分表。
+                  Overdue is only a prompt; it blocks nothing. Contact the judge, or reopen the
+                  ballot if you need to.
                 </p>
               </CardContent>
             </Card>
@@ -104,7 +105,7 @@ export default async function EventBallotsPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">每一场的状态</CardTitle>
+              <CardTitle className="text-base">Status by round</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {ballots.map((ballot) => {
@@ -118,7 +119,7 @@ export default async function EventBallotsPage({
                       <div className="flex flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <strong className="text-sm">
-                            第 {ballot.matchNumber} 场 · {ballot.roomName}
+                            Round {ballot.matchNumber} · {ballot.roomName}
                           </strong>
                           <MetaChip>{ballot.formatCode}</MetaChip>
                           <StatusBadge tone={ballotStatusTone(ballot.status)}>
@@ -126,8 +127,8 @@ export default async function EventBallotsPage({
                           </StatusBadge>
                         </div>
                         <span className="text-muted-foreground text-xs">
-                          裁判：{ballot.judgeName}
-                          {ballot.scoreCount > 0 ? ` · 已录入 ${ballot.scoreCount} 项分数` : ""}
+                          Judge: {ballot.judgeName}
+                          {ballot.scoreCount > 0 ? ` · ${ballot.scoreCount} scores entered` : ""}
                           {" · "}
                           {utcToZonedLocal(
                             new Date(ballot.scheduledStart),
@@ -138,14 +139,14 @@ export default async function EventBallotsPage({
 
                       {ballot.status === "published" ? (
                         <span className="text-muted-foreground text-xs">
-                          已于{" "}
+                          Submitted{" "}
                           {ballot.publishedAt
                             ? utcToZonedLocal(
                                 new Date(ballot.publishedAt),
                                 CLUB_DEFAULT_TIMEZONE,
                               ).replace("T", " ")
                             : "—"}{" "}
-                          发布
+                          Publish
                         </span>
                       ) : null}
                     </div>
