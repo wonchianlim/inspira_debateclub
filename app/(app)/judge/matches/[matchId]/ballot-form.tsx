@@ -1,16 +1,26 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import Link from "next/link";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 
 import { FormMessage } from "@/components/domain/form-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BallotField } from "@/lib/domain/ballot-schema";
+import {
+  AUTOSAVE_IDLE_MS,
+  AUTOSAVE_MAX_RETRIES,
+  AUTOSAVE_RETRY_MS,
+  autosaveLabel,
+  canAutosave,
+  withExpectedVersion,
+  type AutosaveStatus,
+} from "@/lib/domain/ballot-autosave";
 import { reviewBallot } from "@/lib/domain/ballot-review";
 import type { BallotContext } from "@/lib/judge/ballots";
 import { saveBallotDraftAction, submitBallotAction } from "@/lib/judge/ballot-actions";
-import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
+import { INITIAL_FORM_STATE, type BallotDraftState } from "@/lib/forms/form-state";
 import { BALLOT_DRAFT_NOTE } from "@/lib/validation/ballot-submission";
 import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
@@ -232,10 +242,19 @@ function RankingField({
 }
 
 export function BallotForm({ context }: { context: BallotContext }) {
-  const [draftState, draftAction, savingDraft] = useActionState(
-    saveBallotDraftAction,
-    INITIAL_FORM_STATE,
-  );
+  /*
+   * 草稿保存**不用** `useActionState`，而是显式调用服务端动作。
+   *
+   * 原因：乐观并发要求"保存成功后立刻记住服务端给的新版本"。
+   * 用 `useActionState` 只能通过一个 `useEffect` 去读它的返回值，
+   * 而那会触发 React 的 `set-state-in-effect` 规则（也确实容易产生级联渲染）。
+   * 显式 `await` 之后直接更新状态，链路短、也没有时序猜测。
+   *
+   * 提交仍然走表单动作（`useActionState`），因此**没有 JS 也能提交** ——
+   * 那是最关键的动作。自动保存本来就需要 JS。
+   */
+  const [draftState, setDraftState] = useState<BallotDraftState>(INITIAL_FORM_STATE);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [submitState, submitAction, submitting] = useActionState(
     submitBallotAction,
     INITIAL_FORM_STATE,
@@ -293,6 +312,95 @@ export function BallotForm({ context }: { context: BallotContext }) {
   const [confirming, setConfirming] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  /*
+   * 自动保存（规范 §9.3）：
+   *   "Autosave after a short idle period and on field blur."
+   *
+   * ⚠️ `savedVersion` 是**乐观并发**的关键：它就是"我读到的服务端版本"。
+   * 每次保存成功后换成服务端给的新版本；一旦服务端说版本不一致，
+   * 状态变成 `conflict`，而 `canAutosave()` 会**拒绝继续自动保存** ——
+   * 否则裁判在两个窗口之间每打一个字都会覆盖对方的修改
+   * （规范："never silently overwrite a newer ballot"）。
+   */
+  const [autosave, setAutosave] = useState<AutosaveStatus>("idle");
+  const [savedVersion, setSavedVersion] = useState<string | null>(context.updatedAt);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * 重试计数用 state 而不是 ref：它要参与渲染（"重试了太多次"时给手动按钮），
+   * 而 React 的规则不允许在渲染期间读 ref。
+   */
+  const [retryCount, setRetryCount] = useState(0);
+
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+  }, []);
+
+  /**
+   * 立刻保存一次。`override` 表示裁判已看过冲突提示、明确选择覆盖。
+   *
+   * ⚠️ 数据来自 `new FormData(formRef.current)` —— 也就是**界面上真正的内容**，
+   * 因此自动保存与手动点"保存草稿"走的是完全同一条路。
+   */
+  const saveNow = useCallback(
+    async (override = false) => {
+      if (readOnly || !formRef.current || savingDraft) return;
+      clearIdleTimer();
+      setSavingDraft(true);
+      setAutosave("saving");
+      try {
+        const data = withExpectedVersion(new FormData(formRef.current), savedVersion, override);
+        const next = await saveBallotDraftAction(draftState, data);
+        setDraftState(next);
+
+        if (next.conflict) {
+          // ⚠️ 冲突**绝不重试** —— 重试就是在反复覆盖别人的修改
+          setRetryCount(0);
+          setAutosave("conflict");
+          return;
+        }
+        if (next.status === "success") {
+          setRetryCount(0);
+          // 记住服务端给的新版本，否则下一次自动保存会拿着旧版本、立刻又冲突
+          setSavedVersion(next.version ?? null);
+          setSavedAt(new Date());
+          setAutosave("saved");
+          return;
+        }
+        // 失败：自动重试有限次，之后停下来等裁判手动点（规范："Couldn't save—retrying"）
+        if (retryCount < AUTOSAVE_MAX_RETRIES) {
+          setRetryCount((count) => count + 1);
+          setAutosave("failed");
+          idleTimer.current = setTimeout(() => {
+            void saveNow();
+          }, AUTOSAVE_RETRY_MS);
+        } else {
+          setAutosave("failed");
+        }
+      } finally {
+        setSavingDraft(false);
+      }
+    },
+    [clearIdleTimer, draftState, readOnly, retryCount, savedVersion, savingDraft],
+  );
+
+  /** 有改动时调用：进入"待保存"，并重置空闲计时器。 */
+  const scheduleAutosave = useCallback(() => {
+    setAutosave((current) => (current === "conflict" ? current : "pending"));
+    clearIdleTimer();
+    if (!canAutosave(autosave)) return;
+    idleTimer.current = setTimeout(() => saveNow(), AUTOSAVE_IDLE_MS);
+  }, [autosave, clearIdleTimer, saveNow]);
+
+  useEffect(() => clearIdleTimer, [clearIdleTimer]);
+
+  const autosaveText = autosaveLabel(autosave, savedAt, (instant) =>
+    utcToZonedLocal(instant, CLUB_DEFAULT_TIMEZONE).slice(11),
+  );
+
   const updateSpeaker = (studentId: string, fieldKey: string, value: string) => {
     const current = JSON.parse(speakerScoresJson) as Record<string, Record<string, unknown>>;
     current[studentId] = { ...(current[studentId] ?? {}), [fieldKey]: value === "" ? null : value };
@@ -348,11 +456,80 @@ export function BallotForm({ context }: { context: BallotContext }) {
         这里原来是把每个 `<form>` 只套在按钮上、把所有输入框留在外面，
         于是 `winnerTeamId` 与 `reasonForDecision` 从来没有被提交过。
       */}
-      <form ref={formRef} action={submitAction} className="flex flex-col gap-4">
+      {/*
+        ⚠️ 失焦立刻保存（规范："on field blur"）。
+        用 form 上的 `onBlur` 冒泡即可，不必给每个输入框挂一遍。
+      */}
+      <form
+        ref={formRef}
+        action={submitAction}
+        className="flex flex-col gap-4"
+        onBlur={() => {
+          if (!readOnly && (autosave === "pending" || autosave === "failed")) {
+            clearIdleTimer();
+            saveNow();
+          }
+        }}
+      >
         {/* 动态字段靠隐藏字段交给服务端（字段是模板生成的，服务端无法预知 name） */}
         <input type="hidden" name="matchId" value={context.matchId} />
         <input type="hidden" name="speakerScoresJson" value={speakerScoresJson} />
         <input type="hidden" name="otherValuesJson" value={otherValuesJson} />
+
+        {/* 自动保存的状态（规范点名的三个说法：正在保存 / 刚刚已保存 / 没能保存） */}
+        {!readOnly && autosaveText ? (
+          <p className="text-muted-foreground text-xs" role="status" aria-live="polite">
+            {autosaveText}
+          </p>
+        ) : null}
+
+        {/*
+          版本冲突：**不再自动保存**，由裁判决定。
+          规范要求 "never **silently** overwrite a newer ballot" ——
+          悄悄覆盖不行，说清楚了让他选可以。
+        */}
+        {autosave === "failed" && retryCount >= AUTOSAVE_MAX_RETRIES ? (
+          <div className="border-border flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm">
+            <span>保存失败了好几次。你写的内容还在这页上，没有丢。</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setRetryCount(0);
+                void saveNow();
+              }}
+            >
+              重试保存
+            </Button>
+          </div>
+        ) : null}
+
+        {autosave === "conflict" ? (
+          <div className="border-warning bg-warning-bg rounded-md border px-3 py-3 text-sm">
+            <p className="font-medium">这份评分表在别处被改过，自动保存已停止</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              继续自动保存会覆盖对方刚写的内容，所以停下来了。你现在写的都还在这一页上， 请二选一：
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Link
+                href={`/judge/matches/${context.matchId}`}
+                className="focus-visible:ring-ring/50 rounded text-sm underline underline-offset-4 focus-visible:ring-3 focus-visible:outline-none"
+              >
+                载入最新版本（丢弃我这里的改动）
+              </Link>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => saveNow(true)}
+              >
+                仍然保存我的内容
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <p className="text-muted-foreground text-sm">{BALLOT_DRAFT_NOTE}</p>
 
@@ -391,9 +568,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                           (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ??
                           ""
                         }
-                        onChange={(event) =>
-                          updateSpeaker(speaker.studentId, field.key, event.target.value)
-                        }
+                        onChange={(event) => {
+                          updateSpeaker(speaker.studentId, field.key, event.target.value);
+                          scheduleAutosave();
+                        }}
                         className="border-input bg-background h-9 w-56 rounded-md border px-2 text-sm"
                       >
                         <option value="">请选择</option>
@@ -415,9 +593,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                           (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ??
                           ""
                         }
-                        onChange={(event) =>
-                          updateSpeaker(speaker.studentId, field.key, event.target.value)
-                        }
+                        onChange={(event) => {
+                          updateSpeaker(speaker.studentId, field.key, event.target.value);
+                          scheduleAutosave();
+                        }}
                         className="w-32"
                       />
                     )}
@@ -442,9 +621,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                       field={field}
                       entries={readTeamList(context, team.teamId, field.key)}
                       disabled={busy || readOnly}
-                      onChange={(entries) =>
-                        updateOther(`${team.teamId}|${field.key}`, JSON.stringify(entries))
-                      }
+                      onChange={(entries) => {
+                        updateOther(`${team.teamId}|${field.key}`, JSON.stringify(entries));
+                        scheduleAutosave();
+                      }}
                     />
                   ) : (
                     <div key={field.key} className="flex flex-col gap-1">
@@ -458,9 +638,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                         defaultValue={
                           (context.data.teamValues[team.teamId]?.[field.key] as string) ?? ""
                         }
-                        onChange={(event) =>
-                          updateOther(`${team.teamId}|${field.key}`, event.target.value)
-                        }
+                        onChange={(event) => {
+                          updateOther(`${team.teamId}|${field.key}`, event.target.value);
+                          scheduleAutosave();
+                        }}
                         className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
                       />
                     </div>
@@ -489,7 +670,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                     {}
                   }
                   disabled={busy || readOnly}
-                  onChange={(value) => updateOther(field.key, JSON.stringify(value))}
+                  onChange={(value) => {
+                    updateOther(field.key, JSON.stringify(value));
+                    scheduleAutosave();
+                  }}
                 />
               ) : field.type === "list" ? (
                 <ListField
@@ -497,7 +681,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                   field={field}
                   entries={readMatchList(context, field.key)}
                   disabled={busy || readOnly}
-                  onChange={(entries) => updateOther(field.key, JSON.stringify(entries))}
+                  onChange={(entries) => {
+                    updateOther(field.key, JSON.stringify(entries));
+                    scheduleAutosave();
+                  }}
                 />
               ) : field.key === "judge_confidence" && field.options ? (
                 <div key={field.key} className="mb-2 flex flex-col gap-1">
@@ -508,7 +695,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                     id={`match-${field.key}`}
                     disabled={busy || readOnly}
                     defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
-                    onChange={(event) => updateOther(field.key, event.target.value)}
+                    onChange={(event) => {
+                      updateOther(field.key, event.target.value);
+                      scheduleAutosave();
+                    }}
                     className="border-input bg-background h-9 max-w-72 rounded-md border px-2 text-sm"
                   >
                     <option value="">请选择</option>
@@ -534,7 +724,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                     rows={field.key === "reason_for_decision" ? 5 : 3}
                     disabled={busy || readOnly}
                     defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
-                    onChange={(event) => updateOther(field.key, event.target.value)}
+                    onChange={(event) => {
+                      updateOther(field.key, event.target.value);
+                      scheduleAutosave();
+                    }}
                     className="border-input bg-background max-w-2xl rounded-md border px-3 py-2 text-sm"
                   />
                 </div>
@@ -573,7 +766,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                           value={team.teamId}
                           checked={winnerTeamId === team.teamId}
                           disabled={busy || readOnly}
-                          onChange={() => setWinnerTeamId(team.teamId)}
+                          onChange={() => {
+                            setWinnerTeamId(team.teamId);
+                            scheduleAutosave();
+                          }}
                           className="accent-primary size-4"
                         />
                         {team.teamLabel ?? team.position}
@@ -594,7 +790,10 @@ export function BallotForm({ context }: { context: BallotContext }) {
                   rows={3}
                   disabled={busy || readOnly}
                   value={reasonForDecision}
-                  onChange={(event) => setReasonForDecision(event.target.value)}
+                  onChange={(event) => {
+                    setReasonForDecision(event.target.value);
+                    scheduleAutosave();
+                  }}
                   aria-describedby="reasonForDecision-hint"
                   className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
                 />
@@ -623,7 +822,14 @@ export function BallotForm({ context }: { context: BallotContext }) {
 
             草稿仍然永远可用：保存动作不做内容校验（裁判是边听边记的）。
           */}
-            <Button type="submit" formAction={draftAction} variant="outline" disabled={busy}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                void saveNow();
+              }}
+            >
               {savingDraft ? "保存中…" : "保存草稿"}
             </Button>
             <Button type="button" disabled={busy} onClick={() => setConfirming(true)}>

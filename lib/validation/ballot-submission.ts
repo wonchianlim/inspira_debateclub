@@ -18,6 +18,22 @@ export const ballotValuesSchema = z.object({
   otherValuesJson: z.string(),
 });
 
+/**
+ * 保存草稿时的**版本**字段（乐观并发）。
+ *
+ * ⚠️ 语义必须分清楚：
+ *   * 字段**存在但为空**（`expectedUpdatedAt=""`）= "我读的时候还没有这一行"，
+ *     也就是这份草稿是新建的 —— 服务端仍然要检查"现在是不是已经有人建了"；
+ *   * 字段**不存在**（同时 `overwrite=true`）= 裁判看过冲突提示后**明确选择覆盖**。
+ *
+ * 两者混起来就会出现"过期的自动保存把别人的修改悄悄冲掉"，
+ * 而那正是规范 §9.3 明令禁止的（"never silently overwrite a newer ballot"）。
+ */
+export const ballotVersionSchema = z.object({
+  expectedUpdatedAt: z.string().trim().max(40).optional(),
+  overwrite: z.literal("true").optional(),
+});
+
 export const BALLOT_STATUS_LABELS = {
   draft: "草稿",
   submitted: "已提交",

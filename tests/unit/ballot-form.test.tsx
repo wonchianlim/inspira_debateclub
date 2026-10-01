@@ -63,6 +63,7 @@ const CONTEXT: BallotContext = {
   },
   ballotId: null,
   ballotStatus: null,
+  updatedAt: null,
   winnerTeamId: null,
   reasonForDecision: null,
   data: { speakerValues: {}, teamValues: {}, matchValues: {} },

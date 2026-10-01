@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { versionMatches } from "@/lib/domain/ballot-autosave";
 import { getBallotContext } from "@/lib/judge/ballots";
 import {
   type BallotData,
@@ -9,10 +10,10 @@ import {
   canSubmitBallot,
   emptyBallotData,
 } from "@/lib/domain/ballot-schema";
-import type { FormState } from "@/lib/forms/form-state";
+import type { BallotDraftState, FormState } from "@/lib/forms/form-state";
 import { getSessionContext } from "@/lib/auth/session";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
-import { ballotValuesSchema } from "@/lib/validation/ballot-submission";
+import { ballotValuesSchema, ballotVersionSchema } from "@/lib/validation/ballot-submission";
 
 /**
  * 裁判填表（Phase 7 / P7-4，规范第 15 节）。
@@ -79,7 +80,7 @@ async function persistBallot(
   reasonForDecision: string | null,
   templateId: string,
   status: "draft" | "submitted",
-): Promise<FormState> {
+): Promise<FormState & { version?: string }> {
   const supabase = await createUserSupabaseClient();
 
   // 当前用户对应的裁判档案
@@ -114,8 +115,11 @@ async function persistBallot(
   const now = new Date().toISOString();
 
   let ballotId: string;
+  /** 保存之后的版本（`ballots.updated_at`），由触发器维护 */
+  let savedVersion: string | undefined;
   if (existing) {
-    const { error } = await supabase
+    // 返回 `updated_at`：它就是这份草稿的版本，客户端下一次自动保存要用它
+    const { data: updated, error } = await supabase
       .from("ballots")
       .update({
         template_id: templateId,
@@ -131,12 +135,15 @@ async function persistBallot(
             }
           : {}),
       })
-      .eq("id", existing.id);
+      .eq("id", existing.id)
+      .select("updated_at")
+      .single();
     if (error) {
       console.error("[judge] 保存评分表失败:", error.message);
       return failure("保存失败，请稍后再试。");
     }
     ballotId = existing.id as string;
+    savedVersion = (updated?.updated_at as string | undefined) ?? undefined;
   } else {
     const { data: inserted, error } = await supabase
       .from("ballots")
@@ -150,13 +157,14 @@ async function persistBallot(
         status,
         submitted_at: status === "submitted" ? now : null,
       })
-      .select("id")
+      .select("id, updated_at")
       .single();
     if (error || !inserted) {
       console.error("[judge] 创建评分表失败:", error?.message);
       return failure("保存失败，请稍后再试。");
     }
     ballotId = inserted.id as string;
+    savedVersion = (inserted.updated_at as string | undefined) ?? undefined;
   }
 
   /*
@@ -217,14 +225,26 @@ async function persistBallot(
     }
   }
 
-  return { status: "success", message: "" };
+  return { status: "success", message: "", version: savedVersion };
 }
 
-/** 保存草稿 —— **不做内容校验**（裁判是边听边记的）。 */
+/**
+ * 保存草稿 —— **不做内容校验**（裁判是边听边记的）。
+ *
+ * ⚠️ 但它做**版本检查**（乐观并发，规范 §9.3：
+ * "On reconnect, reconcile with server version and never silently overwrite
+ *  a newer ballot"）。
+ *
+ * 规则：
+ *   * 表单带了 `expectedUpdatedAt` → 与服务端当前的 `updated_at` 比对，
+ *     不一致就返回 `conflict: true`，**不写库**；
+ *   * 只带 `overwrite=true` → 裁判看过冲突提示后明确选择覆盖，跳过比对；
+ *   * 都没有 → 视为"新建草稿"，仍然要比对（服务端可能是 null、也可能已经有行了）。
+ */
 export async function saveBallotDraftAction(
-  _prevState: FormState,
+  _prevState: BallotDraftState,
   formData: FormData,
-): Promise<FormState> {
+): Promise<BallotDraftState> {
   const parsed = ballotValuesSchema.safeParse({
     matchId: formData.get("matchId"),
     winnerTeamId: formData.get("winnerTeamId") ?? "",
@@ -234,11 +254,34 @@ export async function saveBallotDraftAction(
   });
   if (!parsed.success) return failure("提交的内容格式不正确。");
 
+  const version = ballotVersionSchema.safeParse({
+    expectedUpdatedAt: formData.get("expectedUpdatedAt") ?? undefined,
+    overwrite: formData.get("overwrite") ?? undefined,
+  });
+  if (!version.success) return failure("提交的内容格式不正确。");
+
   const session = await getSessionContext();
   if (!session) return failure("登录状态已失效，请重新登录。");
 
   const context = await getBallotContext(parsed.data.matchId);
   if (!context) return failure("找不到这场比赛，或它还没有配置评分表模板。");
+
+  /*
+   * 乐观并发。⚠️ 这一段必须**在写库之前**，而且是**拒绝**而不是"尽力而为"：
+   * 一个过期的自动保存悄悄覆盖掉另一个窗口刚写的内容，正是规范禁止的那件事。
+   */
+  if (version.data.overwrite !== "true") {
+    const expected = version.data.expectedUpdatedAt ?? null;
+    if (!versionMatches(expected, context.updatedAt)) {
+      return {
+        status: "error",
+        conflict: true,
+        message:
+          "这份评分表现在是更新的版本（可能在另一个窗口或另一台设备上被改过）。" +
+          "为避免覆盖对方的改动，自动保存已经停下 —— 请选择「载入最新版本」或「仍然保存我的内容」。",
+      };
+    }
+  }
 
   const data = parseBallotData(parsed.data.speakerScoresJson, parsed.data.otherValuesJson);
   if (!data) return failure("提交的内容格式不正确。");
@@ -255,7 +298,12 @@ export async function saveBallotDraftAction(
   if (result.status === "error") return result;
   revalidatePath(`/judge/matches/${parsed.data.matchId}`);
   revalidatePath("/judge");
-  return { status: "success", message: "草稿已保存。你可以随时回来继续。" };
+  return {
+    status: "success",
+    message: "草稿已保存。你可以随时回来继续。",
+    // 把新版本带回去，否则下一次自动保存会拿着旧版本、立刻又冲突
+    version: result.version,
+  };
 }
 
 /** 提交评分表 —— **必须通过模板校验**。 */

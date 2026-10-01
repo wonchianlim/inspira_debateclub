@@ -14,3 +14,19 @@ export type FormState = {
 };
 
 export const INITIAL_FORM_STATE: FormState = { status: "idle" };
+
+/**
+ * 保存评分表时的表单状态：比通用 `FormState` 多两个字段。
+ *
+ * ⚠️ 放在这里而不是 `lib/judge/ballot-actions.ts` —— 那个文件有 `"use server"`，
+ * 只能导出**异步函数**（本项目已经在这条规则上踩过三次）。
+ */
+export type BallotDraftState = FormState & {
+  /** 保存成功后服务端给出的新版本（`ballots.updated_at`） */
+  version?: string;
+  /**
+   * 版本冲突：服务端上的这一份在我读它之后被别人改过。
+   * 界面必须**停止**自动保存，而不是继续覆盖（规范 §9.3）。
+   */
+  conflict?: boolean;
+};

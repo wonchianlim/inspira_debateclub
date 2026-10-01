@@ -130,6 +130,14 @@ export type BallotContext = {
   teamMembersByTeam: Record<string, string[]>;
   ballotId: string | null;
   ballotStatus: BallotStatus | null;
+  /**
+   * 这份评分表在服务端的版本（`ballots.updated_at`）；还没有这一行时为 null。
+   *
+   * 用途是**乐观并发**：自动保存会把它一起发回去，服务端比较不一致就拒绝，
+   * 于是"自动保存把别人刚写的内容覆盖掉"这件事不会**悄悄**发生
+   * （规范 §9.3："never silently overwrite a newer ballot"）。
+   */
+  updatedAt: string | null;
   winnerTeamId: string | null;
   reasonForDecision: string | null;
   data: BallotData;
@@ -213,7 +221,7 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
 
   const { data: ballotData } = await supabase
     .from("ballots")
-    .select("id, status, winner_team_id, reason_for_decision, format_data")
+    .select("id, status, winner_team_id, reason_for_decision, format_data, updated_at")
     .eq("match_id", matchId)
     .maybeSingle();
 
@@ -277,6 +285,7 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
       return accumulator;
     }, {}),
     ballotId: (ballotData?.id as string | undefined) ?? null,
+    updatedAt: (ballotData?.updated_at as string | undefined) ?? null,
     ballotStatus: (ballotData?.status as BallotStatus | undefined) ?? null,
     winnerTeamId: (ballotData?.winner_team_id as string | undefined) ?? null,
     reasonForDecision: (ballotData?.reason_for_decision as string | undefined) ?? null,
