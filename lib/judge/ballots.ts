@@ -131,6 +131,13 @@ export type BallotContext = {
   ballotId: string | null;
   ballotStatus: BallotStatus | null;
   /**
+   * 提交时刻（`ballots.submitted_at`）。
+   *
+   * 规范 §9.3 要求提交之后显示 "immutable submitted view with **timestamp and
+   * reference ID**"，因此这两项要能拿出来（另一个是 `ballotId`）。
+   */
+  submittedAt: string | null;
+  /**
    * 这份评分表在服务端的版本（`ballots.updated_at`）；还没有这一行时为 null。
    *
    * 用途是**乐观并发**：自动保存会把它一起发回去，服务端比较不一致就拒绝，
@@ -221,7 +228,9 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
 
   const { data: ballotData } = await supabase
     .from("ballots")
-    .select("id, status, winner_team_id, reason_for_decision, format_data, updated_at")
+    .select(
+      "id, status, winner_team_id, reason_for_decision, format_data, updated_at, submitted_at",
+    )
     .eq("match_id", matchId)
     .maybeSingle();
 
@@ -286,6 +295,7 @@ export async function getBallotContext(matchId: string): Promise<BallotContext |
     }, {}),
     ballotId: (ballotData?.id as string | undefined) ?? null,
     updatedAt: (ballotData?.updated_at as string | undefined) ?? null,
+    submittedAt: (ballotData?.submitted_at as string | undefined) ?? null,
     ballotStatus: (ballotData?.status as BallotStatus | undefined) ?? null,
     winnerTeamId: (ballotData?.winner_team_id as string | undefined) ?? null,
     reasonForDecision: (ballotData?.reason_for_decision as string | undefined) ?? null,

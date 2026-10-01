@@ -534,10 +534,38 @@ export function BallotForm({ context }: { context: BallotContext }) {
         <p className="text-muted-foreground text-sm">{BALLOT_DRAFT_NOTE}</p>
 
         {readOnly ? (
-          <p className="border-border rounded-md border px-3 py-2 text-sm">
-            这份评分表已经提交，当前为「{context.ballotStatus}」，不能直接修改。
-            如需更正，请联系管理员重开。
-          </p>
+          /*
+            规范 §9.3："After success, show immutable submitted view with
+            **timestamp and reference ID**."（任何允许的更正都必须留下审计事件 ——
+            那是管理员"重开"那条流程的事。）
+          */
+          <div className="border-border rounded-md border px-3 py-3 text-sm">
+            <p>
+              这份评分表已经提交，当前为「{context.ballotStatus}」，不能直接修改。
+              如需更正，请联系管理员重开。
+            </p>
+            <dl className="text-muted-foreground mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+              {context.submittedAt ? (
+                <div className="flex gap-1">
+                  <dt>提交时间</dt>
+                  <dd className="text-foreground">
+                    {utcToZonedLocal(new Date(context.submittedAt), CLUB_DEFAULT_TIMEZONE).replace(
+                      "T",
+                      " ",
+                    )}{" "}
+                    （{CLUB_DEFAULT_TIMEZONE}）
+                  </dd>
+                </div>
+              ) : null}
+              {context.ballotId ? (
+                <div className="flex gap-1">
+                  <dt>评分表编号</dt>
+                  {/* 等宽字体：裁判把编号抄给管理员时不该看错字母 */}
+                  <dd className="text-foreground font-mono">{context.ballotId}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
         ) : null}
 
         {context.speakers.map((speaker) => {

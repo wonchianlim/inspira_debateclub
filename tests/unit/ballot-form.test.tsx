@@ -64,6 +64,7 @@ const CONTEXT: BallotContext = {
   ballotId: null,
   ballotStatus: null,
   updatedAt: null,
+  submittedAt: null,
   winnerTeamId: null,
   reasonForDecision: null,
   data: { speakerValues: {}, teamValues: {}, matchValues: {} },
@@ -195,5 +196,26 @@ describe("已提交的评分表是只读的", () => {
     expect(screen.queryByRole("button", { name: "保存草稿" })).toBeNull();
     expect(screen.getByRole("radio", { name: "队伍 1" })).toBeDisabled();
     expect(screen.getByText(/如需更正，请联系管理员重开/)).toBeInTheDocument();
+  });
+
+  /**
+   * 规范 §9.3："immutable submitted view with timestamp and reference ID"。
+   * 裁判报问题时要把编号抄给管理员，因此它必须显示出来、而且是等宽的。
+   */
+  it("只读视图给出**提交时间**与**评分表编号**", () => {
+    render(
+      <BallotForm
+        context={{
+          ...CONTEXT,
+          ballotId: "bb000000-0000-0000-0000-000000000002",
+          ballotStatus: "submitted",
+          submittedAt: "2026-10-20T11:30:00.000Z",
+        }}
+      />,
+    );
+    expect(screen.getByText("提交时间")).toBeInTheDocument();
+    expect(screen.getByText(/2026-10-20 19:30/)).toBeInTheDocument();
+    expect(screen.getByText("评分表编号")).toBeInTheDocument();
+    expect(screen.getByText("bb000000-0000-0000-0000-000000000002")).toBeInTheDocument();
   });
 });

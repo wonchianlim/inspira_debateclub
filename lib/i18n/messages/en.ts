@@ -50,13 +50,32 @@ export const en = {
   },
 
   auth: {
+    /**
+     * 品牌面板（UI/UX 规范 §7.1）。
+     *
+     * ⚠️ 这些文案与规范原文一字不差 —— 登录页是全站唯一一个"品牌时刻"，
+     * 规范把它逐行写了出来。
+     */
+    brandClubLine: "DEBATE CLUB",
+    brandTagline1: "Think clearly.",
+    brandTagline2: "Speak with purpose.",
+    brandTagline3: "Compete.",
+    brandSupporting: "Debate, judging, and feedback for the INSPIRA community.",
+
     signInTitle: "Sign in",
+    signInHeading: "Welcome back",
+    signInSupporting: "Sign in to continue to INSPIRA Debate Club.",
     email: "Email",
     password: "Password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     signInButton: "Sign in",
+    signingIn: "Signing in…",
     noAccount: "Don't have an account?",
     registerLink: "Register",
     forgotPasswordLink: "Forgot your password?",
+    linkInvalid: "That link is incomplete. Please request a new password reset email.",
+    linkExpired: "That link has expired or was already used. Please request a new one.",
 
     registerTitle: "Create an account",
     confirmPassword: "Confirm password",
@@ -72,7 +91,8 @@ export const en = {
     newPassword: "New password",
     resetButton: "Update password",
 
-    genericSignInError: "Incorrect email or password.",
+    genericSignInError:
+      "We couldn't sign you in with those details. Check your email and password and try again.",
     genericSignUpError: "Registration failed. Please try again later or use a different email.",
     tooManyAttempts: "Too many attempts. Please try again later.",
   },

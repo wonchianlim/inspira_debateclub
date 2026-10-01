@@ -47,13 +47,27 @@ export const zh: Messages = {
   },
 
   auth: {
+    // 品牌面板的文案与英文版对应（规范 §7.1 给的是一句句标语）
+    brandClubLine: "辩论社",
+    brandTagline1: "想清楚。",
+    brandTagline2: "有目的地表达。",
+    brandTagline3: "去比赛。",
+    brandSupporting: "为 INSPIRA 社群提供辩论、执裁与反馈。",
+
     signInTitle: "登录",
+    signInHeading: "欢迎回来",
+    signInSupporting: "登录后继续使用 INSPIRA 辩论社管理系统。",
     email: "邮箱",
     password: "密码",
+    showPassword: "显示密码",
+    hidePassword: "隐藏密码",
     signInButton: "登录",
+    signingIn: "登录中…",
     noAccount: "还没有账号？",
     registerLink: "注册",
     forgotPasswordLink: "忘记密码？",
+    linkInvalid: "这个链接不完整。请重新申请一封重置密码的邮件。",
+    linkExpired: "这个链接已失效或已被使用过。请重新申请一封。",
 
     registerTitle: "注册账号",
     confirmPassword: "确认密码",
