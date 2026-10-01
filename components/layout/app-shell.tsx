@@ -73,12 +73,18 @@ export function AppShell({
     <div className="flex min-h-full flex-col">
       <a
         href="#main-content"
-        className="focus:bg-background focus:ring-ring/50 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:ring-3 focus:outline-none"
+        className="focus:bg-background focus:ring-ring/50 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:ring-3 focus:outline-none print:hidden"
       >
         {m.common.skipToContent}
       </a>
 
-      <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
+      {/*
+        ⚠️ `print:hidden` 不是装饰：规范 §8.7 明文要求
+        "Print view must be clean and omit navigation"。
+        打印时页头（含主导航、语言切换、退出）与页脚都必须消失，
+        否则学生打印自己的评分表时，纸面上会顶着一整条用户界面。
+      */}
+      <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur print:hidden">
         <div className="mx-auto flex min-h-15 w-full max-w-[1200px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1 md:min-h-18">
           <Link
             href="/"
@@ -118,12 +124,12 @@ export function AppShell({
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 focus:outline-none md:px-6 lg:px-8"
+        className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 focus:outline-none md:px-6 lg:px-8 print:max-w-none print:px-0 print:py-0"
       >
         {children}
       </main>
 
-      <footer className="border-border border-t">
+      <footer className="border-border border-t print:hidden">
         <div className="text-muted-foreground mx-auto w-full max-w-[1200px] px-4 py-6 text-xs md:px-6 lg:px-8">
           {/*
               ⚠️ 这里曾经写着「当前为 Phase 1 基础设施阶段」。

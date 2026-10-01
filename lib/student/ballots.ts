@@ -35,6 +35,18 @@ export type StudentBallot = {
   myTotals: { key: string; label: string; value: number; max: number }[];
   /** 队伍总项（例如 PF 的 60 分、JWSD 的 300 分） */
   teamTotals: { key: string; label: string; value: number; max: number }[];
+  /**
+   * 整场的评分项（模板里 `scope: "match"` 且 `type: "score"` 的字段）。
+   *
+   * 目前官方模板里只有「裁判信心」（1–3 档）。⚠️ 这一类字段**原来完全没有
+   * 出现在学生端** —— 只映射了 `speaker` 范围的分数与 `match` 范围的**文字**，
+   * 于是"裁判有多确定"这个信息被静默丢掉了。
+   *
+   * `optionLabel` 是模板里给的档位说明（3 →「清晰判决」）。规范 §8.7 要求
+   * "Score breakdown using the exact ballot template labels" ——
+   * 光给一个 2，学生不知道 2 是什么意思。
+   */
+  matchScores: { key: string; label: string; value: number; optionLabel: string | null }[];
   /** 正反方各自的队伍总分 —— 让学生看到胜负关系 */
   sideTotals: { teamId: string; label: string; total: number | null }[];
   winnerTeamId: string | null;
@@ -169,6 +181,17 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
         max: total.max,
       }));
 
+    const matchScores = schema.fields
+      .filter((field) => field.scope === "match" && field.type === "score")
+      .flatMap((field) => {
+        const raw = data.matchValues[field.key];
+        // 没填的整场评分项不显示（这些字段通常是选填）——
+        // 显示一个"0 分"会让学生以为裁判给他打了 0
+        if (typeof raw !== "number") return [];
+        const optionLabel = field.options?.find((option) => option.value === raw)?.label ?? null;
+        return [{ key: field.key, label: field.label, value: raw, optionLabel }];
+      });
+
     const teamTotals = (schema.totals ?? [])
       .filter((total) => total.scope === "team" || total.scope === "teamFromSpeakers")
       .map((total) => ({
@@ -263,6 +286,7 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
       myScores,
       myTotals,
       teamTotals,
+      matchScores,
       sideTotals,
       winnerTeamId,
       outcome: winnerTeamId === null ? null : winnerTeamId === myTeamId ? "win" : "loss",

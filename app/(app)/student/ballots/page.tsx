@@ -1,15 +1,15 @@
 import Link from "next/link";
 
-import { MetaChip } from "@/components/domain/meta-chip";
+import { BallotDocument } from "@/components/domain/ballot-document";
 import { StatePanel } from "@/components/domain/state-panel";
-import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { requireAnyRole } from "@/lib/auth/session";
-import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
-import { listMyPublishedBallots, toHistoryEntries } from "@/lib/student/ballots";
 import { MIN_DEBATES_FOR_TREND, summarizeStudentHistory } from "@/lib/domain/student-history";
+import { groupPublishedBallots } from "@/lib/domain/student-ballots-view";
+import { CLUB_DEFAULT_TIMEZONE } from "@/lib/domain/timezone";
+import { listMyPublishedBallots, toHistoryEntries } from "@/lib/student/ballots";
 
 import { ReviewRequestForm } from "./review-request-form";
 
@@ -17,10 +17,25 @@ export const metadata = { title: "我的评分表 · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 我的评分表（UI/UX 规范 §8.7「Feedback index and detail」）。
+ *
+ * ⚠️ 这一页原来是"卡片堆"：一份评分表把个人分、两队总分、判决理由、交锋、
+ * 论点、队伍反馈六类东西平铺在一张卡上，全是 `label：value` 段落。
+ * 现在每一份评分表是一个**可读的文件**（见 `BallotDocument`），
+ * 并且按**比赛**分组 —— 一场比赛可以有多位裁判的评分表，
+ * 原来三张几乎一样的卡片摆在一起、没有任何说明，看起来像系统坏了。
+ *
+ * ⚠️ 关于打印：规范要求 "Print view must be clean and omit navigation"。
+ * 导航与页脚由应用外壳统一加 `print:hidden`（见 `components/layout/app-shell.tsx`），
+ * 这一页只需要把**动作类**的东西也标上（复核表单、返回按钮）。
+ * 分数与裁判写的字是**内容**，打印时必须保留。
+ */
 export default async function StudentBallotsPage() {
   await requireAnyRole(AREA_ROLES.student);
   const ballots = await listMyPublishedBallots();
   const history = summarizeStudentHistory(toHistoryEntries(ballots));
+  const groups = groupPublishedBallots(ballots);
 
   const trendText: Record<string, string> = {
     up: `最近几场比之前平均高 ${history.recentTrend.delta} 分`,
@@ -30,8 +45,18 @@ export default async function StudentBallotsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold tracking-tight">我的评分表</h1>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-h2 font-semibold tracking-tight">我的评分表</h1>
+          <p className="text-muted-foreground text-sm">
+            裁判提交、管理员发布之后，你就能在这里看到自己的分数与反馈。
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="print:hidden">
+          <Link href="/student">返回我的辩论社</Link>
+        </Button>
+      </div>
 
       {/*
         历史统计。规范要求"先不要做公开排名，这些分数主要用于个人成长" ——
@@ -124,153 +149,47 @@ export default async function StudentBallotsPage() {
           description="裁判提交之后由管理员发布，发布后你就能在这里看到自己的分数、判决理由与反馈。"
         />
       ) : (
-        <>
-          <p className="text-muted-foreground text-sm">
-            这里是**已发布**的评分表。未发布的评分表还看不到 —— 因为裁判可能还在修改。
-          </p>
+        <section aria-labelledby="ballots-heading" className="flex flex-col gap-6">
+          <h2 id="ballots-heading" className="text-title font-semibold">
+            已发布的评分表（{ballots.length} 份）
+          </h2>
 
-          {ballots.map((ballot) => (
-            <Card key={ballot.ballotId}>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <CardTitle className="text-base">
-                    第 {ballot.matchNumber} 场 · {ballot.roomName}
-                  </CardTitle>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/*
-                      赛制代码与队伍名是**属性**，不是状态 —— 用中性标签，
-                      不染语义色（规范 §5.2 禁止把语义色当装饰）。
-                    */}
-                    <MetaChip>{ballot.formatCode}</MetaChip>
-                    <MetaChip>{ballot.myTeamLabel}</MetaChip>
-                    {/*
-                      BP 用排名而不是胜负，因此这里在没有胜方时要显示名次。
-                      否则 BP 的学生会看到一片空白，以为系统坏了。
-                      名次是**数据**不是"成功" —— 绿色只留给胜利。
-                    */}
-                    {ballot.myRank !== null ? (
-                      <StatusBadge>第 {ballot.myRank} 名</StatusBadge>
-                    ) : ballot.outcome ? (
-                      <StatusBadge tone={ballot.outcome === "win" ? "success" : "neutral"}>
-                        {ballot.outcome === "win" ? "胜" : "负"}
-                      </StatusBadge>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {utcToZonedLocal(new Date(ballot.scheduledStart), CLUB_DEFAULT_TIMEZONE).replace(
-                    "T",
-                    " ",
-                  )}
-                  {ballot.templateName ? ` · 使用模板：${ballot.templateName}` : ""}
+          {groups.map((group) => (
+            <section
+              key={group.matchId}
+              aria-label={`第 ${group.documents[0]?.ballot.matchNumber ?? ""} 场`}
+              className="flex flex-col gap-3"
+            >
+              {group.documents.length > 1 ? (
+                <p className="text-muted-foreground text-sm" role="note">
+                  这一场有 <strong className="text-foreground">{group.documents.length}</strong>{" "}
+                  位裁判的评分表。它们都是有效的记录，分数不同是正常的 ——
+                  下面按裁判分开列出（不公开裁判姓名）。
                 </p>
-              </CardHeader>
+              ) : null}
 
-              <CardContent className="flex flex-col gap-4 text-sm">
-                {/* ---- 我的分数 ---- */}
-                {ballot.myScores.length > 0 ? (
-                  <div>
-                    <h2 className="mb-1 text-sm font-medium">我的分数</h2>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1">
-                      {ballot.myScores.map((score) => (
-                        <span key={score.key}>
-                          {score.label}
-                          <strong className="ml-1">{score.value}</strong>
-                        </span>
-                      ))}
-                    </div>
-                    {ballot.myTotals.map((total) => (
-                      <p key={total.key} className="mt-1">
-                        {total.label}
-                        <strong className="ml-1 text-base">
-                          {total.value} / {total.max}
-                        </strong>
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {/* ---- 两队总分 ---- */}
-                {ballot.sideTotals.some((side) => side.total !== null) ? (
-                  <div>
-                    <h2 className="mb-1 text-sm font-medium">两队总分</h2>
-                    <div className="flex flex-wrap gap-x-6">
-                      {ballot.sideTotals.map((side) => (
-                        <span key={side.teamId}>
-                          {side.label}
-                          <strong className="ml-1">{side.total ?? "—"}</strong>
-                          {side.teamId === ballot.myTeamId ? (
-                            <span className="text-muted-foreground ml-1 text-xs">（我方）</span>
-                          ) : null}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* ---- 判决理由 / 排名理由 ---- */}
-                {ballot.matchText.map((entry) => (
-                  <div key={entry.key}>
-                    <h2 className="mb-1 text-sm font-medium">{entry.label}</h2>
-                    <p className="whitespace-pre-wrap">{entry.value}</p>
-                  </div>
-                ))}
-
-                {/* ---- 交锋 ---- */}
-                {ballot.matchLists.map((list) => (
-                  <div key={list.key}>
-                    <h2 className="mb-1 text-sm font-medium">{list.label}</h2>
-                    <ul className="list-disc pl-5">
-                      {list.entries.map((entry, index) => (
-                        <li key={index}>{entry}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-
-                {/* ---- 我方论点 ---- */}
-                {ballot.teamLists.map((list) => (
-                  <div key={list.key}>
-                    <h2 className="mb-1 text-sm font-medium">
-                      {ballot.myTeamLabel}的{list.label}
-                    </h2>
-                    <ul className="list-disc pl-5">
-                      {list.entries.map((entry, index) => (
-                        <li key={index}>{entry}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-
-                {/* ---- 队伍反馈 ---- */}
-                {ballot.teamFeedback.length > 0 ? (
-                  <div>
-                    <h2 className="mb-1 text-sm font-medium">给{ballot.myTeamLabel}的反馈</h2>
-                    {ballot.teamFeedback.map((entry) => (
-                      <p key={entry.key} className="mb-1">
-                        <span className="text-muted-foreground">{entry.label}：</span>
-                        {entry.value}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {/* 复核请求：同一份评分表只能提一次（数据库唯一约束强制） */}
-                <div className="border-border border-t pt-3">
-                  <ReviewRequestForm
-                    ballotId={ballot.ballotId}
-                    existingStatus={ballot.reviewStatus}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              {group.documents.map(({ ballot, anonymousLabel }) => (
+                <BallotDocument
+                  key={ballot.ballotId}
+                  ballot={ballot}
+                  anonymousLabel={anonymousLabel}
+                  reviewSlot={
+                    <ReviewRequestForm
+                      ballotId={ballot.ballotId}
+                      existingStatus={ballot.reviewStatus}
+                    />
+                  }
+                />
+              ))}
+            </section>
           ))}
-        </>
-      )}
 
-      <Button asChild variant="outline" size="sm" className="self-start">
-        <Link href="/student">返回学生区域</Link>
-      </Button>
+          <p className="text-muted-foreground text-xs">
+            这里的时间按俱乐部的默认时区（{CLUB_DEFAULT_TIMEZONE}
+            ）显示；活动自己的时区见各活动的详情页。
+          </p>
+        </section>
+      )}
     </div>
   );
 }

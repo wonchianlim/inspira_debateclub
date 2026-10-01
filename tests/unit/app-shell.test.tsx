@@ -87,3 +87,37 @@ describe("AppShell 应用外壳", () => {
     expect(screen.getByRole("link", { name: "活动" })).not.toHaveAttribute("aria-current");
   });
 });
+
+describe("打印视图（规范 §8.7：「Print view must be clean and omit navigation」）", () => {
+  it("页头（含主导航）与页脚在打印时隐藏", () => {
+    const { container } = render(
+      <AppShell navItems={[{ href: "/", label: "首页", current: true }]}>
+        <p>内容</p>
+      </AppShell>,
+    );
+    // 打印时纸面上不该顶着一整条用户界面
+    expect(container.querySelector("header")?.className).toContain("print:hidden");
+    expect(container.querySelector("footer")?.className).toContain("print:hidden");
+  });
+
+  it("「跳到主要内容」链接在打印时隐藏（它也是导航）", () => {
+    const { container } = render(
+      <AppShell>
+        <p>内容</p>
+      </AppShell>,
+    );
+    const skipLink = container.querySelector('a[href="#main-content"]');
+    expect(skipLink?.className).toContain("print:hidden");
+  });
+
+  it("内容区在打印时放开内边距与最大宽度，把纸面留给正文", () => {
+    const { container } = render(
+      <AppShell>
+        <p>内容</p>
+      </AppShell>,
+    );
+    const main = container.querySelector("main");
+    expect(main?.className).toContain("print:px-0");
+    expect(main?.className).toContain("print:max-w-none");
+  });
+});
