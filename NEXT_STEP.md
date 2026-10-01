@@ -263,6 +263,66 @@ application status and next steps."
 
 ---
 
+## 2026-10-01 追加：4c-2 裁判评分表（评分表提交的**致命缺陷**已修）
+
+### 🔴 先说缺陷：5 个赛制里有 4 个**根本提交不了**评分表
+
+原来评分表的**所有输入框都在 `<form>` 之外** ——
+页面上只有两个各自装着隐藏字段的小 `<form>`，真正的分数、胜方、判决理由
+全在它们外面。后果：
+
+```js
+formData.get("winnerTeamId")      // 永远是 null
+formData.get("reasonForDecision") // 永远是 null
+```
+
+而官方模板里有 **4 个**（PF / JWSD / WSDC / 一对一）都是
+`winnerRequired: true` **且** `reasonForDecisionRequired: true`，
+服务端 `canSubmitBallot` 因此必然拒绝：
+裁判选完胜方、写完理由，点提交仍然被告诉「还不能提交：请选择胜方；请填写判决理由」——
+**无论怎样都提交不了**。只有 BP（没有胜方）能提交。
+
+修法：整个填写区收进**一个** `<form>`；胜方改成**带 `name` 的 radio group**
+（规范 §9.3 也要求 winner 用 radio）；判决理由改为受控并在表单内。
+"保存草稿"通过 `formAction` 指向保存动作，因此**草稿永远可用**这一点没变
+（保存动作不做内容校验）。
+
+**⚠️ 建议你在生产上核对一下**：有没有任何 PF / JWSD / WSDC 的评分表
+曾经被**提交**过（`ballots.status in ('submitted','resubmitted','published')`）。
+如果一份都没有，那这条链路（裁判交表 → 管理员发布 → 学生看到反馈）实际上从未走通过。
+
+### ✅ 4c-2a 同时完成的规范 §9.3 条目
+
+| 规范要求 | 现状 |
+|---|---|
+| 1. Sticky round summary | ✅ 场次/房间/赛制/模板/时间/状态跟着滚 |
+| 2. Decision/winner control（**radio group**） | ✅ 改成 radio |
+| 3. Template-defined scoring sections | 已有（模板生成） |
+| 4. Written feedback fields | 已有 |
+| 5. Private admin note `Not shown to students` | ⚠️ **未做**：系统里没有"只给管理员看的裁判备注"这个策略，规范写的是 "only if policy supports it" |
+| 6. Review summary | ✅ 提交前那一步确认会列出**还缺哪些必填项**（谁 · 哪一项） |
+| 7. `Save draft` 与 `Submit ballot` | ✅ 仍在，且草稿不校验 |
+| 提交确认弹窗 + "editing may be locked" 提醒 | ✅ 表单内一步确认（可读、可聚焦、无需 JS 弹窗） |
+| 提交后显示**时间戳与编号**的不可变视图 | ⚠️ **未做**：只读视图有，但没显示提交时间与编号（要往 `BallotContext` 加 `submittedAt`） |
+| **自动保存**（idle + blur，`Saved just now` / `Saving…` / 失败重试） | ⏳ **未做**，见下 |
+| **"never silently overwrite a newer ballot"** | ⏳ **未做**，见下 |
+
+### ⏳ 4c-2b（下一轮）：自动保存与版本比对
+
+规范第一句就是 "The ballot is **autosaved** and resilient"，而且明确要求
+"On reconnect, reconcile with server version and **never silently overwrite a
+newer ballot**"。后者需要：
+
+- `BallotContext` 带上 `updatedAt`（ballot 的 `updated_at`）；
+- 保存动作接受 `expectedUpdatedAt`，不一致时返回一个**可识别**的状态
+  （而不是普通错误），界面据此**停止自动保存**并告诉裁判"这份评分表在别处被改过"；
+- 自动保存成功后要把新的 `updatedAt` 回写到界面状态。
+
+也就是说它需要**乐观并发**，属于数据完整性改动 —— 单独一轮做。
+另外顺手要做的：只读视图显示提交时间与编号。
+
+---
+
 ## 阶段 4 进度（2026-10-01）
 
 ### ✅ 4b-1 学生首页 `/student`（规范 §8.1）
@@ -459,10 +519,10 @@ template labels"，光给一个 2 学生看不懂）。
    我建议单独一轮做，而不是顺手加个 `setTimeout`。
 
 7. **阶段 4 剩下的部分按什么顺序做？**
-   **学生端（4b）已做完，裁判端 4c-1 已完成。** 剩下的：
-   `4c-2` 裁判评分表（§9.3，含自动保存）／`4c-3` 冲突声明（§9.2，新功能）／
+   **学生端（4b）已做完；裁判端 4c-1（工作台）与 4c-2a（评分表结构 + 那个致命缺陷）已完成。**
+   剩下的：`4c-2b` 自动保存与版本比对／`4c-3` 冲突声明（§9.2，新功能）／
    `4a` 认证页／`4d` 俱乐部管理／`4e` 系统管理。
-   我建议下一步做 **4c-2 评分表**（裁判每天要用它，价值最高）。
+   我建议下一步做 **4c-2b 自动保存**（规范把它列在 §9.3 的第一句）。
 
 
 ---

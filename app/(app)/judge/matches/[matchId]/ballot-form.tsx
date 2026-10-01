@@ -1,16 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import { FormMessage } from "@/components/domain/form-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BallotField } from "@/lib/domain/ballot-schema";
+import { reviewBallot } from "@/lib/domain/ballot-review";
 import type { BallotContext } from "@/lib/judge/ballots";
 import { saveBallotDraftAction, submitBallotAction } from "@/lib/judge/ballot-actions";
 import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
 import { BALLOT_DRAFT_NOTE } from "@/lib/validation/ballot-submission";
+import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 
 /**
  * 裁判填表。
@@ -274,6 +276,23 @@ export function BallotForm({ context }: { context: BallotContext }) {
     JSON.stringify({ ...context.data.matchValues, ...context.data.teamValues }),
   );
 
+  /*
+   * ⚠️ 胜方与判决理由必须是**受控**的。
+   *
+   * 原来胜方用的是一个**没有 name 的 `<select>`**，判决理由虽然写了 name，
+   * 却和所有字段一样被放在**两个 <form> 之外** ——
+   * 于是 `formData.get("winnerTeamId")` / `get("reasonForDecision")` 永远是 null。
+   * 服务端的 `canSubmitBallot` 要求必填，结果是：**PF 这类赛制根本提交不了**，
+   * 裁判选完胜方、写完理由，点提交仍然被告诉"请选择胜方"。
+   *
+   * 现在整个填写区都在**一个** form 里，胜方是带 name 的 radio group
+   * （规范 §9.3 也要求 winner 用 radio group 而不是下拉框）。
+   */
+  const [winnerTeamId, setWinnerTeamId] = useState(context.winnerTeamId ?? "");
+  const [reasonForDecision, setReasonForDecision] = useState(context.reasonForDecision ?? "");
+  const [confirming, setConfirming] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
   const updateSpeaker = (studentId: string, fieldKey: string, value: string) => {
     const current = JSON.parse(speakerScoresJson) as Record<string, Record<string, unknown>>;
     current[studentId] = { ...(current[studentId] ?? {}), [fieldKey]: value === "" ? null : value };
@@ -286,264 +305,396 @@ export function BallotForm({ context }: { context: BallotContext }) {
     setOtherValuesJson(JSON.stringify(current));
   };
 
+  /*
+   * 提交前的自查。用**当前状态**算出来，因此裁判在点提交之前就能看到还缺什么，
+   * 而不是提交失败之后被一次性告知。
+   */
+  const review = reviewBallot({
+    schema: context.schema,
+    speakerValues: JSON.parse(speakerScoresJson) as Record<string, Record<string, unknown>>,
+    otherValues: JSON.parse(otherValuesJson) as Record<string, unknown>,
+    speakers: context.speakers,
+    teams: context.teams,
+    winnerTeamId: winnerTeamId || null,
+    reasonForDecision,
+  });
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-muted-foreground text-sm">{BALLOT_DRAFT_NOTE}</p>
-
-      {readOnly ? (
-        <p className="border-border rounded-md border px-3 py-2 text-sm">
-          这份评分表已经提交，当前为「{context.ballotStatus}」，不能直接修改。
-          如需更正，请联系管理员重开。
+      {/*
+        规范 §9.3 第 1 条：「Sticky round summary」。
+        一份评分表要往下滚很久（每位发言者一组字段），
+        摘要跟着滚，裁判随时知道自己在评哪一场 —— 手里可能开着好几场。
+      */}
+      <div className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-10 -mx-1 rounded-md border px-3 py-2 backdrop-blur">
+        <p className="text-sm font-medium">
+          第 {context.matchNumber} 场 · {context.roomName}
+          <span className="text-muted-foreground ml-2 text-xs font-normal">
+            {context.formatCode} · {context.templateName}
+          </span>
         </p>
-      ) : null}
+        <p className="text-muted-foreground text-xs">
+          {utcToZonedLocal(new Date(context.scheduledStart), CLUB_DEFAULT_TIMEZONE).replace(
+            "T",
+            " ",
+          )}
+          （{CLUB_DEFAULT_TIMEZONE}）
+          {context.ballotStatus ? ` · 当前状态：${context.ballotStatus}` : ""}
+        </p>
+      </div>
 
-      {context.speakers.map((speaker) => {
-        const fields = fieldsForSpeaker(speaker.speakerPosition);
-        return (
-          <fieldset key={speaker.studentId} className="border-border rounded-md border px-3 py-3">
-            <legend className="px-1 text-sm font-medium">
-              {speaker.displayName}
-              {speaker.speakerPosition > 0 ? (
-                <span className="text-muted-foreground ml-2 text-xs">
-                  第 {speaker.speakerPosition} 位发言
-                </span>
-              ) : null}
-            </legend>
-            <div className="flex flex-wrap items-end gap-3">
-              {fields.map((field) => (
-                <div key={field.key} className="flex flex-col gap-1">
-                  <Label htmlFor={`${speaker.studentId}-${field.key}`} className="text-xs">
-                    {field.label}
-                    {field.type === "score" ? `（${field.min}–${field.max}）` : ""}
-                  </Label>
-                  {field.type === "score" && field.options ? (
-                    // 有分档说明时用下拉，让裁判看到每一档的含义（例如裁判信心的 3/2/1）
-                    <select
-                      id={`${speaker.studentId}-${field.key}`}
-                      disabled={busy || readOnly}
-                      defaultValue={
-                        (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ?? ""
-                      }
-                      onChange={(event) =>
-                        updateSpeaker(speaker.studentId, field.key, event.target.value)
-                      }
-                      className="border-input bg-background h-9 w-56 rounded-md border px-2 text-sm"
-                    >
-                      <option value="">请选择</option>
-                      {field.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.value} · {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <Input
-                      id={`${speaker.studentId}-${field.key}`}
-                      type={field.type === "score" ? "number" : "text"}
-                      step={field.step ?? "any"}
-                      min={field.min}
-                      max={field.max}
-                      disabled={busy || readOnly}
-                      defaultValue={
-                        (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ?? ""
-                      }
-                      onChange={(event) =>
-                        updateSpeaker(speaker.studentId, field.key, event.target.value)
-                      }
-                      className="w-32"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </fieldset>
-        );
-      })}
+      {/*
+        ⚠️ 整个填写区必须在**同一个 form 里**。
+        这里原来是把每个 `<form>` 只套在按钮上、把所有输入框留在外面，
+        于是 `winnerTeamId` 与 `reasonForDecision` 从来没有被提交过。
+      */}
+      <form ref={formRef} action={submitAction} className="flex flex-col gap-4">
+        {/* 动态字段靠隐藏字段交给服务端（字段是模板生成的，服务端无法预知 name） */}
+        <input type="hidden" name="matchId" value={context.matchId} />
+        <input type="hidden" name="speakerScoresJson" value={speakerScoresJson} />
+        <input type="hidden" name="otherValuesJson" value={otherValuesJson} />
 
-      {/* ---- 按队伍的字段：标量与**可重复列表** ---- */}
-      {teamFields.length > 0 ? (
-        <fieldset className="border-border rounded-md border px-3 py-3">
-          <legend className="px-1 text-sm font-medium">按队伍</legend>
-          {context.teams.map((team) => (
-            <div key={team.teamId} className="mb-4 flex flex-col gap-2">
-              <span className="text-sm font-medium">{team.teamLabel ?? team.position}</span>
-              {teamFields.map((field) =>
-                field.type === "list" ? (
-                  <ListField
-                    key={field.key}
-                    field={field}
-                    entries={readTeamList(context, team.teamId, field.key)}
-                    disabled={busy || readOnly}
-                    onChange={(entries) =>
-                      updateOther(`${team.teamId}|${field.key}`, JSON.stringify(entries))
-                    }
-                  />
-                ) : (
+        <p className="text-muted-foreground text-sm">{BALLOT_DRAFT_NOTE}</p>
+
+        {readOnly ? (
+          <p className="border-border rounded-md border px-3 py-2 text-sm">
+            这份评分表已经提交，当前为「{context.ballotStatus}」，不能直接修改。
+            如需更正，请联系管理员重开。
+          </p>
+        ) : null}
+
+        {context.speakers.map((speaker) => {
+          const fields = fieldsForSpeaker(speaker.speakerPosition);
+          return (
+            <fieldset key={speaker.studentId} className="border-border rounded-md border px-3 py-3">
+              <legend className="px-1 text-sm font-medium">
+                {speaker.displayName}
+                {speaker.speakerPosition > 0 ? (
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    第 {speaker.speakerPosition} 位发言
+                  </span>
+                ) : null}
+              </legend>
+              <div className="flex flex-wrap items-end gap-3">
+                {fields.map((field) => (
                   <div key={field.key} className="flex flex-col gap-1">
-                    <Label htmlFor={`${team.teamId}-${field.key}`} className="text-xs">
+                    <Label htmlFor={`${speaker.studentId}-${field.key}`} className="text-xs">
                       {field.label}
+                      {field.type === "score" ? `（${field.min}–${field.max}）` : ""}
                     </Label>
-                    <textarea
-                      id={`${team.teamId}-${field.key}`}
-                      rows={2}
-                      disabled={busy || readOnly}
-                      defaultValue={
-                        (context.data.teamValues[team.teamId]?.[field.key] as string) ?? ""
-                      }
-                      onChange={(event) =>
-                        updateOther(`${team.teamId}|${field.key}`, event.target.value)
-                      }
-                      className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
-                    />
+                    {field.type === "score" && field.options ? (
+                      // 有分档说明时用下拉，让裁判看到每一档的含义（例如裁判信心的 3/2/1）
+                      <select
+                        id={`${speaker.studentId}-${field.key}`}
+                        disabled={busy || readOnly}
+                        defaultValue={
+                          (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ??
+                          ""
+                        }
+                        onChange={(event) =>
+                          updateSpeaker(speaker.studentId, field.key, event.target.value)
+                        }
+                        className="border-input bg-background h-9 w-56 rounded-md border px-2 text-sm"
+                      >
+                        <option value="">请选择</option>
+                        {field.options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.value} · {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        id={`${speaker.studentId}-${field.key}`}
+                        type={field.type === "score" ? "number" : "text"}
+                        step={field.step ?? "any"}
+                        min={field.min}
+                        max={field.max}
+                        disabled={busy || readOnly}
+                        defaultValue={
+                          (context.data.speakerValues[speaker.studentId]?.[field.key] as string) ??
+                          ""
+                        }
+                        onChange={(event) =>
+                          updateSpeaker(speaker.studentId, field.key, event.target.value)
+                        }
+                        className="w-32"
+                      />
+                    )}
                   </div>
-                ),
-              )}
-            </div>
-          ))}
-        </fieldset>
-      ) : null}
-
-      {/* ---- 整场的字段 ---- */}
-      {matchFields.length > 0 ? (
-        <fieldset className="border-border rounded-md border px-3 py-3">
-          <legend className="px-1 text-sm font-medium">整场</legend>
-          {matchFields.map((field) =>
-            field.type === "ranking" ? (
-              <RankingField
-                key={field.key}
-                field={field}
-                teams={context.teams.map((team) => ({
-                  teamId: team.teamId,
-                  label: team.teamLabel ?? team.position,
-                }))}
-                value={
-                  (context.data.matchValues[field.key] as Record<string, number> | undefined) ?? {}
-                }
-                disabled={busy || readOnly}
-                onChange={(value) => updateOther(field.key, JSON.stringify(value))}
-              />
-            ) : field.type === "list" ? (
-              <ListField
-                key={field.key}
-                field={field}
-                entries={readMatchList(context, field.key)}
-                disabled={busy || readOnly}
-                onChange={(entries) => updateOther(field.key, JSON.stringify(entries))}
-              />
-            ) : field.key === "judge_confidence" && field.options ? (
-              <div key={field.key} className="mb-2 flex flex-col gap-1">
-                <Label htmlFor={`match-${field.key}`} className="text-xs">
-                  {field.label}
-                </Label>
-                <select
-                  id={`match-${field.key}`}
-                  disabled={busy || readOnly}
-                  defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
-                  onChange={(event) => updateOther(field.key, event.target.value)}
-                  className="border-input bg-background h-9 max-w-72 rounded-md border px-2 text-sm"
-                >
-                  <option value="">请选择</option>
-                  {field.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.value} · {option.label}
-                    </option>
-                  ))}
-                </select>
+                ))}
               </div>
-            ) : (
-              <div key={field.key} className="mb-2 flex flex-col gap-1">
-                <Label htmlFor={`match-${field.key}`} className="text-xs">
-                  {field.label}
-                  {field.minLength ? (
-                    <span className="text-muted-foreground ml-1 font-normal">
-                      （建议至少 {field.minLength} 字）
-                    </span>
-                  ) : null}
+            </fieldset>
+          );
+        })}
+
+        {/* ---- 按队伍的字段：标量与**可重复列表** ---- */}
+        {teamFields.length > 0 ? (
+          <fieldset className="border-border rounded-md border px-3 py-3">
+            <legend className="px-1 text-sm font-medium">按队伍</legend>
+            {context.teams.map((team) => (
+              <div key={team.teamId} className="mb-4 flex flex-col gap-2">
+                <span className="text-sm font-medium">{team.teamLabel ?? team.position}</span>
+                {teamFields.map((field) =>
+                  field.type === "list" ? (
+                    <ListField
+                      key={field.key}
+                      field={field}
+                      entries={readTeamList(context, team.teamId, field.key)}
+                      disabled={busy || readOnly}
+                      onChange={(entries) =>
+                        updateOther(`${team.teamId}|${field.key}`, JSON.stringify(entries))
+                      }
+                    />
+                  ) : (
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <Label htmlFor={`${team.teamId}-${field.key}`} className="text-xs">
+                        {field.label}
+                      </Label>
+                      <textarea
+                        id={`${team.teamId}-${field.key}`}
+                        rows={2}
+                        disabled={busy || readOnly}
+                        defaultValue={
+                          (context.data.teamValues[team.teamId]?.[field.key] as string) ?? ""
+                        }
+                        onChange={(event) =>
+                          updateOther(`${team.teamId}|${field.key}`, event.target.value)
+                        }
+                        className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
+            ))}
+          </fieldset>
+        ) : null}
+
+        {/* ---- 整场的字段 ---- */}
+        {matchFields.length > 0 ? (
+          <fieldset className="border-border rounded-md border px-3 py-3">
+            <legend className="px-1 text-sm font-medium">整场</legend>
+            {matchFields.map((field) =>
+              field.type === "ranking" ? (
+                <RankingField
+                  key={field.key}
+                  field={field}
+                  teams={context.teams.map((team) => ({
+                    teamId: team.teamId,
+                    label: team.teamLabel ?? team.position,
+                  }))}
+                  value={
+                    (context.data.matchValues[field.key] as Record<string, number> | undefined) ??
+                    {}
+                  }
+                  disabled={busy || readOnly}
+                  onChange={(value) => updateOther(field.key, JSON.stringify(value))}
+                />
+              ) : field.type === "list" ? (
+                <ListField
+                  key={field.key}
+                  field={field}
+                  entries={readMatchList(context, field.key)}
+                  disabled={busy || readOnly}
+                  onChange={(entries) => updateOther(field.key, JSON.stringify(entries))}
+                />
+              ) : field.key === "judge_confidence" && field.options ? (
+                <div key={field.key} className="mb-2 flex flex-col gap-1">
+                  <Label htmlFor={`match-${field.key}`} className="text-xs">
+                    {field.label}
+                  </Label>
+                  <select
+                    id={`match-${field.key}`}
+                    disabled={busy || readOnly}
+                    defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
+                    onChange={(event) => updateOther(field.key, event.target.value)}
+                    className="border-input bg-background h-9 max-w-72 rounded-md border px-2 text-sm"
+                  >
+                    <option value="">请选择</option>
+                    {field.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.value} · {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div key={field.key} className="mb-2 flex flex-col gap-1">
+                  <Label htmlFor={`match-${field.key}`} className="text-xs">
+                    {field.label}
+                    {field.minLength ? (
+                      <span className="text-muted-foreground ml-1 font-normal">
+                        （建议至少 {field.minLength} 字）
+                      </span>
+                    ) : null}
+                  </Label>
+                  <textarea
+                    id={`match-${field.key}`}
+                    rows={field.key === "reason_for_decision" ? 5 : 3}
+                    disabled={busy || readOnly}
+                    defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
+                    onChange={(event) => updateOther(field.key, event.target.value)}
+                    className="border-input bg-background max-w-2xl rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+              ),
+            )}
+          </fieldset>
+        ) : null}
+
+        {context.schema.winnerRequired || context.schema.reasonForDecisionRequired ? (
+          <fieldset className="border-border rounded-md border px-3 py-3">
+            <legend className="px-1 text-sm font-medium">判决</legend>
+            {/*
+            规范 §9.3：「radio group for winner」。
+            用 radio 而不是下拉框：选项通常只有 2–4 个，铺开更少一次点击，
+            而且**看得见自己选的是哪个** —— 判决是这份表里最不该看错的一项。
+
+            ⚠️ 每个 radio 都必须有 `name`（原来那个 select 就是漏了 name，
+            于是胜方从来没被提交过，导致 PF 根本提交不了）。
+          */}
+            {context.schema.winnerRequired ? (
+              <fieldset className="mb-3">
+                <legend className="text-xs">胜方</legend>
+                <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2">
+                  {context.teams.map((team) => {
+                    const id = `winner-${team.teamId}`;
+                    return (
+                      <label
+                        key={team.teamId}
+                        htmlFor={id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <input
+                          id={id}
+                          type="radio"
+                          name="winnerTeamId"
+                          value={team.teamId}
+                          checked={winnerTeamId === team.teamId}
+                          disabled={busy || readOnly}
+                          onChange={() => setWinnerTeamId(team.teamId)}
+                          className="accent-primary size-4"
+                        />
+                        {team.teamLabel ?? team.position}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : null}
+            {context.schema.reasonForDecisionRequired ? (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="reasonForDecision" className="text-xs">
+                  判决理由
                 </Label>
                 <textarea
-                  id={`match-${field.key}`}
-                  rows={field.key === "reason_for_decision" ? 5 : 3}
+                  id="reasonForDecision"
+                  name="reasonForDecision"
+                  rows={3}
                   disabled={busy || readOnly}
-                  defaultValue={(context.data.matchValues[field.key] as string) ?? ""}
-                  onChange={(event) => updateOther(field.key, event.target.value)}
-                  className="border-input bg-background max-w-2xl rounded-md border px-3 py-2 text-sm"
+                  value={reasonForDecision}
+                  onChange={(event) => setReasonForDecision(event.target.value)}
+                  aria-describedby="reasonForDecision-hint"
+                  className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
                 />
+                <p id="reasonForDecision-hint" className="text-muted-foreground text-xs">
+                  建议至少 100 字；不到也可以提交，理由写得清不清楚比字数重要。 已写{" "}
+                  {review.reasonLength} 字。
+                </p>
               </div>
-            ),
-          )}
-        </fieldset>
-      ) : null}
+            ) : null}
+          </fieldset>
+        ) : null}
 
-      {context.schema.winnerRequired || context.schema.reasonForDecisionRequired ? (
-        <fieldset className="border-border rounded-md border px-3 py-3">
-          <legend className="px-1 text-sm font-medium">判决</legend>
-          {context.schema.winnerRequired ? (
-            <div className="mb-2 flex flex-col gap-1">
-              <Label htmlFor="winnerTeamId" className="text-xs">
-                胜方
-              </Label>
-              <select
-                id="winnerTeamId"
-                defaultValue={context.winnerTeamId ?? ""}
-                disabled={busy || readOnly}
-                className="border-input bg-background h-9 max-w-72 rounded-md border px-2 text-sm"
-              >
-                <option value="">请选择</option>
-                {context.teams.map((team) => (
-                  <option key={team.teamId} value={team.teamId}>
-                    {team.teamLabel ?? team.position}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {context.schema.reasonForDecisionRequired ? (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="reasonForDecision" className="text-xs">
-                判决理由
-              </Label>
-              <textarea
-                id="reasonForDecision"
-                name="reasonForDecision"
-                rows={3}
-                disabled={busy || readOnly}
-                defaultValue={context.reasonForDecision ?? ""}
-                className="border-input bg-background max-w-xl rounded-md border px-3 py-2 text-sm"
-              />
-            </div>
-          ) : null}
-        </fieldset>
-      ) : null}
+        <FormMessage status={draftState.status} message={draftState.message} />
+        <FormMessage status={submitState.status} message={submitState.message} />
 
-      <FormMessage status={draftState.status} message={draftState.message} />
-      <FormMessage status={submitState.status} message={submitState.message} />
+        {!readOnly ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {/*
+            "保存草稿"与"提交"共用**同一个表单**：
+            草稿按钮通过 `formAction` 换成保存动作。
 
-      {!readOnly ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <form action={draftAction}>
-            <input type="hidden" name="matchId" value={context.matchId} />
-            <input type="hidden" name="speakerScoresJson" value={speakerScoresJson} />
-            <input type="hidden" name="otherValuesJson" value={otherValuesJson} />
-            <Button type="submit" variant="outline" disabled={busy}>
-              {busy ? "…" : "保存草稿"}
-            </Button>
-          </form>
+            ⚠️ 原来这里是**两个只装着隐藏字段的小 <form>**，而所有真正的输入框
+            （分数、胜方、判决理由）都在它们**外面** —— 于是胜方与判决理由
+            从来没有被提交过。服务端要求这两项必填，结果是 PF 这类赛制
+            **根本提交不了**：裁判选完胜方、写完理由，点提交仍然被告知"请选择胜方"。
 
-          {/*
-            提交与保存草稿是**两个独立的表单**，但共用同一份数据。
-            这样"保存草稿"永远不会因为内容不完整而失败 ——
-            裁判是边听边记的，中途保存必须永远可用。
+            草稿仍然永远可用：保存动作不做内容校验（裁判是边听边记的）。
           */}
-          <form action={submitAction}>
-            <input type="hidden" name="matchId" value={context.matchId} />
-            <input type="hidden" name="speakerScoresJson" value={speakerScoresJson} />
-            <input type="hidden" name="otherValuesJson" value={otherValuesJson} />
-            <Button type="submit" disabled={busy}>
-              {busy ? "…" : "提交评分表"}
+            <Button type="submit" formAction={draftAction} variant="outline" disabled={busy}>
+              {savingDraft ? "保存中…" : "保存草稿"}
             </Button>
-          </form>
-        </div>
-      ) : null}
+            <Button type="button" disabled={busy} onClick={() => setConfirming(true)}>
+              提交评分表
+            </Button>
+          </div>
+        ) : null}
+
+        {/*
+        规范 §9.3：「Submission dialog summarises the decision and warns that
+        editing may be locked.」
+
+        用**表单内**的一步确认，而不是浏览器弹窗：它可读、可聚焦、
+        而且确认按钮就是一个普通的 type="submit"，因此提交仍然走服务端动作。
+      */}
+        {confirming && !readOnly ? (
+          <section
+            aria-labelledby="submit-confirm-heading"
+            className="border-border bg-muted/40 rounded-md border px-4 py-4"
+          >
+            <h2 id="submit-confirm-heading" className="text-sm font-medium">
+              确认提交这份评分表？
+            </h2>
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">胜方</dt>
+                <dd>{review.winnerLabel ?? "（还没有选）"}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">判决理由</dt>
+                <dd>
+                  {review.reasonLength > 0 ? `已写 ${review.reasonLength} 字` : "（还没有写）"}
+                </dd>
+              </div>
+            </dl>
+
+            {review.missing.length > 0 ? (
+              <div className="mt-3">
+                <p className="text-warning text-sm" role="alert">
+                  还有 {review.missing.length} 项必填内容没填，现在提交会被服务端拒绝：
+                </p>
+                <ul className="text-muted-foreground mt-1 list-disc pl-5 text-xs">
+                  {review.missing.slice(0, 8).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {review.missing.length > 8 ? (
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    还有 {review.missing.length - 8} 项……
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm">必填内容看起来都填齐了。</p>
+            )}
+
+            <p className="text-muted-foreground mt-3 text-xs">
+              提交之后这份评分表**不能直接修改**；如需更正，要请管理员重开。
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={busy}>
+                {submitting ? "提交中…" : "确认提交"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
+                返回检查
+              </Button>
+            </div>
+          </section>
+        ) : null}
+      </form>
     </div>
   );
 }
