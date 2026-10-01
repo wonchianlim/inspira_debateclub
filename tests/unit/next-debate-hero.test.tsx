@@ -21,6 +21,8 @@ const EVENT: StudentHomeEvent = {
   // 这样"显示时间有没有用活动自己的时区"才是真的被验证了
   timezone: "America/New_York",
   enabledFormatCount: 3,
+  venue: "教学楼 A101",
+  meetingUrl: null,
   startsAt: "2026-10-20T10:00:00Z",
   checkInOpensAt: "2026-10-20T09:00:00Z",
   registrationOpensAt: "2026-10-01T00:00:00Z",
@@ -45,6 +47,21 @@ describe("hero 的内容与结构", () => {
   it("显示赛制数量（规范要求 hero 里有 format）", () => {
     render(<NextDebateHero event={EVENT} now={NOW} />);
     expect(screen.getByText("3 个可选")).toBeInTheDocument();
+  });
+
+  it("显示地点（规范要求 hero 里有 venue/online label）", () => {
+    render(<NextDebateHero event={EVENT} now={NOW} />);
+    expect(screen.getByText("教学楼 A101")).toBeInTheDocument();
+  });
+
+  it("线上活动显示「线上」而不是「地点待定」", () => {
+    render(
+      <NextDebateHero
+        event={{ ...EVENT, venue: null, meetingUrl: "https://x.invalid" }}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByText("线上")).toBeInTheDocument();
   });
 
   it("这一段有可访问名称 —— 屏幕阅读器能听出它是一块独立区域", () => {

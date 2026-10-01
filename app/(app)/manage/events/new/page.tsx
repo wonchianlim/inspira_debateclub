@@ -44,6 +44,7 @@ function buildDefaults(offsets: Parameters<typeof computeDefaultSchedule>[1]) {
     checkInOpensAtLocal: utcToZonedLocal(schedule.checkInOpensAt, zone),
     warningAtLocal: utcToZonedLocal(schedule.warningAt, zone),
     meetingUrl: "",
+    venue: "",
     notice: "",
   };
 }

@@ -11,6 +11,7 @@ import {
   type RegistrationWindowState,
   cancellationStatus,
   checkRegistration,
+  isCheckInOpen,
   isEventStatusOpenForRegistration,
   partitionFormatChoices,
   registrationWindowState,
@@ -331,5 +332,42 @@ describe("跨层一致性：与迁移 SQL 里的状态清单一致", () => {
       (status) => !EVENT_STATUSES_BLOCKING_REGISTRATION.includes(status),
     );
     expect(allowed.length).toBe(5);
+  });
+});
+
+/**
+ * 签到窗口（规范第 2.8 节："签到在活动开始前 30 分钟开放"）。
+ *
+ * ⚠️ 参数是**活动自己的** `check_in_opens_at`，不是"开始前 30 分钟"算出来的值。
+ * 「30 分钟」只是新建活动时的默认值，管理员在系统设置里可以改掉它 ——
+ * 原来有一个按写死 30 分钟计算的 `isCheckInOpen(startsAt, now)`，因为这一点被删除了。
+ *
+ * ⚠️ 边界必须与数据库严格互补：触发器在 `now() < opens_at` 时拒绝，
+ * 因此这里 `now == opens_at` 必须算**已开放**。两边的边界不一致会出现
+ * "界面显示可以签到、数据库却拒绝"这种最难排查的一类 bug。
+ */
+describe("签到窗口", () => {
+  const opensAt = new Date("2026-10-01T11:30:00.000Z");
+
+  it("开放前 1 分钟 → 未开放", () => {
+    expect(isCheckInOpen(opensAt, new Date("2026-10-01T11:29:00.000Z"))).toBe(false);
+  });
+
+  it("**恰好**开放时刻 → 已开放（边界包含，与数据库触发器互补）", () => {
+    expect(isCheckInOpen(opensAt, opensAt)).toBe(true);
+  });
+
+  it("开放之后（含活动已经开始）→ 仍算开放", () => {
+    expect(isCheckInOpen(opensAt, new Date("2026-10-01T11:31:00.000Z"))).toBe(true);
+    expect(isCheckInOpen(opensAt, new Date("2026-10-01T13:00:00.000Z"))).toBe(true);
+  });
+
+  it("读的是传入的那一列，而不是「开始前 30 分钟」", () => {
+    const startsAt = new Date("2026-10-01T14:00:00.000Z");
+    // 活动把签到开放时间改成了"开始前 3 小时"（管理员改过设置）
+    const customOpensAt = new Date("2026-10-01T11:00:00.000Z");
+    // 按写死的 30 分钟会算成"还没开放"（12:00 < 13:30），按真实的那一列已经开放
+    expect(isCheckInOpen(customOpensAt, new Date("2026-10-01T12:00:00.000Z"))).toBe(true);
+    expect(startsAt.getTime()).toBeGreaterThan(new Date("2026-10-01T12:00:00.000Z").getTime());
   });
 });

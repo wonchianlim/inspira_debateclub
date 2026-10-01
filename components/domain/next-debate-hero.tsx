@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { describeEventLocation } from "@/lib/domain/event-location";
 import { heroAction, type StudentHomeEvent } from "@/lib/domain/student-home";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 
@@ -41,6 +42,10 @@ export function NextDebateHero({ event, now }: { event: StudentHomeEvent; now: D
         <div>
           <dt className="text-xs opacity-80">报名截止</dt>
           <dd>{localDateTime(event.registrationClosesAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs opacity-80">地点</dt>
+          <dd>{describeEventLocation(event).label}</dd>
         </div>
         <div>
           <dt className="text-xs opacity-80">赛制</dt>

@@ -6,6 +6,7 @@ import { registrationStatusTone, registrationWindowTone } from "@/components/dom
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
+import { describeEventLocation } from "@/lib/domain/event-location";
 import { registrationWindowState } from "@/lib/domain/registration";
 import { EVENT_STATUS_LABELS } from "@/lib/domain/event-lifecycle";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
@@ -87,6 +88,10 @@ export default async function StudentEventsPage() {
                   <p>
                     活动日期：<span className="text-foreground">{event.eventDate}</span>（
                     {EVENT_STATUS_LABELS[event.status]}）
+                  </p>
+                  <p>
+                    地点：
+                    <span className="text-foreground">{describeEventLocation(event).label}</span>
                   </p>
                   <p>
                     开始时间（{event.timezone}）：

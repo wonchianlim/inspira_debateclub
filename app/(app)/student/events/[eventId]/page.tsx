@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
-import { registrationWindowState } from "@/lib/domain/registration";
+import { describeEventLocation } from "@/lib/domain/event-location";
+import { isCheckInOpen, registrationWindowState } from "@/lib/domain/registration";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 import { getStudentEventDetail } from "@/lib/student/registrations";
 
@@ -51,6 +52,16 @@ export default async function StudentEventDetailPage({
   const isRegistered =
     event.myRegistrationStatus === "registered" || event.myRegistrationStatus === "checked_in";
 
+  /*
+   * 签到窗口。权威值是**这次活动自己的** `check_in_opens_at`
+   * （不是"开始前 30 分钟"那个默认值 —— 管理员可以在系统设置里改掉它）。
+   * 服务端与数据库用同一条规则，界面这里只是不显示一个必然失败的按钮。
+   */
+  const now = new Date();
+  const checkInOpensAt = new Date(event.checkInOpensAt);
+  const checkInOpen = isCheckInOpen(checkInOpensAt, now);
+  const checkInOpensAtLabel = utcToZonedLocal(checkInOpensAt, event.timezone).replace("T", " ");
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -78,6 +89,10 @@ export default async function StudentEventDetailPage({
                 {utcToZonedLocal(new Date(event.startsAt), event.timezone).replace("T", " ")} 至{" "}
                 {utcToZonedLocal(new Date(event.endsAt), event.timezone).replace("T", " ")}
               </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-muted-foreground text-xs">地点</dt>
+              <dd>{describeEventLocation(event).label}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">报名窗口</dt>
@@ -126,6 +141,8 @@ export default async function StudentEventDetailPage({
             status={event.myRegistrationStatus}
             windowOpen={windowState === "open"}
             windowMessage={WINDOW_MESSAGES[windowState] ?? ""}
+            checkInOpen={checkInOpen}
+            checkInOpensAtLabel={checkInOpensAtLabel}
           />
         </CardContent>
       </Card>

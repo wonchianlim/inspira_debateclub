@@ -30,6 +30,7 @@ export type EventDetail = EventSummary & {
   checkInOpensAt: string;
   warningAt: string;
   meetingUrl: string | null;
+  venue: string | null;
   notice: string | null;
   createdBy: string;
   createdAt: string;
@@ -61,6 +62,7 @@ type EventRow = {
   check_in_opens_at: string;
   warning_at: string;
   meeting_url: string | null;
+  venue: string | null;
   notice: string | null;
   created_by: string;
   created_at: string;
@@ -76,7 +78,7 @@ type EventRow = {
 const EVENT_COLUMNS =
   "id, title, status, event_date, timezone, starts_at, ends_at, registration_opens_at, " +
   "match_start_at, match_interval_minutes, room_names, " +
-  "registration_closes_at, check_in_opens_at, warning_at, meeting_url, notice, created_by, created_at, " +
+  "registration_closes_at, check_in_opens_at, warning_at, meeting_url, venue, notice, created_by, created_at, " +
   "event_formats(format_id, enabled, debate_formats(code, name))";
 
 function toDetail(row: EventRow): EventDetail {
@@ -106,6 +108,7 @@ function toDetail(row: EventRow): EventDetail {
     checkInOpensAt: row.check_in_opens_at,
     warningAt: row.warning_at,
     meetingUrl: row.meeting_url,
+    venue: row.venue,
     notice: row.notice,
     createdBy: row.created_by,
     createdAt: row.created_at,

@@ -28,12 +28,18 @@ export function RegistrationForm({
   status,
   windowOpen,
   windowMessage,
+  checkInOpen,
+  checkInOpensAtLabel,
 }: {
   eventId: string;
   registrationId: string | null;
   status: RegistrationStatus | null;
   windowOpen: boolean;
   windowMessage: string;
+  /** 签到窗口是否已经开放（由服务端按活动自己的 `check_in_opens_at` 判断） */
+  checkInOpen: boolean;
+  /** 签到开放时刻，已按活动时区格式化 —— 还没开放时用它告诉学生要等到什么时候 */
+  checkInOpensAtLabel: string;
 }) {
   const [registerState, registerAction, registerPending] = useActionState(
     registerForEventAction,
@@ -60,23 +66,36 @@ export function RegistrationForm({
       {/*
         签到按钮：规范第 2.8 节要求"学生用一个简单的 Check In 动作"。
         已经签到时**不显示按钮**，只显示状态，避免重复点击。
+
+        ⚠️ 签到窗口没开放时**不再显示按钮**。
+        2026-10-01 之前这里是"只要报名了就显示按钮"，而签到窗口当时没有任何地方强制
+        —— 按钮点下去会成功。现在窗口在服务端与数据库都强制（见
+        `supabase/migrations/20261001090000_check_in_window.sql`），
+        因此继续显示一个必然失败的按钮就是骗人。没开放时改为告诉学生什么时候开放。
       */}
       {isActive && status !== "checked_in" ? (
-        <form action={checkInAction} className="flex flex-col gap-2">
-          <input type="hidden" name="eventId" value={eventId} />
-          <FormMessage status={checkInState.status} message={checkInState.message} />
-          <Button
-            type="submit"
-            variant="secondary"
-            disabled={checkInPending}
-            className="self-start"
-          >
-            {checkInPending ? "签到中…" : "我要签到"}
-          </Button>
-          <p className="text-muted-foreground text-xs">
-            签到在活动开始前 30 分钟开放。如果你已经到现场但签到失败，请让管理员代为签到。
+        checkInOpen ? (
+          <form action={checkInAction} className="flex flex-col gap-2">
+            <input type="hidden" name="eventId" value={eventId} />
+            <FormMessage status={checkInState.status} message={checkInState.message} />
+            <Button
+              type="submit"
+              variant="secondary"
+              disabled={checkInPending}
+              className="self-start"
+            >
+              {checkInPending ? "签到中…" : "我要签到"}
+            </Button>
+            <p className="text-muted-foreground text-xs">
+              如果你已经到现场但签到失败，请让管理员代为签到。
+            </p>
+          </form>
+        ) : (
+          <p className="text-muted-foreground text-sm" role="note">
+            签到还没有开放。本次活动签到于 {checkInOpensAtLabel} 开放（按活动时区）。
+            如果你已经到现场但无法签到，请让管理员代为签到。
           </p>
-        </form>
+        )
       ) : null}
 
       {isActive ? (

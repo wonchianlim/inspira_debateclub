@@ -163,9 +163,34 @@ select 'bbbbbbbb-0000-0000-0000-000000000002','已关闭活动',
        'aaaaaaaa-0000-0000-0000-000000000001'
 from t;
 
+-- ⚠️ 第三个活动是专门为「签到窗口」用例加的。
+-- 原来两个活动的 `check_in_opens_at` 都在**将来**（分别是 2 天后与 3 天后），
+-- 而签到窗口一旦被强制（2026-10-01），在那些活动上签到**应当**被拒绝 ——
+-- 拿它们测"允许"会得到一条假通过。因此需要一个"签到已经开放"的活动：
+-- 20 分钟后开始，签到开放于 10 分钟前。
+with t as (select now() as base, (now() + interval '20 min') as starts_at)
+insert into public.events
+  (id,title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,status,created_by)
+select 'bbbbbbbb-0000-0000-0000-000000000003','签到已开放活动',
+       (t.starts_at at time zone 'Asia/Shanghai')::date,
+       t.base - interval '1 day', t.base + interval '5 min',
+       t.base - interval '10 min', t.base + interval '10 min',
+       t.starts_at, t.starts_at + interval '1 hour', 'live',
+       'aaaaaaaa-0000-0000-0000-000000000001'
+from t;
+
 -- 开放活动只启用 PF；WSDC 与 BP 刻意不启用
 insert into public.event_formats (event_id, format_id, enabled)
 select 'bbbbbbbb-0000-0000-0000-000000000001', f.id,
+       (f.code = 'PF')
+from public.debate_formats f;
+
+-- 「签到已开放活动」同样只启用 PF。
+-- ⚠️ 这不是可有可无的：A06（学生保存赛制偏好）会为学生的**每一条报名**各插一条，
+-- 而策略要求"活动启用了该赛制"。少了这一行，A06 会因为第二条报名而
+-- 以"拒绝"的形式失败 —— 现象看起来像权限坏了，其实是测试数据不全。
+insert into public.event_formats (event_id, format_id, enabled)
+select 'bbbbbbbb-0000-0000-0000-000000000003', f.id,
        (f.code = 'PF')
 from public.debate_formats f;
 
@@ -343,6 +368,14 @@ insert into public.registrations (event_id, student_id)
 select 'bbbbbbbb-0000-0000-0000-000000000001', sp.id
 from public.student_profiles sp
 where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000005';
+
+-- ⚠️ 学生 A 在「签到已开放活动」上也先有一条报名。
+-- 签到用例必须更新一行**已经存在**的报名：如果 `update ... where` 命中 0 行，
+-- 用例会被判定为"拒绝"（见文件开头那条警告），于是"窗口没生效"也能通过 —— 假通过。
+insert into public.registrations (event_id, student_id)
+select 'bbbbbbbb-0000-0000-0000-000000000003', sp.id
+from public.student_profiles sp
+where sp.profile_id = 'aaaaaaaa-0000-0000-0000-000000000004';
 
 -- =============================================================================
 -- 一、授权用例（RLS，按受影响行数判定）
@@ -565,10 +598,36 @@ insert into authz_cases (label, sub, want, sql) values
 
 -- ==================== 签到（Phase 6）====================
 -- 学生可以给自己签到，但不能给**别人**签到。
-('A33 学生给自己签到','aaaaaaaa-0000-0000-0000-000000000004','allow',
+('A33 学生在签到窗口内给自己签到','aaaaaaaa-0000-0000-0000-000000000004','allow',
  $q$with x as (update public.registrations
         set checked_in_at = now(), check_in_method = 'self', status = 'checked_in'
-      where student_id = public.my_student_id() returning 1)
+      where student_id = public.my_student_id()
+        and event_id = 'bbbbbbbb-0000-0000-0000-000000000003' returning 1)
+    select count(*) from x$q$),
+-- ⚠️ 规范第 2.8 节写着「签到在活动开始前 30 分钟开放」，而在 2026-10-01 之前
+-- **没有任何地方**强制它：学生可以在活动开始一周前签到并且成功。
+-- 产品负责人决定让这句话在服务端与数据库都成立。
+-- 下面这条固定住数据库那一半（触发器 `enforce_check_in_window`）：
+-- 活动 0001 的签到开放时间是 **2 天后**，因此这次签到必须被拒绝。
+-- 注意用的正是学生 A 在 A05 里刚建立的那条报名 —— 行是存在的，
+-- 所以"没有可更新的行"这种假通过在这里不成立。
+('F-STU-43 学生在签到开放**前**签到','aaaaaaaa-0000-0000-0000-000000000004','deny',
+ $q$with x as (update public.registrations
+        set checked_in_at = now(), check_in_method = 'self', status = 'checked_in'
+      where student_id = public.my_student_id()
+        and event_id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1)
+    select count(*) from x$q$),
+-- 管理员代签是规范第 2.8 节明文要求保留的人工通道，因此**不受**窗口限制。
+-- 这条确保上面那个触发器没有顺手把人工通道一起堵死。
+-- 用的是**学生 A**在活动 0001 上的报名：上一行 F-STU-43 刚刚试图签到并被拒绝，
+-- 因此这一行此刻确实还是"没签到"的状态 —— 如果改用学生 B，
+-- A34 早已把他签过了，这里的更新会因为"已经签到过"而被触发器提前放行，
+-- 于是这条用例**什么都没验证**。
+('A36 管理员在窗口外代签（人工通道豁免）','aaaaaaaa-0000-0000-0000-000000000002','allow',
+ $q$with x as (update public.registrations
+        set checked_in_at = now(), check_in_method = 'admin', status = 'checked_in'
+      where student_id = 'eeeeeeee-0000-0000-0000-000000000004'
+        and event_id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1)
     select count(*) from x$q$),
 ('F-STU-38 学生给别人签到','aaaaaaaa-0000-0000-0000-000000000004','deny',
  $q$with x as (update public.registrations
@@ -717,9 +776,15 @@ insert into constraint_cases (label, expect, sql) values
  $q$insert into public.student_format_profiles (student_id, format_id, eligible, rating, updated_by)
     select sp.id, f.id, true, 99, 'aaaaaaaa-0000-0000-0000-000000000001'
     from public.student_profiles sp, public.debate_formats f where f.code='BP' limit 1$q$),
+-- ⚠️ 这条用例曾经**假通过**：它的 event_date 与 starts_at 不一致，
+-- 于是事件日期触发器先报错，测试"通过"了，但测的根本不是
+-- `events_registration_closes_before_start` 这条 CHECK。
+-- 修法：把 event_date 写成 starts_at 在活动时区下的日期，
+-- 这样唯一还能拒绝它的就只剩那条 CHECK 约束。
 ('C05 报名截止晚于开始时间被 CHECK 拒绝','error',
  $q$insert into public.events (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,warning_at,starts_at,ends_at,created_by)
-    select '时间倒置', (now() at time zone 'Asia/Shanghai')::date,
+    select '时间倒置',
+           ((now() + interval '1 day') at time zone 'Asia/Shanghai')::date,
            now(), now() + interval '10 day', now(), now(), now() + interval '1 day', now() + interval '2 day',
            'aaaaaaaa-0000-0000-0000-000000000001'$q$),
 ('C06 event_date 与 starts_at 不一致被触发器拒绝','error',
@@ -877,7 +942,34 @@ insert into constraint_cases (label, expect, sql) values
         select 1 from public.judge_assignments ja
         where ja.match_id = '55555555-0000-0000-0000-000000000001'
           and ja.judge_id = jp.id
-      )$q$);
+      )$q$),
+-- 场地上限（2026-10-01 新增的 venue 列）。
+-- 上限 200 字与表单校验（lib/validation/events.ts）是同一条线 ——
+-- 两边不同的话，表单会放行一个数据库必然拒绝的值。
+-- ⚠️ 这条用例第一次写出来时**假通过**：event_date 与 starts_at 不一致，
+-- 于是事件日期触发器先报错，把约束删掉它照样 PASS（已实测）。
+-- 现在两边对齐，唯一还能拒绝它的就是场地上限本身。
+('C35 活动场地超过 200 字被 CHECK 拒绝','error',
+ $q$insert into public.events
+      (title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,
+       warning_at,starts_at,ends_at,venue,created_by)
+    select '场地过长',
+           ((now() + interval '2 day') at time zone 'Asia/Shanghai')::date,
+           now(), now() + interval '1 hour', now(), now(),
+           now() + interval '2 day', now() + interval '3 day',
+           repeat('场', 201), 'aaaaaaaa-0000-0000-0000-000000000001'$q$),
+-- 正向：刚好 200 字要能存进去（否则上限就被写窄了，管理员会莫名其妙被挡）
+('C36 活动场地刚好 200 字可以保存','ok',
+ $q$insert into public.events
+      (id,title,event_date,registration_opens_at,registration_closes_at,check_in_opens_at,
+       warning_at,starts_at,ends_at,venue,created_by)
+    select 'bbbbbbbb-0000-0000-0000-000000000009','场地刚好 200 字',
+           -- ⚠️ event_date 必须等于 starts_at 在活动时区下的日期，
+           -- 否则会被触发器拦下 —— 那样这条"正向"用例就会以错误的形式失败。
+           ((now() + interval '2 day') at time zone 'Asia/Shanghai')::date,
+           now(), now() + interval '1 hour', now(), now(),
+           now() + interval '2 day', now() + interval '3 day',
+           repeat('场', 200), 'aaaaaaaa-0000-0000-0000-000000000001'$q$);
 
 do $constraints$
 declare

@@ -239,3 +239,25 @@ export function validatePreferenceRanks(
 
   return { valid: true };
 }
+
+/* ---------------------------------------------------------------- 签到窗口 */
+
+/**
+ * 签到是否已经开放。
+ *
+ * ⚠️ 传入的必须是 `events.check_in_opens_at` —— **这次活动自己的**签到开放时刻，
+ * 而不是"活动开始前 30 分钟"那个默认值。管理员可以在系统设置里改掉默认值，
+ * 也可以单独调整某一次活动；两者之后就不相等了。
+ * （`lib/domain/live-status.ts` 里原来的 `isCheckInOpen(startsAt, now)` 就是
+ * 按写死的 30 分钟算的，因此已在 2026-10-01 删除。）
+ *
+ * ⚠️ 边界是**包含**的：`now` 恰好等于开放时刻时算已开放。
+ * 这一条与数据库触发器 `enforce_check_in_window` 的 `<` 判断严格互补：
+ * 数据库在 `now() < opens_at` 时拒绝，因此两边在边界上不会打架。
+ *
+ * 三处调用（现场看板、学生签到、学生活动详情页）都用这一个函数，
+ * 不再各自写一遍比较 —— 否则边界迟早会有一处写成 `>`。
+ */
+export function isCheckInOpen(checkInOpensAt: Date, now: Date): boolean {
+  return now.getTime() >= checkInOpensAt.getTime();
+}

@@ -264,7 +264,7 @@ export default async function StudentHomePage() {
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground text-xs">
-                      {event.eventDate} · {localDateTime(event.startsAt, event.timezone)}
+                      {localDateTime(event.startsAt, event.timezone)}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

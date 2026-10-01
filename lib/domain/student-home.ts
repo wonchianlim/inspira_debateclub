@@ -27,6 +27,10 @@ export type StudentHomeEvent = {
   timezone: string;
   /** 这场活动启用了几个赛制 */
   enabledFormatCount: number;
+  /** 线下场地；线上活动为空。展示"在哪打"时用 `describeEventLocation()` */
+  venue: string | null;
+  /** 线上会议链接；没有时为空 */
+  meetingUrl: string | null;
   startsAt: string;
   checkInOpensAt: string;
   registrationOpensAt: string;

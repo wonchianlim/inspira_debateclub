@@ -39,8 +39,14 @@ export const LIVE_STATES = [
 
 export type LiveState = (typeof LIVE_STATES)[number];
 
-/** 签到在活动开始前多少分钟开放（规范第 2.8 节的明文数字）。 */
-export const CHECK_IN_OPENS_MINUTES_BEFORE = 30;
+/*
+ * ⚠️ 这里原来还有一个 `CHECK_IN_OPENS_MINUTES_BEFORE = 30`，已删除。
+ *
+ * 「签到提前 30 分钟」是规范第 9.4 节给出的**默认值**，而它现在只有一个权威位置：
+ * `lib/domain/event-schedule.ts` 的 `DEFAULT_SCHEDULE_OFFSETS.checkInOpensMinutesBefore`
+ * （可被系统设置覆盖）。签到是否开放一律读 `events.check_in_opens_at` 那一列。
+ * 留着第二个常量，就会出现"两个地方都说是 30 分钟，但都能各自被改"的局面。
+ */
 
 export type LiveStatusInput = {
   /** `matches.status` */
@@ -148,15 +154,21 @@ export function computeLiveStatus(input: LiveStatusInput): LiveStatusResult {
 }
 
 /**
- * 签到是否已经开放（规范：开始前 30 分钟）。
+ * ⚠️ 这里**原来有一个** `isCheckInOpen(eventStartsAt, now)`，用
+ * `CHECK_IN_OPENS_MINUTES_BEFORE`（写死 30 分钟）算"签到是否开放"。
+ * 它已经被删除，因为它是**错的**：
  *
- * 注意用的是**活动开始时间**（`events.starts_at`），而不是某场比赛的开始时间 ——
- * 规范原文是 "before the event"。
+ * 「30 分钟」只是**新建活动时的默认值**，管理员可以在系统设置里改掉它。
+ * 这次活动真正的签到开放时刻是 `events.check_in_opens_at` 那一列
+ * （创建时按设置算好写进去，之后还能单独调整）。
+ * 两者在管理员改过设置之后就不相等了 —— 于是现场看板会显示"签到已开放"，
+ * 而数据库（`enforce_check_in_window`，2026-10-01）会拒绝学生的签到。
+ *
+ * 现在所有"签到开放了吗"的判断都读那一列，不再有第二份规则：
+ *   - 现场看板：`lib/admin/live.ts` 的 `checkInOpen`
+ *   - 学生签到：`lib/admin/check-in-actions.ts`
+ *   - 学生活动详情页：`app/(app)/student/events/[eventId]/page.tsx`
  */
-export function isCheckInOpen(eventStartsAt: Date, now: Date): boolean {
-  const opensAt = eventStartsAt.getTime() - CHECK_IN_OPENS_MINUTES_BEFORE * 60_000;
-  return now.getTime() >= opensAt;
-}
 
 /** 汇总看板的计数。 */
 export type LiveCounts = {

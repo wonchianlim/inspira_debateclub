@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatusBadge } from "@/components/domain/status-badge";
+import { describeEventLocation } from "@/lib/domain/event-location";
 import { eventStatusTone } from "@/components/domain/status-tone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +89,10 @@ export default async function EventDetailPage({
               <dd>
                 {event.eventDate} · {event.timezone}
               </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-muted-foreground text-xs">地点</dt>
+              <dd>{describeEventLocation(event).label}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className="text-muted-foreground text-xs">报名开放</dt>
@@ -209,6 +214,7 @@ export default async function EventDetailPage({
               checkInOpensAtLocal: utcToZonedLocal(new Date(event.checkInOpensAt), event.timezone),
               warningAtLocal: utcToZonedLocal(new Date(event.warningAt), event.timezone),
               meetingUrl: event.meetingUrl ?? "",
+              venue: event.venue ?? "",
               notice: event.notice ?? "",
             }}
           />

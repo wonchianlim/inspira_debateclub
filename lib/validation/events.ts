@@ -39,6 +39,13 @@ const optionalUrl = z
 
 const optionalText = z.string().trim().max(2000, { error: "最多 2000 字" }).optional();
 
+/**
+ * 线下场地。线上活动留空。
+ * ⚠️ 200 字上限与数据库的 `events_venue_length` 约束一致 —— 两边不同的话，
+ * 表单会允许一个数据库必然拒绝的值（用户看到的是一句英文错误）。
+ */
+const venue = z.string().trim().max(200, { error: "场地最多 200 字" }).optional();
+
 export const eventInputSchema = z
   .object({
     title,
@@ -50,6 +57,7 @@ export const eventInputSchema = z
     checkInOpensAtLocal: localDateTime,
     warningAtLocal: localDateTime,
     meetingUrl: optionalUrl,
+    venue,
     notice: optionalText,
   })
   .superRefine((value, ctx) => {

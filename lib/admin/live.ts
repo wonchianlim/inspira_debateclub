@@ -1,12 +1,12 @@
 import "server-only";
 
+import { isCheckInOpen } from "@/lib/domain/registration";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 import {
   type LiveCounts,
   type LiveState,
   type LiveStatusResult,
   computeLiveStatus,
-  isCheckInOpen,
   summarizeLiveCounts,
 } from "@/lib/domain/live-status";
 
@@ -85,7 +85,7 @@ export async function getLiveDashboard(eventId: string): Promise<LiveDashboard |
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, starts_at, warning_at")
+    .select("id, starts_at, warning_at, check_in_opens_at")
     .eq("id", eventId)
     .maybeSingle();
   if (eventError) throw new Error(`读取活动失败：${eventError.message}`);
@@ -126,8 +126,14 @@ export async function getLiveDashboard(eventId: string): Promise<LiveDashboard |
   );
 
   const now = new Date();
-  const eventStartsAt = new Date(event.starts_at);
   const warningAt = new Date(event.warning_at);
+  /*
+   * ⚠️ 签到是否开放读的是**这次活动自己的** `check_in_opens_at`，
+   * 不是"开始前 30 分钟"那个默认值 —— 管理员可以在系统设置里改掉它，
+   * 于是两者会不相等，看板与数据库会各说各话。
+   * （原来这里用的 `isCheckInOpen()` 就是错的，已删除，见 lib/domain/live-status.ts。）
+   */
+  const checkInOpensAt = new Date(event.check_in_opens_at);
 
   const matches: LiveMatchView[] = ((matchData ?? []) as unknown as MatchRow[]).map((row) => {
     const students = (row.match_teams ?? []).flatMap((matchTeam) =>
@@ -188,7 +194,7 @@ export async function getLiveDashboard(eventId: string): Promise<LiveDashboard |
   return {
     eventStartsAt: event.starts_at as string,
     warningAt: event.warning_at as string,
-    checkInOpen: isCheckInOpen(eventStartsAt, now),
+    checkInOpen: isCheckInOpen(checkInOpensAt, now),
     matches,
     counts: summarizeLiveCounts(matches.map((match) => match.live)),
     registrationCounts: {

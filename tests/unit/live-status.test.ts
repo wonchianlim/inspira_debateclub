@@ -2,11 +2,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CHECK_IN_OPENS_MINUTES_BEFORE,
   LIVE_STATES,
   type LiveStatusInput,
   computeLiveStatus,
-  isCheckInOpen,
   isOverdue,
   liveStateUrgency,
   summarizeLiveCounts,
@@ -166,26 +164,13 @@ describe("超时（规范：'unresolved rooms become critical'）", () => {
   });
 });
 
-describe("签到开放时间（规范：活动开始前 30 分钟）", () => {
-  it("常量是 30 分钟（规范明文数字）", () => {
-    expect(CHECK_IN_OPENS_MINUTES_BEFORE).toBe(30);
-  });
-
-  it("活动开始前 31 分钟 → 尚未开放", () => {
-    const starts = new Date("2026-10-01T12:00:00.000Z");
-    expect(isCheckInOpen(starts, new Date("2026-10-01T11:29:00.000Z"))).toBe(false);
-  });
-
-  it("**恰好**开始前 30 分钟 → 已开放（边界包含）", () => {
-    const starts = new Date("2026-10-01T12:00:00.000Z");
-    expect(isCheckInOpen(starts, new Date("2026-10-01T11:30:00.000Z"))).toBe(true);
-  });
-
-  it("活动开始之后仍然算开放（迟到的人也能签到，由管理员决定是否算数）", () => {
-    const starts = new Date("2026-10-01T12:00:00.000Z");
-    expect(isCheckInOpen(starts, new Date("2026-10-01T12:30:00.000Z"))).toBe(true);
-  });
-});
+/*
+ * ⚠️ 这个文件里原来还有一组「签到开放时间」的用例，它们测的是
+ * `isCheckInOpen(startsAt, now)` —— 一个按写死的"开始前 30 分钟"计算的函数。
+ * 那个函数是**错的**（管理员可以改掉这个默认值），已随实现一起删除。
+ * 签到窗口的用例搬到了 `tests/unit/registration.test.ts`，
+ * 参数改为活动自己的 `check_in_opens_at`。
+ */
 
 describe("汇总计数", () => {
   it("各状态分别计数，总数等于传入条数", () => {

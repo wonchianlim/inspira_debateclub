@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { AREA_ROLES } from "@/lib/auth/roles";
 import { getSessionContext } from "@/lib/auth/session";
+import { isCheckInOpen } from "@/lib/domain/registration";
+import { CLUB_DEFAULT_TIMEZONE, utcToZonedLocal } from "@/lib/domain/timezone";
 import type { FormState } from "@/lib/forms/form-state";
 import { createUserSupabaseClient } from "@/lib/supabase/server";
 import { checkInSchema, manualCheckInSchema, judgeCheckInSchema } from "@/lib/validation/check-in";
@@ -55,6 +57,32 @@ export async function studentCheckInAction(
   if (registration.checked_in_at) return failure("你已经签到过了。");
   if (registration.status === "cancelled" || registration.status === "late_cancelled") {
     return failure("你的报名已经取消，无法签到。请联系管理员。");
+  }
+
+  /*
+   * 签到窗口（规范第 2.8 节："签到在活动开始前 30 分钟开放"）。
+   *
+   * ⚠️ 读的是**这次活动自己的** `check_in_opens_at`，不是"开始前 30 分钟"那个
+   * 默认值 —— 管理员可以在系统设置里改掉它。
+   *
+   * ⚠️ 这里只是**给出能看懂的中文**。真正的保证在数据库的
+   * `enforce_check_in_window` 触发器（2026-10-01）—— 绕过本文件直接调 PostgREST
+   * 也签不了到。这一层存在的意义是：数据库抛出的异常对用户毫无意义。
+   */
+  const { data: event } = await supabase
+    .from("events")
+    .select("check_in_opens_at, timezone")
+    .eq("id", parsed.data.eventId)
+    .maybeSingle();
+
+  if (event) {
+    const checkInOpensAt = new Date(event.check_in_opens_at as string);
+    if (!isCheckInOpen(checkInOpensAt, new Date())) {
+      const timezone = (event.timezone as string | null) ?? CLUB_DEFAULT_TIMEZONE;
+      return failure(
+        `签到还没有开放。本次活动签到于 ${utcToZonedLocal(checkInOpensAt, timezone).replace("T", " ")}（${timezone}）开放。`,
+      );
+    }
   }
 
   const { error } = await supabase

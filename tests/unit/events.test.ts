@@ -28,6 +28,7 @@ const VALID_INPUT = {
   checkInOpensAtLocal: "2026-10-15T17:30",
   warningAtLocal: "2026-10-15T17:50",
   meetingUrl: "https://example.invalid/room",
+  venue: "",
   notice: "请提前十分钟到场",
 };
 
@@ -213,5 +214,46 @@ describe("默认时间偏移量", () => {
       false,
     );
     expect(isValidOffsets({ ...DEFAULT_SCHEDULE_OFFSETS, warningMinutesBefore: 1.5 })).toBe(false);
+  });
+});
+
+/**
+ * 场地字段（2026-10-01 产品负责人决定新增）。
+ *
+ * 这个字段是**可选**的：线上活动没有场地，线下活动没有链接，草稿阶段两者都可能还没定。
+ * 因此这里验证的是"允许留空"与"上限与数据库约束一致"。
+ */
+describe("线下场地", () => {
+  it("留空是允许的（线上活动没有场地）", () => {
+    expect(eventInputSchema.safeParse({ ...VALID_INPUT, venue: "" }).success).toBe(true);
+    // 字段整个不传也要能过 —— 老表单/老数据不会带上它
+    const withoutVenue: Record<string, unknown> = { ...VALID_INPUT };
+    delete withoutVenue.venue;
+    expect(eventInputSchema.safeParse(withoutVenue).success).toBe(true);
+  });
+
+  it("填了场地就带上它", () => {
+    const result = eventInputSchema.safeParse({ ...VALID_INPUT, venue: "教学楼 A101" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.venue).toBe("教学楼 A101");
+  });
+
+  it("前后空格会被去掉", () => {
+    const result = eventInputSchema.safeParse({ ...VALID_INPUT, venue: "  A101  " });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.venue).toBe("A101");
+  });
+
+  /**
+   * ⚠️ 上限必须与数据库的 `events_venue_length` 一致（200 字）。
+   * 两边不同的话，表单会放行一个数据库必然拒绝的值 ——
+   * 用户看到的会是一句英文的约束错误，而不是"场地最多 200 字"。
+   */
+  it("超过 200 字被拒绝（与数据库约束同一条线）", () => {
+    const long = "场".repeat(201);
+    expect(eventInputSchema.safeParse({ ...VALID_INPUT, venue: long }).success).toBe(false);
+    expect(eventInputSchema.safeParse({ ...VALID_INPUT, venue: "场".repeat(200) }).success).toBe(
+      true,
+    );
   });
 });

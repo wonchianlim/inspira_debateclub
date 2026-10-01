@@ -28,6 +28,7 @@ export type EventFormDefaults = {
   checkInOpensAtLocal: string;
   warningAtLocal: string;
   meetingUrl: string;
+  venue: string;
   notice: string;
 };
 
@@ -162,6 +163,28 @@ export function EventForm({
         ) : (
           <p id="meetingUrl-hint" className="text-muted-foreground text-xs">
             线上活动填写；只允许 http:// 或 https:// 开头的地址。
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="venue">线下场地（可选）</Label>
+        <Input
+          id="venue"
+          name="venue"
+          defaultValue={defaults.venue}
+          maxLength={200}
+          placeholder="例如：教学楼 A101"
+          aria-invalid={error("venue") ? true : undefined}
+          aria-describedby={error("venue") ? "venue-error" : "venue-hint"}
+        />
+        {error("venue") ? (
+          <p id="venue-error" role="alert" className="text-destructive text-xs">
+            {error("venue")}
+          </p>
+        ) : (
+          <p id="venue-hint" className="text-muted-foreground text-xs">
+            线下活动填写；线上活动留空、只填上面的会议链接。两个都留空时学生看到的是「地点待定」。
           </p>
         )}
       </div>

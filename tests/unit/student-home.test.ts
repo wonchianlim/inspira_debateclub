@@ -27,6 +27,8 @@ function event(overrides: Partial<StudentHomeEvent> & { id: string }): StudentHo
     status: "registration_open",
     timezone: "Asia/Shanghai",
     enabledFormatCount: 2,
+    venue: "教学楼 A101",
+    meetingUrl: null,
     startsAt: "2026-10-20T10:00:00Z",
     checkInOpensAt: "2026-10-20T09:30:00Z",
     registrationOpensAt: "2026-10-01T00:00:00Z",

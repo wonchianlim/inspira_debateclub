@@ -66,6 +66,7 @@ function readEventForm(formData: FormData) {
     checkInOpensAtLocal: formData.get("checkInOpensAtLocal"),
     warningAtLocal: formData.get("warningAtLocal"),
     meetingUrl: formData.get("meetingUrl"),
+    venue: formData.get("venue"),
     notice: formData.get("notice"),
   };
 }
@@ -98,6 +99,7 @@ export async function createEventAction(
       title: parsed.data.title,
       // 空字符串统一存成 NULL，避免出现 "" 与 NULL 两种"空"
       meeting_url: parsed.data.meetingUrl ? parsed.data.meetingUrl : null,
+      venue: parsed.data.venue ? parsed.data.venue : null,
       notice: parsed.data.notice ? parsed.data.notice : null,
       status: "draft",
       created_by: auth.profileId,
@@ -142,6 +144,7 @@ export async function updateEventAction(
       ...toEventScheduleRecord(parsed.data),
       title: parsed.data.title,
       meeting_url: parsed.data.meetingUrl ? parsed.data.meetingUrl : null,
+      venue: parsed.data.venue ? parsed.data.venue : null,
       notice: parsed.data.notice ? parsed.data.notice : null,
     })
     .eq("id", eventId);
@@ -199,6 +202,7 @@ export async function cloneEventAction(
       title: parsed.data.title,
       ...scheduleColumns,
       meeting_url: source.meetingUrl,
+      venue: source.venue,
       notice: source.notice,
       // 克隆出来的活动**从草稿开始**：时间已经变了，原状态（例如"报名开放中"）
       // 对新活动没有意义，直接沿用会造成"新活动一创建就已经在报名"的误解。

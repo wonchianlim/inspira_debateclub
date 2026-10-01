@@ -29,6 +29,17 @@ export type StudentEventCard = {
    * 数据库里的这一列才是权威值。
    */
   checkInOpensAt: string;
+  /**
+   * 线下场地。线上活动为空 —— 与 `meetingUrl` 二选一，也可能两者都还没定。
+   * 界面显示规则：有链接算"线上"，否则显示场地，两者都没有就显示"地点待定"。
+   */
+  venue: string | null;
+  /**
+   * 线上会议链接。
+   * ⚠️ 列表也要用它：判断"这是线上活动还是线下活动"需要同时看 venue 与 meetingUrl
+   * （`describeEventLocation`），只看 venue 会把线上活动显示成"地点待定"。
+   */
+  meetingUrl: string | null;
   notice: string | null;
   /** 我在这张活动上的报名状态；null 表示还没报名 */
   myRegistrationStatus: RegistrationStatus | null;
@@ -66,6 +77,7 @@ type EventRow = {
   registration_closes_at: string;
   check_in_opens_at: string;
   meeting_url: string | null;
+  venue: string | null;
   notice: string | null;
   event_formats:
     | {
@@ -78,7 +90,7 @@ type EventRow = {
 
 const EVENT_COLUMNS =
   "id, title, status, timezone, event_date, starts_at, ends_at, registration_opens_at, " +
-  "registration_closes_at, check_in_opens_at, meeting_url, notice, " +
+  "registration_closes_at, check_in_opens_at, meeting_url, venue, notice, " +
   "event_formats(format_id, enabled, debate_formats(code, name))";
 
 /** 我自己的报名（id → 状态），以及我自己的赛制资格与偏好。 */
@@ -143,6 +155,8 @@ export async function listStudentEvents(): Promise<StudentEventCard[]> {
       registrationOpensAt: row.registration_opens_at,
       registrationClosesAt: row.registration_closes_at,
       checkInOpensAt: row.check_in_opens_at,
+      venue: row.venue,
+      meetingUrl: row.meeting_url,
       notice: row.notice,
       myRegistrationId: (registration?.id as string | undefined) ?? null,
       myRegistrationStatus: (registration?.status as RegistrationStatus | undefined) ?? null,
@@ -203,6 +217,7 @@ export async function getStudentEventDetail(eventId: string): Promise<StudentEve
     registrationClosesAt: row.registration_closes_at,
     checkInOpensAt: row.check_in_opens_at,
     meetingUrl: row.meeting_url,
+    venue: row.venue,
     notice: row.notice,
     formats,
     myRegistrationId: (registration?.id as string | undefined) ?? null,
