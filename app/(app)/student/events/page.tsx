@@ -10,18 +10,15 @@ import { registrationWindowState } from "@/lib/domain/registration";
 import { EVENT_STATUS_LABELS } from "@/lib/domain/event-lifecycle";
 import { utcToZonedLocal } from "@/lib/domain/timezone";
 import { listStudentEvents } from "@/lib/student/registrations";
-import { REGISTRATION_STATUS_LABELS } from "@/lib/validation/registrations";
+import { heroAction } from "@/lib/domain/student-home";
+import {
+  REGISTRATION_STATUS_LABELS,
+  REGISTRATION_WINDOW_LABELS,
+} from "@/lib/validation/registrations";
 
-export const metadata = { title: "活动报名 · INSPIRA" };
+export const metadata = { title: "活动 · INSPIRA" };
 
 export const dynamic = "force-dynamic";
-
-const WINDOW_LABELS: Record<string, string> = {
-  event_not_available: "不可报名",
-  not_open_yet: "尚未开放",
-  open: "报名中",
-  closed: "已截止",
-};
 
 export default async function StudentEventsPage() {
   await requireSession();
@@ -38,9 +35,12 @@ export default async function StudentEventsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">活动报名</h1>
+        <div>
+          <h1 className="text-h2 font-semibold tracking-tight">活动</h1>
+          <p className="text-muted-foreground text-sm">报名、准备，并回顾过去的活动。</p>
+        </div>
         <Button asChild variant="outline" size="sm">
-          <Link href="/student">返回学生区域</Link>
+          <Link href="/student">返回我的辩论社</Link>
         </Button>
       </div>
 
@@ -59,19 +59,28 @@ export default async function StudentEventsPage() {
               registrationClosesAt: new Date(event.registrationClosesAt),
               now,
             });
+            const action = heroAction(event, now);
             return (
               <Card key={event.id}>
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                     {event.title}
-                    <StatusBadge tone={registrationWindowTone(windowState)}>
-                      {WINDOW_LABELS[windowState] ?? windowState}
-                    </StatusBadge>
+                    {/*
+                      规范 §8.2：「One status chip and one primary action.」
+                      因此这里只放**一个** chip，而且它回答的是学生真正关心的那个问题
+                      ——「我现在的处境是什么」：已经报名就显示报名状态，
+                      否则显示报名窗口（报名中 / 尚未开放 / 已截止）。
+                      原来两个 chip 并排，颜色互相抢注意力，学生反而要自己判断哪个重要。
+                    */}
                     {event.myRegistrationStatus ? (
                       <StatusBadge tone={registrationStatusTone(event.myRegistrationStatus)}>
                         {REGISTRATION_STATUS_LABELS[event.myRegistrationStatus]}
                       </StatusBadge>
-                    ) : null}
+                    ) : (
+                      <StatusBadge tone={registrationWindowTone(windowState)}>
+                        {REGISTRATION_WINDOW_LABELS[windowState] ?? windowState}
+                      </StatusBadge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-muted-foreground flex flex-col gap-1 text-sm">
@@ -95,8 +104,20 @@ export default async function StudentEventsPage() {
                       " ",
                     )}
                   </p>
-                  <Button asChild size="sm" variant="outline" className="mt-2 self-start">
-                    <Link href={`/student/events/${event.id}`}>查看详情</Link>
+                  {/*
+                    主操作也按处境变化：还能报名时是实心的「去报名」，
+                    否则是描边的「查看详情」。按钮文案与 hero 上用的是**同一条规则**
+                    （`heroAction`），不在这里再写一遍判断。
+                  */}
+                  <Button
+                    asChild
+                    size="sm"
+                    variant={action.kind === "view" ? "outline" : "default"}
+                    className="mt-2 self-start"
+                  >
+                    <Link href={action.href}>
+                      {action.kind === "view" ? "查看详情" : action.label}
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>

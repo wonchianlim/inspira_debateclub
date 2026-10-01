@@ -20,6 +20,15 @@ export type StudentEventCard = {
   startsAt: string;
   registrationOpensAt: string;
   registrationClosesAt: string;
+  /**
+   * 签到开放时刻。
+   *
+   * 学生首页要用它决定"去签到"这个主按钮是否成立 ——
+   * 不能用 `CHECK_IN_OPENS_MINUTES_BEFORE` 那个常量代替：
+   * 它只是**写入时**的默认值，管理员改过设置之后两者就不再相等。
+   * 数据库里的这一列才是权威值。
+   */
+  checkInOpensAt: string;
   notice: string | null;
   /** 我在这张活动上的报名状态；null 表示还没报名 */
   myRegistrationStatus: RegistrationStatus | null;
@@ -41,7 +50,6 @@ export type StudentFormatChoice = {
 
 export type StudentEventDetail = StudentEventCard & {
   endsAt: string;
-  checkInOpensAt: string;
   meetingUrl: string | null;
   formats: StudentFormatChoice[];
 };
@@ -134,6 +142,7 @@ export async function listStudentEvents(): Promise<StudentEventCard[]> {
       startsAt: row.starts_at,
       registrationOpensAt: row.registration_opens_at,
       registrationClosesAt: row.registration_closes_at,
+      checkInOpensAt: row.check_in_opens_at,
       notice: row.notice,
       myRegistrationId: (registration?.id as string | undefined) ?? null,
       myRegistrationStatus: (registration?.status as RegistrationStatus | undefined) ?? null,

@@ -163,6 +163,20 @@ export function zonedDateOf(instant: Date, timeZone: string): string {
   return `${pad(parts.year, 4)}-${pad(parts.month)}-${pad(parts.day)}`;
 }
 
+/**
+ * UTC 时刻在指定时区下的**小时**（0–23）。
+ *
+ * 用途：需要按"当地几点"分支的地方，例如学生首页按时段问候
+ * （规范 §8.1 要求问候语**不能写死**）。
+ *
+ * ⚠️ 一定不要用 `instant.getHours()` —— 那取的是**服务器**的时区。
+ * 部署在 UTC 的机器上，同一个时刻所有人会收到同一种问候，
+ * 而且"晚上好"可能在凌晨出现。
+ */
+export function zonedHourOf(instant: Date, timeZone: string): number {
+  return zonedPartsOf(instant, timeZone).hour;
+}
+
 /** 加分钟，返回新对象（不修改入参）。 */
 export function addMinutes(instant: Date, minutes: number): Date {
   return new Date(instant.getTime() + minutes * MS_PER_MINUTE);

@@ -46,6 +46,20 @@ export const REGISTRATION_STATUS_LABELS = {
 export type RegistrationStatus = keyof typeof REGISTRATION_STATUS_LABELS;
 
 /**
+ * 报名窗口所处阶段的显示名称。
+ *
+ * ⚠️ 放在这里而不是各自的页面里：原来学生活动列表自己写了一份，
+ * 学生首页又要用同一套词。两份手抄的词迟早会走样 ——
+ * 这几条文案必须全站一致。
+ */
+export const REGISTRATION_WINDOW_LABELS = {
+  event_not_available: "不可报名",
+  not_open_yet: "尚未开放",
+  open: "报名中",
+  closed: "已截止",
+} as const;
+
+/**
  * 迟取消的说明文字。
  *
  * 规范第 9.2 节第 5 条：截止前取消记 `cancelled`，截止后记 `late_cancelled`。
