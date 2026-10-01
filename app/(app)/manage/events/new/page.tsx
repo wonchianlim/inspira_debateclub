@@ -10,7 +10,7 @@ import { utcToZonedLocal, zonedTimeToUtc } from "@/lib/domain/timezone";
 
 import { EventForm } from "../event-form";
 
-export const metadata = { title: "新建活动 · INSPIRA" };
+export const metadata = { title: "New event · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -59,25 +59,26 @@ export default async function NewEventPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">新建活动</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">New event</h1>
         <Button asChild variant="outline" size="sm">
-          <Link href="/manage/events">返回活动列表</Link>
+          <Link href="/manage/events">Back to events</Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">活动信息</CardTitle>
+          <CardTitle className="text-base">Event information</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-muted-foreground text-sm">
-            新活动会以「草稿」状态创建，参与者看不到，直到你把状态推进到「报名开放中」。
+            A new event is created as a draft. Participants cannot see it until you move it to
+            registration open.
           </p>
           {usingDefaults ? (
             <p className="text-muted-foreground text-xs" role="note">
-              当前使用的是<strong>系统默认</strong>的时间偏移（报名提前 7 天开放、提前 1
-              天截止、签到提前 30 分钟）。 这些数值可以在「系统管理 →
-              系统设置」里调整，不需要改代码。
+              These are the <strong>system default</strong> offsets: registration opens 7 days
+              before, closes 1 day before, check-in opens 30 minutes before. Change them in System
+              Admin → Settings; no code change is needed.
             </p>
           ) : null}
           <EventForm mode="create" defaults={defaults} />

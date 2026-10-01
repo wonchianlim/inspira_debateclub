@@ -11,11 +11,11 @@ import { INITIAL_FORM_STATE } from "@/lib/forms/form-state";
 
 /** 常用时区。默认上海，与规范第 6.3 节的默认值一致。 */
 const TIMEZONE_OPTIONS = [
-  { value: "Asia/Shanghai", label: "中国标准时间（上海，UTC+8）" },
-  { value: "Asia/Hong_Kong", label: "香港时间（UTC+8）" },
-  { value: "Asia/Singapore", label: "新加坡时间（UTC+8）" },
-  { value: "Asia/Taipei", label: "台北时间（UTC+8）" },
-  { value: "UTC", label: "协调世界时（UTC）" },
+  { value: "Asia/Shanghai", label: "China Standard Time (Shanghai, UTC+8)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong Time (UTC+8)" },
+  { value: "Asia/Singapore", label: "Singapore Time (UTC+8)" },
+  { value: "Asia/Taipei", label: "Taipei Time (UTC+8)" },
+  { value: "UTC", label: "Coordinated Universal Time (UTC)" },
 ] as const;
 
 export type EventFormDefaults = {
@@ -91,7 +91,7 @@ export function EventForm({
       <FormMessage status={state.status} message={state.message} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">活动名称</Label>
+        <Label htmlFor="title">Event name</Label>
         <Input
           id="title"
           name="title"
@@ -109,7 +109,7 @@ export function EventForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="timezone">活动时区</Label>
+        <Label htmlFor="timezone">Event time zone</Label>
         <select
           id="timezone"
           name="timezone"
@@ -123,30 +123,39 @@ export function EventForm({
           ))}
         </select>
         <p className="text-muted-foreground text-xs">
-          下面填写的时间都按这个时区理解。页面显示时会自动换算，不会因为服务器时区不同而出错。
+          All times below are read in this time zone. They are converted for display, so a different
+          server time zone cannot shift them.
         </p>
       </div>
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="text-sm font-medium">时间安排</legend>
-        {timeField("startsAtLocal", "活动开始")}
-        {timeField("endsAtLocal", "活动结束", "必须晚于开始时间。")}
+        <legend className="text-sm font-medium">Schedule</legend>
+        {timeField("startsAtLocal", "Starts")}
+        {timeField("endsAtLocal", "Ends", "Must be later than the start time.")}
         {timeField(
           "registrationOpensAtLocal",
-          "报名开放",
-          "已按系统设置里的默认偏移量填好，可以按本次活动的实际情况修改。",
+          "Registration opens",
+          "Prefilled from the offsets in Settings. Change it if this event differs.",
         )}
         {timeField(
           "registrationClosesAtLocal",
-          "报名截止",
-          "必须晚于报名开放，且不能晚于活动开始。",
+          "Registration closes",
+          "Must be later than registration opens, and no later than the start time.",
         )}
-        {timeField("checkInOpensAtLocal", "签到开放", "规范默认是活动开始前 30 分钟。")}
-        {timeField("warningAtLocal", "警示时间", "到达这个时间后，现场看板会标出还没到齐的房间。")}
+        {timeField(
+          "checkInOpensAtLocal",
+          "Check-in opens",
+          "Default is 30 minutes before the event starts.",
+        )}
+        {timeField(
+          "warningAtLocal",
+          "Warning time",
+          "After this time the live board flags rooms that are not complete.",
+        )}
       </fieldset>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="meetingUrl">会议链接（可选）</Label>
+        <Label htmlFor="meetingUrl">Meeting link (optional)</Label>
         <Input
           id="meetingUrl"
           name="meetingUrl"
@@ -162,19 +171,19 @@ export function EventForm({
           </p>
         ) : (
           <p id="meetingUrl-hint" className="text-muted-foreground text-xs">
-            线上活动填写；只允许 http:// 或 https:// 开头的地址。
+            For online events. Must start with http:// or https://.
           </p>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="venue">线下场地（可选）</Label>
+        <Label htmlFor="venue">Venue (optional)</Label>
         <Input
           id="venue"
           name="venue"
           defaultValue={defaults.venue}
           maxLength={200}
-          placeholder="例如：教学楼 A101"
+          placeholder="e.g. Teaching Building A101"
           aria-invalid={error("venue") ? true : undefined}
           aria-describedby={error("venue") ? "venue-error" : "venue-hint"}
         />
@@ -184,13 +193,14 @@ export function EventForm({
           </p>
         ) : (
           <p id="venue-hint" className="text-muted-foreground text-xs">
-            线下活动填写；线上活动留空、只填上面的会议链接。两个都留空时学生看到的是「地点待定」。
+            For in-person events. Leave it blank for online events and fill in the meeting link
+            instead. If both are blank, students see “Location to be confirmed”.
           </p>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="notice">活动说明（可选）</Label>
+        <Label htmlFor="notice">Event notes (optional)</Label>
         <textarea
           id="notice"
           name="notice"
@@ -199,11 +209,13 @@ export function EventForm({
           maxLength={2000}
           className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-3 focus-visible:outline-none"
         />
-        <p className="text-muted-foreground text-xs">会显示在活动页面上，最多 2000 字。</p>
+        <p className="text-muted-foreground text-xs">
+          Shown on the event page. Up to 2000 characters.
+        </p>
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "保存中…" : mode === "create" ? "创建活动" : "保存修改"}
+        {pending ? "Saving…" : mode === "create" ? "Create event" : "Save changes"}
       </Button>
     </form>
   );
