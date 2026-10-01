@@ -313,7 +313,12 @@ describe("软警告：显示但不阻止提交（规范第 13、20 节）", () =
      * 产品负责人后来明确：所有赛制都不允许 Low Point Win，因此这里是硬规则。
      */
     expect(submission.valid).toBe(false);
-    expect(submission.issues.map((issue) => issue.message).join("")).toContain("Low Point Win");
+    expect(
+      submission.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("low point win");
 
     // 也不该再重复一条"可以确认继续"的软警告
     const warnings = findBallotWarnings(EXTEMP_TEMPLATE, data, {

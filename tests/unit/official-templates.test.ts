@@ -117,10 +117,16 @@ describe("除 BP 外，所有赛制都不允许 Low Point Win 与平局", () => 
     }
   });
 
-  it("拒绝信息是中文且明确指出不允许低分获胜", () => {
+  /**
+   * ⚠️ 断言用**大小写不敏感**的匹配：这条测试要保的是"信息明确说了不允许低分获胜"，
+   * 而不是"它必须写成 Low Point Win 这个大小写"。
+   * 界面语言 2026-10-01 固定为英文后，文案变成自然的句子
+   * （"…does not allow a low point win."），把大小写写死会让测试挡在纯粹的措辞上。
+   */
+  it("拒绝信息明确指出不允许低分获胜（Low Point Win）", () => {
     for (const [formatCode, entry] of WINS_OR_LOSES_FORMATS) {
       const rule = (entry.schema.rules ?? []).find((r) => r.kind === "winnerMustHaveHighestTotal");
-      expect(rule?.message, `${formatCode}`).toContain("Low Point Win");
+      expect(rule?.message.toLowerCase(), `${formatCode}`).toContain("low point win");
     }
   });
 });

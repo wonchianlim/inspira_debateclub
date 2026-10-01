@@ -287,7 +287,12 @@ describe("用数据库里的模板算分与校验", () => {
       teamMembersByTeam: { pro: ["pro-1", "pro-2"], con: ["con-1", "con-2"] },
     });
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.message).join("")).toContain("Low Point Win");
+    expect(
+      result.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("low point win");
   });
 
   it("WSDC：从数据库读回的模板仍然强制 60–80 的硬性区间", async () => {

@@ -280,7 +280,8 @@ describe("队伍合计只是参考，不决定名次（规范第 32 节）", () 
 
   it("队伍合计的标签明确写了「不决定名次」", () => {
     const total = BP_TEMPLATE.totals?.find((t) => t.key === "team_points");
-    expect(total?.label).toContain("不决定名次");
+    // 界面语言固定为英文（2026-10-01），标签本身也已经是英文
+    expect(total?.label).toContain("does not decide the ranking");
   });
 });
 

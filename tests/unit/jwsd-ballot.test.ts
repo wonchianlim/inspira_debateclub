@@ -347,7 +347,12 @@ describe("软警告：队伍总分与胜方明显不符（规范第 15 节）", 
       teamMembersByTeam: TEAM_MEMBERS,
     });
     expect(submission.valid).toBe(false);
-    expect(submission.issues.map((issue) => issue.message).join("")).toContain("Low Point Win");
+    expect(
+      submission.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("low point win");
   });
 
   it("平局也不能提交", () => {
@@ -367,7 +372,12 @@ describe("软警告：队伍总分与胜方明显不符（规范第 15 节）", 
       teamMembersByTeam: TEAM_MEMBERS,
     });
     expect(submission.valid).toBe(false);
-    expect(submission.issues.map((issue) => issue.message).join("")).toContain("相同");
+    expect(
+      submission.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("same total");
   });
 
   it("总分接近时**不**报警", () => {

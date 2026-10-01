@@ -8,10 +8,10 @@ const MATCH_SCOPE = "match" as const;
  * **官方评分表模板**（由产品负责人提供）。
  *
  * ⚠️ 这里是模板的**唯一来源**：测试与"载入官方模板"的动作都引用它。
- * 若把同样的内容在测试与生产代码里各写一份，两边迟早会漂移 ——
+ * 若把同样的Content在测试与生产代码里各写一份，两边迟早会漂移 ——
  * 而"测试通过、实际生效的是另一份"正是本项目反复在防的那类问题。
  *
- * 规范没有规定这些内容，**是产品负责人给的**：
+ * 规范没有规定这些Content，**是产品负责人给的**：
  *   - `ONE_V_ONE`（即兴辩论 / Extemporaneous Debate）
  *   - `JWSD`（世界学校制初中组）
  *
@@ -24,7 +24,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     // ---- 计分表：五个维度，正反方各一份（规范第 4 节）----
     {
       key: "argumentation",
-      label: "论证",
+      label: "Argumentation",
       type: "score",
       scope: TEAM_SCOPE,
       required: true,
@@ -33,7 +33,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "engagement",
-      label: "交锋",
+      label: "Clash",
       type: "score",
       scope: TEAM_SCOPE,
       required: true,
@@ -42,7 +42,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "analysis_adaptability",
-      label: "分析与应变",
+      label: "Analysis and adaptation",
       type: "score",
       scope: TEAM_SCOPE,
       required: true,
@@ -51,7 +51,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "delivery",
-      label: "表达",
+      label: "Delivery",
       type: "score",
       scope: TEAM_SCOPE,
       required: true,
@@ -60,7 +60,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "structure_strategy",
-      label: "结构与策略",
+      label: "Structure and strategy",
       type: "score",
       scope: TEAM_SCOPE,
       required: true,
@@ -68,12 +68,12 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
       max: 2,
     },
 
-    // ---- Ballot 第 1、2 部分：正反方主要论点 ----
+    // ---- Ballot 第 1、2 部分：正反方Main arguments ----
     // `scope: team` 让**一支队伍一份列表**，天然对应规范里
     // "Proposition Main Arguments" 与 "Opposition Main Arguments" 两节。
     {
       key: "main_arguments",
-      label: "主要论点",
+      label: "Main arguments",
       type: "list",
       scope: TEAM_SCOPE,
       required: true,
@@ -82,48 +82,48 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
       itemLabel: "论点",
     },
 
-    // ---- Ballot 第 3 部分：主要交锋（不按方，整场一份）----
+    // ---- Ballot 第 3 部分：Key clashes（不按方，整场一份）----
     {
       key: "main_clashes",
-      label: "主要交锋",
+      label: "Key clashes",
       type: "list",
       scope: MATCH_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
-      itemLabel: "交锋",
+      itemLabel: "Clash",
     },
 
-    // ---- Ballot 第 4 部分：判决理由（至少 100 字，规范第 19 节）----
+    // ---- Ballot 第 4 部分：Reason for decision（至少 100 字，规范第 19 节）----
     {
       key: "reason_for_decision",
-      label: "判决理由",
+      label: "Reason for decision",
       type: "text",
       scope: MATCH_SCOPE,
       required: true,
       minLength: 100,
     },
 
-    // ---- 裁判信心（3 档，可选，规范第 14 节）----
+    // ---- Judge confidence（3 档，可选，规范第 14 节）----
     {
       key: "judge_confidence",
-      label: "裁判信心",
+      label: "Judge confidence",
       type: "score",
       scope: MATCH_SCOPE,
       required: false,
       min: 1,
       max: 3,
       options: [
-        { value: 3, label: "清晰判决" },
-        { value: 2, label: "势均力敌" },
-        { value: 1, label: "非常接近" },
+        { value: 3, label: "Clear decision" },
+        { value: 2, label: "Close call" },
+        { value: 1, label: "Very close" },
       ],
     },
 
     // ---- Ballot 第 5、6 部分：正反方反馈（各两项，至少 30 字，规范第 22、23 节）----
     {
       key: "feedback_strength",
-      label: "做得好的地方",
+      label: "What went well",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -131,7 +131,7 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "feedback_improve",
-      label: "应该改进的地方",
+      label: "What to improve",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -140,11 +140,11 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
   ],
   winnerRequired: true,
   reasonForDecisionRequired: true,
-  // 规范第 40 节：总分由五项相加，满分 30，**裁判不填**
+  // 规范第 40 节：Total由五项相加，满分 30，**裁判不填**
   totals: [
     {
       key: "total",
-      label: "总分",
+      label: "Total",
       scope: "team",
       sumOf: [
         "argumentation",
@@ -161,21 +161,22 @@ export const EXTEMP_TEMPLATE: BallotTemplateSchema = {
    *
    * 这一条**修正了** 1v1 与 JWSD 两份规范里"只警告、不阻止提交"的写法 ——
    * 那两处说的是"分数明显偏低"，而产品负责人明确了规则本身：
-   * **胜方的队伍总分必须高于对方**。因此在这里是**硬规则**（阻止提交），
+   * **胜方的Team total必须高于对方**。因此在这里是**硬规则**（阻止提交），
    * 而不是软警告。
    */
   rules: [
     {
       kind: "totalsMustNotTie",
       totalKey: "total",
-      message: "两队的队伍总分相同，不能提交。请调整分数，让胜方的队伍总分更高。",
+      message:
+        "Both teams have the same total. Adjust the scores so the winning team's total is higher before submitting.",
     },
     {
       kind: "winnerMustHaveHighestTotal",
       totalKey: "total",
       message:
-        "你选的胜方队伍总分低于对方。本赛制不允许 Low Point Win（低分获胜），" +
-        "请调整分数或改选胜方后再提交。",
+        "The team you marked as the winner has a lower total than the other team. This format does not allow a low point win. " +
+        "Adjust the scores, or change the winner, before submitting.",
     },
   ],
 };
@@ -191,7 +192,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
      */
     {
       key: "style",
-      label: "表达",
+      label: "Delivery",
       type: "score",
       scope: "speaker",
       required: true,
@@ -202,7 +203,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "content",
-      label: "内容",
+      label: "Content",
       type: "score",
       scope: "speaker",
       required: true,
@@ -213,7 +214,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "strategy",
-      label: "策略",
+      label: "Strategy",
       type: "score",
       scope: "speaker",
       required: true,
@@ -226,13 +227,13 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     /*
      * ---- 回复发言者（第 4 位，满分是普通发言者的**一半**：50 分）----
      *
-     * 表达 20 / 内容 20 / 策略 10 —— 正好是 40/40/20 的一半。
+     * Delivery 20 / Content 20 / Strategy 10 —— 正好是 40/40/20 的一半。
      *
      * ⚠️ 产品负责人明确：**回复发言者允许半分**（例如 35.5），因此 `step: 0.5`。
      */
     {
       key: "reply_style",
-      label: "表达（回复）",
+      label: "Delivery (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -243,7 +244,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "reply_content",
-      label: "内容（回复）",
+      label: "Content (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -254,7 +255,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "reply_strategy",
-      label: "策略（回复）",
+      label: "Strategy (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -267,73 +268,73 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     // ---- 每位发言者可选的单独评语（规范第 29、30 节：MVP 里是**可选**）----
     {
       key: "speaker_feedback",
-      label: "给这位发言者的一句话",
+      label: "One line for this speaker",
       type: "text",
       scope: "speaker",
       required: false,
       minLength: 10,
     },
 
-    // ---- 论点：按队伍各一份，每条可带裁判笔记（规范第 17–19 节）----
+    // ---- 论点：按队伍各一份，每条可带Judge notes（规范第 17–19 节）----
     {
       key: "main_arguments",
-      label: "主要论点",
+      label: "Main arguments",
       type: "list",
       scope: TEAM_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
       itemLabel: "论点",
-      itemFields: [{ key: "judge_note", label: "裁判笔记", required: false }],
+      itemFields: [{ key: "judge_note", label: "Judge notes", required: false }],
     },
 
-    // ---- 交锋：整场一份，每条可带三段笔记（规范第 20–22 节，MVP 里可选）----
+    // ---- Clash：整场一份，每条可带三段笔记（规范第 20–22 节，MVP 里可选）----
     {
       key: "main_clashes",
-      label: "主要交锋",
+      label: "Key clashes",
       type: "list",
       scope: MATCH_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
-      itemLabel: "交锋",
+      itemLabel: "Clash",
       itemFields: [
-        { key: "proposition_note", label: "正方主张", required: false },
-        { key: "opposition_note", label: "反方主张", required: false },
-        { key: "judge_assessment", label: "裁判评估", required: false },
+        { key: "proposition_note", label: "Proposition case", required: false },
+        { key: "opposition_note", label: "Opposition case", required: false },
+        { key: "judge_assessment", label: "Judge assessment", required: false },
       ],
     },
 
-    // ---- 判决理由（规范第 23、25 节）----
+    // ---- Reason for decision（规范第 23、25 节）----
     {
       key: "reason_for_decision",
-      label: "判决理由",
+      label: "Reason for decision",
       type: "text",
       scope: MATCH_SCOPE,
       required: true,
       minLength: 100,
     },
 
-    // ---- 裁判信心（规范第 26 节，可选）----
+    // ---- Judge confidence（规范第 26 节，可选）----
     {
       key: "judge_confidence",
-      label: "裁判信心",
+      label: "Judge confidence",
       type: "score",
       scope: MATCH_SCOPE,
       required: false,
       min: 1,
       max: 3,
       options: [
-        { value: 3, label: "清晰判决" },
-        { value: 2, label: "势均力敌" },
-        { value: 1, label: "非常接近" },
+        { value: 3, label: "Clear decision" },
+        { value: 2, label: "Close call" },
+        { value: 1, label: "Very close" },
       ],
     },
 
     // ---- 队伍反馈（规范第 27、28 节：**必填**）----
     {
       key: "feedback_strength",
-      label: "做得好的地方",
+      label: "What went well",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -341,7 +342,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "feedback_improve",
-      label: "应该改进的地方",
+      label: "What to improve",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -354,7 +355,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     // 前三位：每人 100 分
     {
       key: "speaker_total",
-      label: "个人总分",
+      label: "Individual total",
       scope: "speaker",
       sumOf: ["style", "content", "strategy"],
       max: 100,
@@ -363,22 +364,22 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
     // 回复发言者：50 分（普通发言者的一半），**允许半分**
     {
       key: "reply_total",
-      label: "回复总分",
+      label: "Reply total",
       scope: "speaker",
       sumOf: ["reply_style", "reply_content", "reply_strategy"],
       max: 50,
       perSpeaker: true,
     },
     /*
-     * 队伍总分 = 三位普通发言者 + 一位回复发言者。
+     * Team total = 三位普通发言者 + 一位回复发言者。
      *
      * ⚠️ 满分**不写死**：人数与构成可变（3 人、4 人、加不加回复发言者），
      * 因此只做一个下界检查（至少 100 + 50 = 150）。
-     * 因为回复项允许半分，队伍总分**也可能带半分**（例如 257.5）。
+     * 因为回复项允许半分，Team total**也可能带半分**（例如 257.5）。
      */
     {
       key: "team_total",
-      label: "队伍总分",
+      label: "Team total",
       scope: "teamFromSpeakers",
       sumOf: [],
       fromSpeakerTotals: ["speaker_total", "reply_total"],
@@ -390,25 +391,26 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
    *
    * 这一条**修正了** 1v1 与 JWSD 两份规范里"只警告、不阻止提交"的写法 ——
    * 那两处说的是"分数明显偏低"，而产品负责人明确了规则本身：
-   * **胜方的队伍总分必须高于对方**。因此在这里是**硬规则**（阻止提交），
+   * **胜方的Team total必须高于对方**。因此在这里是**硬规则**（阻止提交），
    * 而不是软警告。
    */
   rules: [
     {
       kind: "totalsMustNotTie",
       totalKey: "team_total",
-      message: "两队的队伍总分相同，不能提交。请调整分数，让胜方的队伍总分更高。",
+      message:
+        "Both teams have the same total. Adjust the scores so the winning team's total is higher before submitting.",
     },
     {
       kind: "winnerMustHaveHighestTotal",
       totalKey: "team_total",
       message:
-        "你选的胜方队伍总分低于对方。本赛制不允许 Low Point Win（低分获胜），" +
-        "请调整分数或改选胜方后再提交。",
+        "The team you marked as the winner has a lower total than the other team. This format does not allow a low point win. " +
+        "Adjust the scores, or change the winner, before submitting.",
     },
     {
       /*
-       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的队伍总分差必须在 0.5–12 分之间**。
+       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的Team total差必须在 0.5–12 分之间**。
        *
        *   - 下界 0.5：不能平局（这两个赛制允许半分，0.5 就是最小差距）
        *   - 上界 12：不能一边倒得太离谱 —— 那通常说明打分出了问题
@@ -418,8 +420,8 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
       minGap: 0.5,
       maxGap: 12,
       message:
-        "两队队伍总分的差距必须在 0.5 到 12 分之间。差得太少说明几乎平局，" +
-        "差得太多通常说明打分有问题 —— 请检查发言者分数后再提交。",
+        "The gap between the two team totals must be between 0.5 and 12. A gap this small means the round was almost a draw. " +
+        "A gap this large usually means a scoring mistake - check the speaker scores before submitting.",
     },
   ],
   /*
@@ -431,7 +433,7 @@ export const JWSD_TEMPLATE: BallotTemplateSchema = {
 /**
  * 赛制代号 → 官方模板。
  *
- * 只包含**产品负责人已经给出内容**的赛制。
+ * 只包含**产品负责人已经给出Content**的赛制。
  * 其余赛制保持空缺，界面上会明确提示"这个赛制还不能打分"——
  * 而不是给一个空的或猜出来的模板。
  */
@@ -448,7 +450,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     // ---- 每人 30 分，五个维度，**允许半分**（规范第 2、8、20 节）----
     {
       key: "argumentation",
-      label: "论证与证据",
+      label: "Argumentation and evidence",
       type: "score",
       scope: "speaker",
       required: true,
@@ -458,7 +460,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "rebuttal",
-      label: "反驳与比较",
+      label: "Refutation and comparison",
       type: "score",
       scope: "speaker",
       required: true,
@@ -468,7 +470,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "strategy",
-      label: "策略与全局意识",
+      label: "Strategy and global awareness",
       type: "score",
       scope: "speaker",
       required: true,
@@ -478,7 +480,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "delivery",
-      label: "表达",
+      label: "Delivery",
       type: "score",
       scope: "speaker",
       required: true,
@@ -488,7 +490,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "crossfire_teamwork",
-      label: "交叉质询与配合",
+      label: "Cross-examination and teamwork",
       type: "score",
       scope: "speaker",
       required: true,
@@ -500,7 +502,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     // 每位发言者可选的单独评语（规范第 37 节）
     {
       key: "speaker_feedback",
-      label: "这位发言者可以改进的一点",
+      label: "One thing this speaker can improve",
       type: "text",
       scope: "speaker",
       required: false,
@@ -510,63 +512,63 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     // ---- 论点（规范第 24–26 节）----
     {
       key: "main_arguments",
-      label: "主要论点",
+      label: "Main arguments",
       type: "list",
       scope: TEAM_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
       itemLabel: "论点",
-      itemFields: [{ key: "judge_note", label: "裁判笔记", required: false }],
+      itemFields: [{ key: "judge_note", label: "Judge notes", required: false }],
     },
 
-    // ---- 交锋（规范第 27–29 节）----
+    // ---- Clash（规范第 27–29 节）----
     {
       key: "main_clashes",
-      label: "主要交锋",
+      label: "Key clashes",
       type: "list",
       scope: MATCH_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
-      itemLabel: "交锋",
+      itemLabel: "Clash",
       itemFields: [
-        { key: "pro_note", label: "正方立场", required: false },
-        { key: "con_note", label: "反方立场", required: false },
-        { key: "judge_assessment", label: "裁判评估", required: false },
+        { key: "pro_note", label: "Proposition stance", required: false },
+        { key: "con_note", label: "Opposition stance", required: false },
+        { key: "judge_assessment", label: "Judge assessment", required: false },
       ],
     },
 
-    // ---- 判决理由（规范第 30、32 节）----
+    // ---- Reason for decision（规范第 30、32 节）----
     {
       key: "reason_for_decision",
-      label: "判决理由",
+      label: "Reason for decision",
       type: "text",
       scope: MATCH_SCOPE,
       required: true,
       minLength: 100,
     },
 
-    // ---- 裁判信心（规范第 34 节）----
+    // ---- Judge confidence（规范第 34 节）----
     {
       key: "judge_confidence",
-      label: "裁判信心",
+      label: "Judge confidence",
       type: "score",
       scope: MATCH_SCOPE,
       required: false,
       min: 1,
       max: 3,
       options: [
-        { value: 3, label: "清晰" },
-        { value: 2, label: "有竞争性" },
-        { value: 1, label: "非常接近" },
+        { value: 3, label: "Clear" },
+        { value: 2, label: "Competitive" },
+        { value: 1, label: "Very close" },
       ],
     },
 
     // ---- 队伍反馈（规范第 35、36 节）----
     {
       key: "feedback_strength",
-      label: "做得好的地方",
+      label: "What went well",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -574,7 +576,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "feedback_improve",
-      label: "应该改进的地方",
+      label: "What to improve",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -587,7 +589,7 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
     // 每人 30 分（规范第 19 节）
     {
       key: "speaker_total",
-      label: "个人总分",
+      label: "Individual total",
       scope: "speaker",
       sumOf: ["argumentation", "rebuttal", "strategy", "delivery", "crossfire_teamwork"],
       max: 30,
@@ -596,10 +598,10 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
       confirmAbove: 29,
       confirmBelow: 22,
     },
-    // 队伍总分 = 两位发言者之和，满分 60（规范第 2、21 节）
+    // Team total = 两位发言者之和，满分 60（规范第 2、21 节）
     {
       key: "team_points",
-      label: "队伍总分",
+      label: "Team total",
       scope: "teamFromSpeakers",
       sumOf: [],
       fromSpeakerTotals: ["speaker_total"],
@@ -618,14 +620,14 @@ export const PF_TEMPLATE: BallotTemplateSchema = {
       kind: "totalsMustNotTie",
       totalKey: "team_points",
       message:
-        "两队的队伍总分相同，不能提交。因为允许半分，请调整发言者分数，让胜方的队伍总分更高。",
+        "Both teams have the same total. Half points are allowed, so adjust the speaker scores to make the winning team's total higher before submitting.",
     },
     {
       kind: "winnerMustHaveHighestTotal",
       totalKey: "team_points",
       message:
-        "你选的胜方队伍总分低于对方。Public Forum 不允许 Low Point Win（低分获胜），" +
-        "请调整分数或改选胜方后再提交。",
+        "The team you marked as the winner has a lower total than the other team. Public Forum does not allow a low point win. " +
+        "Adjust the scores, or change the winner, before submitting.",
     },
   ],
 };
@@ -649,7 +651,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     // ---- 每人 100 分（规范第 1、5 节）----
     {
       key: "style",
-      label: "表达",
+      label: "Delivery",
       type: "score",
       scope: "speaker",
       required: true,
@@ -661,7 +663,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "content",
-      label: "内容",
+      label: "Content",
       type: "score",
       scope: "speaker",
       required: true,
@@ -673,7 +675,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "strategy",
-      label: "策略",
+      label: "Strategy",
       type: "score",
       scope: "speaker",
       required: true,
@@ -687,11 +689,11 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     /*
      * ---- 回复发言者（第 4 位，满分是主发言者的**一半**：50 分）----
      *
-     * 与 JWSD 完全一致：表达 20 / 内容 20 / 策略 10，**允许半分**。
+     * 与 JWSD 完全一致：Delivery 20 / Content 20 / Strategy 10，**允许半分**。
      */
     {
       key: "reply_style",
-      label: "表达（回复）",
+      label: "Delivery (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -702,7 +704,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "reply_content",
-      label: "内容（回复）",
+      label: "Content (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -713,7 +715,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "reply_strategy",
-      label: "策略（回复）",
+      label: "Strategy (reply)",
       type: "score",
       scope: "speaker",
       required: true,
@@ -726,7 +728,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     // 每位发言者可选的单独评语（规范第 29 节）
     {
       key: "speaker_feedback",
-      label: "这位发言者可以改进的一点",
+      label: "One thing this speaker can improve",
       type: "text",
       scope: "speaker",
       required: false,
@@ -736,63 +738,63 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     // ---- 论点（规范第 17–19 节）----
     {
       key: "main_arguments",
-      label: "主要论点",
+      label: "Main arguments",
       type: "list",
       scope: TEAM_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
       itemLabel: "论点",
-      itemFields: [{ key: "judge_note", label: "裁判笔记", required: false }],
+      itemFields: [{ key: "judge_note", label: "Judge notes", required: false }],
     },
 
-    // ---- 交锋（规范第 20–22 节）----
+    // ---- Clash（规范第 20–22 节）----
     {
       key: "main_clashes",
-      label: "主要交锋",
+      label: "Key clashes",
       type: "list",
       scope: MATCH_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
-      itemLabel: "交锋",
+      itemLabel: "Clash",
       itemFields: [
-        { key: "proposition_note", label: "正方立场", required: false },
-        { key: "opposition_note", label: "反方立场", required: false },
-        { key: "judge_assessment", label: "裁判评估", required: false },
+        { key: "proposition_note", label: "Proposition stance", required: false },
+        { key: "opposition_note", label: "Opposition stance", required: false },
+        { key: "judge_assessment", label: "Judge assessment", required: false },
       ],
     },
 
-    // ---- 判决理由（规范第 23、25 节）----
+    // ---- Reason for decision（规范第 23、25 节）----
     {
       key: "reason_for_decision",
-      label: "判决理由",
+      label: "Reason for decision",
       type: "text",
       scope: MATCH_SCOPE,
       required: true,
       minLength: 100,
     },
 
-    // ---- 裁判信心（规范第 26 节）----
+    // ---- Judge confidence（规范第 26 节）----
     {
       key: "judge_confidence",
-      label: "裁判信心",
+      label: "Judge confidence",
       type: "score",
       scope: MATCH_SCOPE,
       required: false,
       min: 1,
       max: 3,
       options: [
-        { value: 3, label: "清晰判决" },
-        { value: 2, label: "有竞争性" },
-        { value: 1, label: "非常接近" },
+        { value: 3, label: "Clear decision" },
+        { value: 2, label: "Competitive" },
+        { value: 1, label: "Very close" },
       ],
     },
 
     // ---- 队伍反馈（规范第 27、28 节：**必填**）----
     {
       key: "feedback_strength",
-      label: "做得好的地方",
+      label: "What went well",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -800,7 +802,7 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "feedback_improve",
-      label: "应该改进的地方",
+      label: "What to improve",
       type: "text",
       scope: TEAM_SCOPE,
       required: true,
@@ -812,13 +814,13 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
   totals: [
     {
       key: "speaker_total",
-      label: "个人总分",
+      label: "Individual total",
       scope: "speaker",
       sumOf: ["style", "content", "strategy"],
       max: 100,
       perSpeaker: true,
       /*
-       * ⚠️ 产品负责人明确：**WSDC 的个人总分必须在 60–80 之间，
+       * ⚠️ 产品负责人明确：**WSDC 的Individual total必须在 60–80 之间，
        *    系统要拒绝 59 与 81**。因此这是**硬**区间，不是建议范围。
        *
        * 这一条**修正了** WSDC 规范第 39 节原来的写法 ——
@@ -833,16 +835,16 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     // 回复发言者：50 分（主发言者的一半），**允许半分**
     {
       key: "reply_total",
-      label: "回复总分",
+      label: "Reply total",
       scope: "speaker",
       sumOf: ["reply_style", "reply_content", "reply_strategy"],
       max: 50,
       perSpeaker: true,
     },
-    // 队伍总分 = 三位主发言者 + 一位回复发言者
+    // Team total = 三位主发言者 + 一位回复发言者
     {
       key: "team_total",
-      label: "队伍总分",
+      label: "Team total",
       scope: "teamFromSpeakers",
       sumOf: [],
       fromSpeakerTotals: ["speaker_total", "reply_total"],
@@ -858,18 +860,19 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
     {
       kind: "totalsMustNotTie",
       totalKey: "team_total",
-      message: "两队的队伍总分相同，不能提交。请调整分数，让胜方的队伍总分更高。",
+      message:
+        "Both teams have the same total. Adjust the scores so the winning team's total is higher before submitting.",
     },
     {
       kind: "winnerMustHaveHighestTotal",
       totalKey: "team_total",
       message:
-        "你选的胜方队伍总分低于对方。本赛制不允许 Low Point Win（低分获胜），" +
-        "请调整分数或改选胜方后再提交。",
+        "The team you marked as the winner has a lower total than the other team. This format does not allow a low point win. " +
+        "Adjust the scores, or change the winner, before submitting.",
     },
     {
       /*
-       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的队伍总分差必须在 0.5–12 分之间**。
+       * 产品负责人 2026-09-29：**WSDC 与 JWSD 的Team total差必须在 0.5–12 分之间**。
        *
        *   - 下界 0.5：不能平局（这两个赛制允许半分，0.5 就是最小差距）
        *   - 上界 12：不能一边倒得太离谱 —— 那通常说明打分出了问题
@@ -879,27 +882,47 @@ export const WSDC_TEMPLATE: BallotTemplateSchema = {
       minGap: 0.5,
       maxGap: 12,
       message:
-        "两队队伍总分的差距必须在 0.5 到 12 分之间。差得太少说明几乎平局，" +
-        "差得太多通常说明打分有问题 —— 请检查发言者分数后再提交。",
+        "The gap between the two team totals must be between 0.5 and 12. A gap this small means the round was almost a draw. " +
+        "A gap this large usually means a scoring mistake - check the speaker scores before submitting.",
     },
   ],
   guidance: {
-    title: "WSDC 评分参照",
+    title: "WSDC score reference",
     normalRange: [60, 80],
     defaultScore: 70,
     anchors: [
-      { score: 80, label: "God-like", note: "近乎完美的演讲，极其罕见" },
-      { score: 78, label: "Exceptional", note: "精英竞赛级别的出色表现，非常罕见" },
-      { score: 76, label: "Excellent", note: "真正优秀的演讲，几乎没有明显弱点" },
-      { score: 75, label: "Very Decent", note: "明显强于一般水平，是一篇很好的演讲" },
-      { score: 73, label: "Strong", note: "高于平均，分析、策略与表达都不错" },
-      { score: 71, label: "Above Average", note: "扎实的演讲，明显好于常规水平" },
-      { score: 70, label: "Average", note: "WSDC 的平均水平。70 不是惩罚，它就是平均" },
-      { score: 68, label: "Below Average", note: "基本可用，但在分析、策略或表达上有明显弱点" },
-      { score: 66, label: "Weak", note: "问题明显，但仍有一定辩论内容" },
-      { score: 63, label: "Very Weak", note: "各方面都有重大弱点，有效贡献有限" },
-      { score: 61, label: "Extremely Weak", note: "几乎没有提出有意义的辩论内容" },
-      { score: 60, label: "Minimum", note: "相当于上台问好就坐下" },
+      { score: 80, label: "God-like", note: "A near-perfect speech; extremely rare" },
+      { score: 78, label: "Exceptional", note: "Elite competition standard; very rare" },
+      {
+        score: 76,
+        label: "Excellent",
+        note: "A genuinely excellent speech with almost no clear weakness",
+      },
+      { score: 75, label: "Very Decent", note: "Clearly above average; a very good speech" },
+      {
+        score: 73,
+        label: "Strong",
+        note: "Above average; analysis, strategy and delivery all sound",
+      },
+      { score: 71, label: "Above Average", note: "Solid speech, clearly above the usual level" },
+      {
+        score: 70,
+        label: "Average",
+        note: "the WSDC average. 70 is not a penalty; it is the average",
+      },
+      {
+        score: 68,
+        label: "Below Average",
+        note: "Usable, with clear weaknesses in analysis, strategy or delivery",
+      },
+      { score: 66, label: "Weak", note: "Clearly problematic, but with some debating content" },
+      {
+        score: 63,
+        label: "Very Weak",
+        note: "Major weaknesses throughout; limited effective contribution",
+      },
+      { score: 61, label: "Extremely Weak", note: "Almost no meaningful argument" },
+      { score: 60, label: "Minimum", note: "Equivalent to saying hello and sitting down" },
     ],
   },
 };
@@ -933,7 +956,7 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
      */
     {
       key: "speaker_score",
-      label: "发言者得分",
+      label: "Speaker scores",
       type: "score",
       scope: "speaker",
       required: true,
@@ -945,7 +968,7 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
     // ---- 每位发言者的反馈（规范第 37 节：**改进建议必填**）----
     {
       key: "speaker_strength",
-      label: "做得好的地方",
+      label: "What went well",
       type: "text",
       scope: "speaker",
       required: false,
@@ -953,7 +976,7 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
     },
     {
       key: "speaker_improve",
-      label: "应该改进的地方",
+      label: "What to improve",
       type: "text",
       scope: "speaker",
       required: true,
@@ -963,13 +986,13 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
     /*
      * ---- 各队的主要贡献（规范第 50 节）----
      *
-     * 规范里 OG/OO 叫"主要论点"、CG/CO 叫"延伸"，但两者的形状相同：
-     * 都是"这一队提出了什么"。因此用**一个**按队伍的列表字段表达四支队伍，
+     * 规范里 OG/OO 叫"Main arguments"、CG/CO 叫"延伸"，但两者的形状相同：
+     * 都是"这一队提出了什么"。因此用**一个**按队伍的列表字段Delivery四支队伍，
      * 而不是为前两队与后两队各做一套 —— 那会变成四份几乎一样的配置。
      */
     {
       key: "team_contribution",
-      label: "本队的主要贡献",
+      label: "This team's main contribution",
       type: "list",
       scope: TEAM_SCOPE,
       required: true,
@@ -977,72 +1000,72 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
       maxItems: 5,
       itemLabel: "贡献",
       itemFields: [
-        { key: "why_distinct", label: "为什么是新的（延伸用）", required: false },
-        { key: "why_important", label: "为什么重要", required: false },
+        { key: "why_distinct", label: "Why it is new (for extensions)", required: false },
+        { key: "why_important", label: "Why it matters", required: false },
       ],
     },
 
-    // ---- 主要交锋（规范第 51 节）----
+    // ---- Key clashes（规范第 51 节）----
     {
       key: "main_clashes",
-      label: "主要交锋",
+      label: "Key clashes",
       type: "list",
       scope: MATCH_SCOPE,
       required: true,
       minItems: 1,
       maxItems: 5,
-      itemLabel: "交锋",
+      itemLabel: "Clash",
     },
 
     // ---- 队伍两两对比（规范第 52 节：可选，但对裁判训练有用）----
     {
       key: "comparison_opening",
-      label: "正开 vs 反开（哪一方建立了更强的初始阵地）",
+      label: "Gov Opening vs Opp Opening (which side built the stronger opening case)",
       type: "text",
       scope: MATCH_SCOPE,
       required: false,
     },
     {
       key: "comparison_closing",
-      label: "正关 vs 反关（哪一方的延伸更强）",
+      label: "Gov Closing vs Opp Closing (whose extension was stronger)",
       type: "text",
       scope: MATCH_SCOPE,
       required: false,
     },
     {
       key: "comparison_government",
-      label: "正开 vs 正关（政府席位哪一队贡献更大）",
+      label: "Gov Opening vs Gov Closing (which government bench contributed more)",
       type: "text",
       scope: MATCH_SCOPE,
       required: false,
     },
     {
       key: "comparison_opposition",
-      label: "反开 vs 反关（反对席位哪一队贡献更大）",
+      label: "Opp Opening vs Opp Closing (which opposition bench contributed more)",
       type: "text",
       scope: MATCH_SCOPE,
       required: false,
     },
 
     /*
-     * ---- 最终排名（规范第 4、53 节）----
+     * ---- Final ranking（规范第 4、53 节）----
      *
      * ⚠️ 这是**唯一**一种"值分布在多支队伍上、且彼此互斥"的字段：
      * 每支队伍恰好一个名次，不能重复、不能跳号。
      */
     {
       key: "final_ranking",
-      label: "最终排名",
+      label: "Final ranking",
       type: "ranking",
       scope: MATCH_SCOPE,
       required: true,
       rankLabels: ["第 1 名", "第 2 名", "第 3 名", "第 4 名"],
     },
 
-    // ---- 排名理由（规范第 36 节：至少 150 字）----
+    // ---- Reason for ranking（规范第 36 节：至少 150 字）----
     {
       key: "ranking_rationale",
-      label: "排名理由",
+      label: "Reason for ranking",
       type: "text",
       scope: MATCH_SCOPE,
       required: true,
@@ -1055,7 +1078,7 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
   totals: [
     {
       key: "speaker_total",
-      label: "个人得分",
+      label: "Individual score",
       scope: "speaker",
       sumOf: ["speaker_score"],
       max: 85,
@@ -1071,13 +1094,13 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
       confirmBelow: 63,
     },
     /*
-     * 队伍总分**只用于展示**（两队的发言者之和），
+     * Team total**只用于展示**（两队的发言者之和），
      * 规范第 32 节明确说排名**不得**由它决定 —— 因此这里
      * **没有**任何引用它的硬规则。这是刻意的。
      */
     {
       key: "team_points",
-      label: "本队两人合计（仅供参考，不决定名次）",
+      label: "This team's two speakers combined (reference only; does not decide the ranking)",
       scope: "teamFromSpeakers",
       sumOf: [],
       fromSpeakerTotals: ["speaker_total"],
@@ -1086,44 +1109,48 @@ export const BP_TEMPLATE: BallotTemplateSchema = {
   ],
   // 规范第 33 节：名次与分数不一致**只警告**，因此这里刻意**没有** rules
   guidance: {
-    title: "BP 评分参照",
+    title: "BP score reference",
     normalRange: [60, 85],
     defaultScore: 75,
     anchors: [
-      { score: 85, label: "God-like", note: "极其罕见的近乎完美演讲" },
-      { score: 82, label: "Exceptional", note: "精英级别，几乎没有明显弱点" },
-      { score: 80, label: "Excellent", note: "出色的演讲" },
-      { score: 78, label: "Very Decent", note: "明显强的竞赛级演讲" },
-      { score: 76, label: "Above Average", note: "强于常规水平" },
-      { score: 75, label: "Average", note: "BP 的平均水平。75 不是低分，它就是平均" },
-      { score: 73, label: "Slightly Below Average", note: "基本可用，但明显偏弱" },
-      { score: 70, label: "Weak", note: "问题明显" },
-      { score: 65, label: "Very Weak", note: "有意义的贡献有限" },
-      { score: 61, label: "Extremely Weak", note: "几乎没有有效辩论" },
-      { score: 60, label: "Minimum", note: "相当于上台问好就坐下" },
+      { score: 85, label: "God-like", note: "An extremely rare, near-perfect speech" },
+      { score: 82, label: "Exceptional", note: "Elite, with almost no clear weakness" },
+      { score: 80, label: "Excellent", note: "Excellent speech" },
+      { score: 78, label: "Very Decent", note: "A clearly strong, competition-level speech" },
+      { score: 76, label: "Above Average", note: "Stronger than usual" },
+      {
+        score: 75,
+        label: "Average",
+        note: "the BP average. 75 is not a low score; it is the average",
+      },
+      { score: 73, label: "Slightly Below Average", note: "Usable but clearly weak" },
+      { score: 70, label: "Weak", note: "Clearly problematic" },
+      { score: 65, label: "Very Weak", note: "Limited meaningful contribution" },
+      { score: 61, label: "Extremely Weak", note: "Almost no effective debating" },
+      { score: 60, label: "Minimum", note: "Equivalent to saying hello and sitting down" },
     ],
   },
 };
 
 export const OFFICIAL_TEMPLATES: Record<string, { name: string; schema: BallotTemplateSchema }> = {
   ONE_V_ONE: {
-    name: "即兴辩论（Extemporaneous Debate）官方模板",
+    name: "Extemporaneous Debate official template",
     schema: EXTEMP_TEMPLATE,
   },
   JWSD: {
-    name: "JWSD 官方模板",
+    name: "JWSD official template",
     schema: JWSD_TEMPLATE,
   },
   PF: {
-    name: "Public Forum（PF）官方模板",
+    name: "Public Forum (PF) official template",
     schema: PF_TEMPLATE,
   },
   WSDC: {
-    name: "WSDC 官方模板",
+    name: "WSDC official template",
     schema: WSDC_TEMPLATE,
   },
   BP: {
-    name: "British Parliamentary（BP）官方模板",
+    name: "British Parliamentary (BP) official template",
     schema: BP_TEMPLATE,
   },
 };

@@ -178,7 +178,12 @@ describe("硬规则：不允许 Low Point Win、不允许平局（规范第 3、
   it("**Low Point Win**：选了分数更低的一方 → 不能提交，且说明不允许低分获胜", () => {
     const result = submitted(filledBallot(), CON);
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.message).join("")).toContain("Low Point Win");
+    expect(
+      result.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("low point win");
   });
 
   it("低分获胜**不可覆盖** —— 它是 issues（硬错误），不是 warnings", () => {
@@ -207,7 +212,12 @@ describe("硬规则：不允许 Low Point Win、不允许平局（规范第 3、
 
     const result = submitted(data, PRO);
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.message).join("")).toContain("相同");
+    expect(
+      result.issues
+        .map((issue) => issue.message)
+        .join("")
+        .toLowerCase(),
+    ).toContain("same total");
   });
 
   it("平局时无论选哪一方都不能提交", () => {

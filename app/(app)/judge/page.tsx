@@ -25,7 +25,7 @@ import { listMyAssignedMatches } from "@/lib/judge/ballots";
 import { getMyJudgeProfile } from "@/lib/judge/profile";
 import { BALLOT_STATUS_LABELS } from "@/lib/validation/ballot-submission";
 
-export const metadata = { title: "裁判工作台 · INSPIRA" };
+export const metadata = { title: "Judge workspace · INSPIRA" };
 
 export const dynamic = "force-dynamic";
 
@@ -35,32 +35,36 @@ const ACCESS_NOTICES: Record<
   { title: string; description: string; nextSteps: string[] }
 > = {
   "no-profile": {
-    title: "你的账号还没有裁判档案",
-    description: "没有裁判档案就无法被指派比赛，因此这里暂时没有可做的事。",
+    title: "Your account has no judge profile yet",
+    description:
+      "Without a judge profile you cannot be assigned to a round, so there is nothing here yet.",
     nextSteps: [
-      "请联系俱乐部管理员为你建立裁判档案。",
-      "档案建立后，管理员还需要审批并授予赛制资格，你才会出现在指派候选里。",
+      "Ask a club administrator to create a judge profile for you.",
+      "After that, an administrator still has to approve it and grant format qualifications before you appear as a candidate for assignment.",
     ],
   },
   pending: {
-    title: "你的裁判申请还在审批中",
+    title: "Your judge application is still being reviewed",
     description:
-      "审批通过之前，你不会被指派到任何比赛，因此这里没有待办。这不是系统出错，也不需要你反复刷新。",
+      "Until it is approved you will not be assigned to any round, so there is nothing to do here. Nothing is broken, and there is no need to keep refreshing.",
     nextSteps: [
-      "等待俱乐部管理员审批。",
-      "审批通过后，管理员还需要为你勾选可以执裁的赛制。",
-      "这两件事都完成之后，被指派的比赛会出现在这一页。",
+      "Wait for a club administrator to review it.",
+      "After approval, an administrator also has to tick the formats you may judge.",
+      "Once both are done, the rounds you are assigned to appear on this page.",
     ],
   },
   rejected: {
-    title: "你的裁判申请没有通过",
-    description: "因此你不会被指派到任何比赛。",
-    nextSteps: ["如果你认为这是误判，请联系俱乐部管理员说明情况。", "管理员可以重新审批你的档案。"],
+    title: "Your judge application was not approved",
+    description: "You will not be assigned to any round.",
+    nextSteps: [
+      "If you think this is a mistake, contact a club administrator and explain.",
+      "An administrator can review your profile again.",
+    ],
   },
   suspended: {
-    title: "你的裁判账号已被暂停",
-    description: "暂停期间不会被指派新的比赛。",
-    nextSteps: ["请联系俱乐部管理员了解原因与恢复条件。"],
+    title: "Your judge account is suspended",
+    description: "You will not be assigned new rounds while it is suspended.",
+    nextSteps: ["Contact a club administrator to ask why, and what would restore it."],
   },
 };
 
@@ -92,7 +96,7 @@ export default async function JudgeHomePage() {
     const notice = ACCESS_NOTICES[access];
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-h2 font-semibold tracking-tight">裁判工作台</h1>
+        <h1 className="text-h2 font-semibold tracking-tight">Judge workspace</h1>
 
         <Card>
           <CardHeader>
@@ -101,7 +105,7 @@ export default async function JudgeHomePage() {
           <CardContent className="flex flex-col gap-3 text-sm">
             <p className="text-muted-foreground">{notice.description}</p>
             <div>
-              <p className="font-medium">接下来会发生什么</p>
+              <p className="font-medium">What happens next</p>
               <ol className="text-muted-foreground mt-1 list-decimal pl-5">
                 {notice.nextSteps.map((step) => (
                   <li key={step}>{step}</li>
@@ -110,7 +114,7 @@ export default async function JudgeHomePage() {
             </div>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="outline" size="sm">
-                <Link href="/judge/profile">查看我的档案与执裁理念</Link>
+                <Link href="/judge/profile">View my profile and judging philosophy</Link>
               </Button>
             </div>
           </CardContent>
@@ -131,13 +135,13 @@ export default async function JudgeHomePage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-h2 font-semibold tracking-tight">裁判工作台</h1>
+          <h1 className="text-h2 font-semibold tracking-tight">Judge workspace</h1>
           <p className="text-muted-foreground text-sm">
-            你被指派了 {matches.length} 场比赛，其中 {due} 场还没提交评分表。
+            You are assigned to {matches.length} rounds, and {due} still need a ballot.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href="/judge/profile">我的档案与理念</Link>
+          <Link href="/judge/profile">My profile and philosophy</Link>
         </Button>
       </div>
 
@@ -147,25 +151,25 @@ export default async function JudgeHomePage() {
           aria-labelledby="next-assignment-heading"
           className="bg-primary text-primary-foreground rounded-lg px-5 py-5 md:px-6 md:py-6"
         >
-          <p className="text-xs font-medium tracking-wide opacity-80">下一场</p>
+          <p className="text-xs font-medium tracking-wide opacity-80">Next up</p>
           <h2 id="next-assignment-heading" className="text-h3 mt-1 font-semibold">
-            第 {next.matchNumber} 场 · {next.roomName}
+            Round {next.matchNumber} · {next.roomName}
           </h2>
           <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-3 text-sm">
             <div>
-              <dt className="text-xs opacity-80">时间（{CLUB_DEFAULT_TIMEZONE}）</dt>
+              <dt className="text-xs opacity-80">Time ({CLUB_DEFAULT_TIMEZONE})</dt>
               <dd>{localDateTime(next.scheduledStart)}</dd>
             </div>
             <div>
-              <dt className="text-xs opacity-80">赛制</dt>
+              <dt className="text-xs opacity-80">Format</dt>
               <dd>{next.formatCode}</dd>
             </div>
             <div>
-              <dt className="text-xs opacity-80">我的评分表</dt>
+              <dt className="text-xs opacity-80">My ballot</dt>
               <dd>
                 {next.ballotStatus
                   ? (BALLOT_STATUS_LABELS[next.ballotStatus] ?? next.ballotStatus)
-                  : "尚未开始填写"}
+                  : "Not started yet"}
               </dd>
             </div>
           </dl>
@@ -178,15 +182,15 @@ export default async function JudgeHomePage() {
               <Button asChild variant="secondary">
                 <Link href={`/judge/matches/${next.matchId}`}>
                   {isBallotSubmitted(next)
-                    ? "查看评分表"
+                    ? "View ballot"
                     : next.ballotStatus === "draft"
-                      ? "继续填写评分表"
-                      : "填写评分表"}
+                      ? "Continue the ballot"
+                      : "Fill in the ballot"}
                 </Link>
               </Button>
             ) : (
               <p className="text-sm" role="note">
-                这个赛制还没有配置评分表模板，请联系管理员。
+                No ballot template is configured for this format. Ask an administrator.
               </p>
             )}
           </div>
@@ -194,8 +198,8 @@ export default async function JudgeHomePage() {
       ) : (
         <StatePanel
           variant="success"
-          title="手上的评分表都交齐了"
-          description="接下来如果有新的指派，会出现在这里。"
+          title="Every ballot is in"
+          description="New assignments will appear here."
         />
       )}
 
@@ -205,7 +209,7 @@ export default async function JudgeHomePage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-muted-foreground text-xs font-medium">
-                待提交的评分表
+                Ballots to submit
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -215,18 +219,20 @@ export default async function JudgeHomePage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-muted-foreground text-xs font-medium">
-                已过开始时间仍未提交
+                Past the start time and still not submitted
               </CardTitle>
             </CardHeader>
             <CardContent className="flex items-center gap-2">
               <p className="text-h2 font-semibold">{overdue.length}</p>
-              {overdue.length > 0 ? <StatusBadge tone="danger">需要尽快处理</StatusBadge> : null}
+              {overdue.length > 0 ? (
+                <StatusBadge tone="danger">Deal with this soon</StatusBadge>
+              ) : null}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-muted-foreground text-xs font-medium">
-                开了头还没交
+                Started but not submitted
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -239,10 +245,10 @@ export default async function JudgeHomePage() {
       {/* ---------------- 待办列表 ---------------- */}
       <section aria-labelledby="upcoming-heading" className="flex flex-col gap-3">
         <h2 id="upcoming-heading" className="text-title font-semibold">
-          待办（{upcoming.length}）
+          To do ({upcoming.length})
         </h2>
         {upcoming.length === 0 ? (
-          <p className="text-muted-foreground text-sm">没有待提交的评分表。</p>
+          <p className="text-muted-foreground text-sm">No ballots are waiting.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {upcoming.map((match) => (
@@ -257,10 +263,10 @@ export default async function JudgeHomePage() {
       {/* ---------------- 最近提交 ---------------- */}
       <section aria-labelledby="recent-heading" className="flex flex-col gap-3">
         <h2 id="recent-heading" className="text-title font-semibold">
-          最近提交
+          Recently submitted
         </h2>
         {recent.length === 0 ? (
-          <p className="text-muted-foreground text-sm">还没有提交过评分表。</p>
+          <p className="text-muted-foreground text-sm">No ballots submitted yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {recent.map((match) => (
@@ -272,8 +278,8 @@ export default async function JudgeHomePage() {
         )}
         {completed.length > recent.length ? (
           <p className="text-muted-foreground text-sm">
-            已提交的评分表共 {completed.length} 份 —— 这里只显示最近 {recent.length} 份，
-            下面「全部指派」里有完整列表。
+            {completed.length} ballots submitted in total. Only the most recent {recent.length} are
+            shown here; the full list is under All assignments below.
           </p>
         ) : null}
       </section>
@@ -281,7 +287,7 @@ export default async function JudgeHomePage() {
       {/* ---------------- 全部指派 ---------------- */}
       <section aria-labelledby="all-heading" className="flex flex-col gap-3">
         <h2 id="all-heading" className="text-title font-semibold">
-          全部指派（{matches.length}）
+          All assignments ({matches.length})
         </h2>
         {/*
           ⚠️ 规范 §9.2 要求这一份列表有 `Upcoming` / `Completed` 分段。
@@ -315,13 +321,13 @@ function AssignmentRow({ match, dense = false }: { match: JudgeHomeMatch; dense?
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="text-sm">
-            第 {match.matchNumber} 场 · {match.roomName}
+            Round {match.matchNumber} · {match.roomName}
           </strong>
           <MetaChip>{match.formatCode}</MetaChip>
           <StatusBadge tone={match.ballotStatus ? ballotStatusTone(match.ballotStatus) : "neutral"}>
             {match.ballotStatus
               ? (BALLOT_STATUS_LABELS[match.ballotStatus] ?? match.ballotStatus)
-              : "尚未开始填写"}
+              : "Not started yet"}
           </StatusBadge>
         </div>
         <span className="text-muted-foreground text-xs">{localDateTime(match.scheduledStart)}</span>
@@ -332,10 +338,16 @@ function AssignmentRow({ match, dense = false }: { match: JudgeHomeMatch; dense?
           href={`/judge/matches/${match.matchId}`}
           className="focus-visible:ring-ring/50 rounded text-sm underline underline-offset-4 focus-visible:ring-3 focus-visible:outline-none"
         >
-          {submitted ? "查看评分表" : match.ballotStatus === "draft" ? "继续填写" : "填写评分表"}
+          {submitted
+            ? "View ballot"
+            : match.ballotStatus === "draft"
+              ? "Continue"
+              : "Fill in the ballot"}
         </Link>
       ) : (
-        <span className="text-destructive text-xs">这个赛制还没有配置评分表模板，请联系管理员</span>
+        <span className="text-destructive text-xs">
+          No ballot template is configured for this format; ask an administrator
+        </span>
       )}
     </div>
   );
