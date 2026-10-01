@@ -116,6 +116,43 @@ npx supabase db push
 
 ---
 
+### ⚠️ 第 6b 步：Supabase 的 **URL 与邮件模板**（**漏了这一步，注册就是坏的**）
+
+**2026-10-01 的真实故障**：产品负责人在生产上注册，邮件里的确认链接指向
+**`localhost:3000`**，点开是"无法访问此网站"。原因就是下面这两项从来没配过 ——
+而**这份清单原来也没写**（所以现在补上）。
+
+**① 告诉 Supabase"我们的网址是什么"**
+
+- [ ] Supabase → **Authentication → URL Configuration**
+- [ ] **Site URL** 改成 `https://app.inspira.education`
+      ⚠️ 默认值是 `http://localhost:3000`。**不改的话，确认信与重置密码信里的链接
+      都会指向 localhost** —— 任何人在生产上都点不开，等于注册全坏。
+- [ ] **Redirect URLs** 加上（两条都要）：
+      - `https://app.inspira.education/**`
+      - `http://localhost:3000/**`（本地开发用）
+
+**② 把我们自己的邮件模板贴上去**
+
+- [ ] Supabase → **Authentication → Emails → Templates**
+- [ ] **Confirm signup**：主题 `Confirm your INSPIRA email`，正文 = 仓库里
+      `supabase/templates/confirmation.html` 的**全部内容**
+- [ ] **Reset password**：主题 `Reset your INSPIRA password`，正文 =
+      `supabase/templates/recovery.html` 的**全部内容**
+
+> ⚠️ **为什么必须手动贴**：`supabase/config.toml` 里的 `[auth.email.template.*]`
+> **只对本地 Supabase 生效**。生产用的是 Supabase 云上的项目，它**读不到仓库里的文件**。
+> 不贴的话，Supabase 会用**它自己的默认模板**，而默认模板的链接主机是认证服务域名
+> （`<项目>.supabase.co`）—— 那既是 ADR-0007 要避免的境外依赖，
+> 也会因为 Site URL 没改而跳回 localhost。
+
+**③ 验证（一定要做，别只看"保存成功"）**
+
+- [ ] 用一个**真实收得到的邮箱**注册一次
+- [ ] 点确认信里的按钮 → 应该跳回 **`app.inspira.education`**（**不是** localhost，
+      也**不是** `supabase.co`），并且登录成功
+- [ ] 再试一次"忘记密码" → 链接同样应该指向 `app.inspira.education`
+
 ## 第 7 步：建 Vercel 项目
 
 - [ ] Vercel → **Add New → Project** → 选第 1 步那个仓库

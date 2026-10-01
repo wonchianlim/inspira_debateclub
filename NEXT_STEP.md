@@ -458,6 +458,34 @@ newer ballot**"。后者需要：
 
 ---
 
+## 🔴 生产上的真实故障：注册确认链接指向 localhost（2026-10-01）
+
+**现象**：产品负责人在生产上注册，邮件里的确认链接是
+`http://localhost:3000/?code=...`，点开是"无法访问此网站"。
+
+**原因（查清了，不是代码问题）**：Supabase 项目的 **Site URL 还是默认的
+`http://localhost:3000`**，而且**我们自己那两份邮件模板从来没贴到生产项目上**
+（`supabase/config.toml` 里的模板配置**只对本地生效**）。所以：
+
+1. 生产发的是 Supabase **默认模板** → 链接主机是认证服务域名（ADR-0007 要避免的那个）；
+2. 校验完成后按 **Site URL** 跳回 → `localhost:3000` → 打不开。
+
+**后果**：**任何人在生产上都确认不了邮箱，因此注册走不通。**
+
+**根因**：`docs/deployment-checklist.md` 里**原来完全没有**这两步（已核对：0 处提到
+Site URL 或邮件模板）。**已经补上"第 6b 步"**，含验证方法。
+
+⚠️ **待产品负责人在 Supabase 控制台做**（我做不了，没有生产凭据）：
+Site URL 改成 `https://app.inspira.education`、Redirect URLs 加两条、
+把 `supabase/templates/confirmation.html` 与 `recovery.html` 贴进 Templates。
+
+**顺带发现的一类"用户会看到的文案"**：**邮件模板也是界面文案** ——
+确认信与重置密码信原来是中文（含 `lang="zh-CN"` 与中文主题）。
+本轮已一并改成英文（`config.toml` 的主题也改了）。
+⚠️ 注意：改仓库里的模板**不会**自动改变生产 —— 要在控制台重新贴一次。
+
+---
+
 ## 🔴 新的产品要求：整个界面改成英文（2026-10-01 产品负责人提出）
 
 > "the tab is in english, but everything else is in chinese.
