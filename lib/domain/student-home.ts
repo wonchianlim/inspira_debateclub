@@ -1,4 +1,4 @@
-import type { EventStatus } from "@/lib/domain/event-lifecycle";
+import { STUDENT_HIDDEN_EVENT_STATUSES, type EventStatus } from "@/lib/domain/event-lifecycle";
 import { registrationWindowState } from "@/lib/domain/registration";
 import type { RegistrationStatus } from "@/lib/validation/registrations";
 
@@ -38,14 +38,6 @@ export type StudentHomeEvent = {
   myRegistrationStatus: RegistrationStatus | null;
 };
 
-/**
- * 学生不该在首页看到的活动状态。
- *
- * 草稿是管理员还在准备的；已取消与已归档没有可做的事。
- * ⚠️ 这只是**呈现**层面的过滤 —— 真正的边界是 RLS。
- */
-const HIDDEN_EVENT_STATUSES: readonly EventStatus[] = ["draft", "cancelled", "archived"];
-
 function startTime(event: StudentHomeEvent): number {
   return new Date(event.startsAt).getTime();
 }
@@ -57,7 +49,7 @@ export function selectUpcomingEvents<T extends StudentHomeEvent>(
   limit = 3,
 ): T[] {
   return events
-    .filter((event) => !HIDDEN_EVENT_STATUSES.includes(event.status))
+    .filter((event) => !STUDENT_HIDDEN_EVENT_STATUSES.includes(event.status))
     .filter((event) => startTime(event) >= now.getTime())
     .sort((a, b) => startTime(a) - startTime(b))
     .slice(0, limit);

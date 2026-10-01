@@ -67,6 +67,21 @@ export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
 };
 
 /**
+ * 学生**不该看到**的活动状态。
+ *
+ * 草稿是管理员还在准备的；已取消与已归档没有可做的事。
+ *
+ * ⚠️ 这只是**呈现**层面的过滤 —— 真正的边界是数据库策略（RLS）。
+ * 放在这里而不是各页面：学生首页与活动列表都要用它，
+ * 两份手抄的名单迟早会有一边漏掉一个状态。
+ */
+export const STUDENT_HIDDEN_EVENT_STATUSES: readonly EventStatus[] = [
+  "draft",
+  "cancelled",
+  "archived",
+];
+
+/**
  * 允许的跳转。
  *
  * 只写"正常推进的下一步"和"取消"。任何未列出的组合都是非法的 ——

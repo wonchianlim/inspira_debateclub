@@ -45,6 +45,13 @@ export type StudentEventCard = {
   myRegistrationStatus: RegistrationStatus | null;
   myRegistrationId: string | null;
   enabledFormatCount: number;
+  /**
+   * 本活动启用的赛制代码（例如 `["PF", "BP"]`）。
+   *
+   * 活动列表的「按赛制筛选」要用它 —— 只靠 `enabledFormatCount` 那个数字
+   * 没法判断"这场活动有没有 BP"。活动卡片上也要把它显示出来。
+   */
+  enabledFormatCodes: string[];
 };
 
 export type StudentFormatChoice = {
@@ -161,6 +168,11 @@ export async function listStudentEvents(): Promise<StudentEventCard[]> {
       myRegistrationId: (registration?.id as string | undefined) ?? null,
       myRegistrationStatus: (registration?.status as RegistrationStatus | undefined) ?? null,
       enabledFormatCount: (row.event_formats ?? []).filter((f) => f.enabled).length,
+      enabledFormatCodes: (row.event_formats ?? [])
+        .filter((entry) => entry.enabled)
+        .map((entry) => entry.debate_formats?.code)
+        .filter((code): code is string => typeof code === "string")
+        .sort(),
     };
   });
 }
@@ -223,5 +235,9 @@ export async function getStudentEventDetail(eventId: string): Promise<StudentEve
     myRegistrationId: (registration?.id as string | undefined) ?? null,
     myRegistrationStatus: (registration?.status as RegistrationStatus | undefined) ?? null,
     enabledFormatCount: formats.filter((format) => format.eventFormatEnabled).length,
+    enabledFormatCodes: formats
+      .filter((format) => format.eventFormatEnabled)
+      .map((format) => format.code)
+      .sort(),
   };
 }

@@ -181,9 +181,13 @@ shadcn 语义令牌（保留，供现有组件使用）
   它替换掉的是一张**写着过期"待建设"标记**的功能清单（详见 `NEXT_STEP.md`）。
   新增 `lib/domain/greeting.ts`、`lib/domain/student-home.ts`、
   `components/domain/next-debate-hero.tsx`。
-- 🟡 **4b-2 学生活动列表 `/student/events`** —— 已完成 §8.2 的
-  「One status chip and one primary action」与共享窗口文案；
-  `Upcoming/Past` 分段、筛选、移动端筛选面板**尚未做**。
+- ✅ **4b-2 学生活动列表 `/student/events`** —— 完成 §8.2：
+  `即将到来 / 已结束` 分段、三组筛选（赛制/形式/报名状态）、
+  「One status chip and one primary action」、两种空状态、
+  过去活动的紧凑行样式。分段与筛选全部用网址参数表达，没有客户端组件；
+  逻辑集中在 `lib/domain/student-events-view.ts`（19 条测试，含乱填参数的收敛）。
+  两处刻意差异：没做移动端筛选抽屉（改为可换行的链接组，零 JS）；
+  没做搜索（活动量还没到需要它的程度，规范原文是 "only if event volume justifies it"）。
 - ⏳ 4b-3 活动详情（§8.3）、4b-4 我的评分表（§8.7）尚未开始。
 
 **两处数据模型缺口已由产品负责人拍板并修好（2026-10-01）：**
