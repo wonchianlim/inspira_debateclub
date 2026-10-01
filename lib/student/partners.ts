@@ -59,16 +59,6 @@ type PartnerRequestRow = {
   requester_student_id: string;
   requested_student_id: string;
   events: { title: string } | null;
-  requester: {
-    id: string;
-    school: string | null;
-    profiles: { display_name: string } | null;
-  } | null;
-  requested: {
-    id: string;
-    school: string | null;
-    profiles: { display_name: string } | null;
-  } | null;
 };
 
 /**
@@ -85,10 +75,7 @@ export async function listMyPartnerRequests(): Promise<PartnerRequestView[]> {
   const { data, error } = await supabase
     .from("partner_requests")
     .select(
-      "id, event_id, status, created_at, requester_student_id, requested_student_id, " +
-        "events(title), " +
-        "requester:student_profiles!partner_requests_requester_student_id_fkey(id, school, profiles(display_name)), " +
-        "requested:student_profiles!partner_requests_requested_student_id_fkey(id, school, profiles(display_name))",
+      "id, event_id, status, created_at, requester_student_id, requested_student_id, events(title)",
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -98,16 +85,39 @@ export async function listMyPartnerRequests(): Promise<PartnerRequestView[]> {
     return [];
   }
 
+  /*
+   * ⚠️ 对方的姓名与学校**不能**用 PostgREST 的嵌入查询取。
+   *
+   * `profiles` / `student_profiles` 的策略是行级的（只能读自己那一行），
+   * 嵌入的每一行同样受约束 → 对方整行被静默过滤成 NULL，
+   * 界面只能显示兜底值「（同学）」，而**不会有任何报错**。
+   * 实测：以学生身份查，`partner_requests` 能看到请求，
+   * 但 `profiles` 与 `student_profiles` 各只看得见自己那一行。
+   *
+   * 现在由 `my_partner_counterparts()` 只返回姓名与学校
+   * （不含邮箱/电话），关系由函数自己判断、调用方无法指定要谁的姓名。
+   */
+  const { data: counterpartRows } = await supabase.rpc("my_partner_counterparts");
+  const counterpartByRequest = new Map(
+    (
+      (counterpartRows ?? []) as {
+        request_id: string;
+        display_name: string | null;
+        school: string | null;
+      }[]
+    ).map((row) => [row.request_id, row]),
+  );
+
   return (data as unknown as PartnerRequestRow[]).map((row) => {
     const outgoing = row.requester_student_id === studentId;
-    const counterpart = outgoing ? row.requested : row.requester;
+    const counterpart = counterpartByRequest.get(row.id as string);
     return {
       id: row.id,
       eventId: row.event_id,
       eventTitle: row.events?.title ?? "（活动未知）",
       direction: outgoing ? "outgoing" : "incoming",
       status: row.status as keyof typeof PARTNER_STATUS_LABELS,
-      counterpartName: counterpart?.profiles?.display_name ?? "（同学）",
+      counterpartName: counterpart?.display_name ?? "（同学）",
       counterpartSchool: counterpart?.school ?? null,
       createdAt: row.created_at,
     };

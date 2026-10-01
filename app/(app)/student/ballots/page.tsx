@@ -163,8 +163,7 @@ export default async function StudentBallotsPage() {
               {group.documents.length > 1 ? (
                 <p className="text-muted-foreground text-sm" role="note">
                   这一场有 <strong className="text-foreground">{group.documents.length}</strong>{" "}
-                  位裁判的评分表。它们都是有效的记录，分数不同是正常的 ——
-                  下面按裁判分开列出（不公开裁判姓名）。
+                  位裁判的评分表。它们都是有效的记录，分数不同是正常的 —— 下面按裁判分别列出。
                 </p>
               ) : null}
 

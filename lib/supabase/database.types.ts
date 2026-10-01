@@ -916,6 +916,12 @@ isOneToOne: false
 "audit_redact":
 { Args: { "p_payload": Json }; Returns: Json
                            },
+"can_read_ballot":
+{ Args: { "p_ballot_id": string }; Returns: boolean
+                           },
+"can_write_ballot":
+{ Args: { "p_ballot_id": string }; Returns: boolean
+                           },
 "consume_rate_limit":
 { Args: { "p_bucket": string,"p_max": number,"p_subject_hash": string,"p_window_seconds": number }; Returns: boolean
                            },
@@ -971,6 +977,16 @@ isOneToOne: false
                            },
 "my_judge_id":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"my_partner_counterparts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "display_name": string,"request_id": string,"school": string
+            }[]
+                           },
+"my_published_ballot_judges":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "ballot_id": string,"judge_display_name": string
+            }[]
                            },
 "my_student_id":
 { Args: Record<PropertyKey, never>; Returns: string

@@ -25,6 +25,10 @@ import type { StudentBallot } from "@/lib/student/ballots";
  * 2. **所有长文字都保留换行**（`whitespace-pre-wrap`）。
  *    裁判写的分段是有意的，压成一行会读不出重点 —— 规范明确要求 preserve line breaks。
  *
+ * ⚠️ 裁判姓名（规范 §8.7 的 "judge name"，2026-10-01 产品负责人决定公开）：
+ * 拿得到姓名就显示姓名；拿不到（函数没返回）才退回匿名序号 ——
+ * 序号只是**兜底**，不再是主要信息，但仍然比"三张一模一样的卡片"好。
+ *
  * ⚠️ 复核请求表单由调用方通过 `reviewSlot` 传进来，而不是在这里 import。
  * 那样这个组件就是纯展示的，可以用测试夹具单独渲染；
  * 而且表单本身对"打印"没有意义，它带 `print:hidden`。
@@ -42,6 +46,9 @@ export function BallotDocument({
   const localDateTime = (iso: string) =>
     utcToZonedLocal(new Date(iso), CLUB_DEFAULT_TIMEZONE).replace("T", " ");
 
+  // 姓名优先；拿不到姓名时退回匿名序号（序号本身就写着"裁判 N"，不再加前缀）
+  const judgeLabel = ballot.judgeName ? `裁判：${ballot.judgeName}` : anonymousLabel;
+
   // 模板里"做得好的地方 / 应该改进的地方"这两类反馈，规范要求分开呈现。
   // 用模板字段的 key 判断，而不是猜中文标签 —— 标签是可以被管理员改的。
   const strengthFeedback = ballot.teamFeedback.filter((entry) => entry.key === "feedback_strength");
@@ -52,7 +59,7 @@ export function BallotDocument({
 
   return (
     <article
-      aria-label={`第 ${ballot.matchNumber} 场${anonymousLabel ? ` · ${anonymousLabel}` : ""}的评分表`}
+      aria-label={`第 ${ballot.matchNumber} 场${judgeLabel ? ` · ${judgeLabel}` : ""}的评分表`}
       className="border-border rounded-lg border px-4 py-4 md:px-5 md:py-5"
     >
       {/* ---------------- 这一场是什么 ---------------- */}
@@ -62,7 +69,7 @@ export function BallotDocument({
             第 {ballot.matchNumber} 场 · {ballot.roomName}
           </h3>
           <MetaChip>{ballot.formatCode}</MetaChip>
-          {anonymousLabel ? <MetaChip>{anonymousLabel}</MetaChip> : null}
+          {judgeLabel ? <MetaChip>{judgeLabel}</MetaChip> : null}
           {/* 结果放在最上面：学生打开这一页最先想知道的就是"我赢了没有" */}
           {ballot.myRank !== null ? (
             <StatusBadge>第 {ballot.myRank} 名</StatusBadge>

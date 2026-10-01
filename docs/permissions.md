@@ -149,6 +149,17 @@
 | `ballot_feedback` | 随 `ballots` 的可读性 | 随 `ballots` | 随 `ballots` | 随 `ballots` |
 | `ballot_review_requests` | 提交该请求的学生；管理 | 学生本人（仅针对自己可见的已发布 ballot，每份一次） | 学生本人（仅撤回，若允许）；管理（处理） | — |
 
+> **2026-10-01 补充（实现对齐）：** 上表 `ballots` 那一行的读范围**此前没有被完整实现** ——
+> 策略只写了 `status='published'`，漏掉了"且在自己比赛的名单中"，于是任何登录用户
+> 都能读别人比赛的已发布评分表（`F-STU-04` 因此一直缺测；`F-JDG-02` 也因为夹具里
+> 没有已发布评分表而侥幸通过）。
+> 现在读范围收在 **`can_read_ballot(ballot_id)`** 一个函数里（迁移
+> `20261001090300_ballot_read_scope.sql`）：
+> 管理员全部 / 被指派裁判自己那份 / 已发布且（staff 或**本场名单内的学生**）。
+> `ballot_scores` 与 `ballot_feedback` 共用它（本表要求的"随 `ballots` 的可读性"）。
+> 写范围单独放在 **`can_write_ballot(ballot_id)`**（管理员或被指派裁判），
+> 与改动前完全一致 —— 学生仍然不能写。
+
 **为什么"已提交 ballot 对裁判只读"必须在数据库层做：** 规范第 2.10 节要求提交后只有在管理员重开后才可编辑。如果只靠界面禁用按钮，裁判可以直接构造请求改结果，而审计只能事后发现。策略里的 `status IN ('draft','reopened')` 条件是真正的防线。
 
 **`winner_team_id` 在 BP 下的特殊性：** 四队赛制不能用"二元胜负"表达（规范第 10.4 节）。`ballots.winner_team_id` 对 BP 可以为空，结果以 `match_teams.placement` 表示。这条需要产品负责人确认（见 D-6）。

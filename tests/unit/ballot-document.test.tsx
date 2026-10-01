@@ -60,6 +60,7 @@ const BALLOT: StudentBallot = {
   matchLists: [{ key: "clash", label: "交锋", entries: ["定义之争", "举证责任"] }],
   teamLists: [{ key: "arguments", label: "论点", entries: ["公共论坛应设门槛"] }],
   reviewStatus: null,
+  judgeName: "虚构裁判丁",
 };
 
 describe("这一场是什么", () => {
@@ -86,8 +87,17 @@ describe("这一场是什么", () => {
     expect(screen.getByText(/公共论坛式辩论（PF）/)).toBeInTheDocument();
   });
 
-  it("有匿名序号时显示出来（同一场多位裁判）", () => {
-    render(<BallotDocument ballot={BALLOT} anonymousLabel="裁判 2" />);
+  /**
+   * 2026-10-01 产品负责人决定：向学生公开本场裁判是谁。
+   * 姓名来自 `my_published_ballot_judges()`（只返回姓名，不返回档案行里的邮箱/电话）。
+   */
+  it("显示本场裁判的姓名", () => {
+    render(<BallotDocument ballot={BALLOT} anonymousLabel={null} />);
+    expect(screen.getByText("裁判：虚构裁判丁")).toBeInTheDocument();
+  });
+
+  it("拿不到姓名时退回匿名序号 —— 而不是显示空白或编一个名字", () => {
+    render(<BallotDocument ballot={{ ...BALLOT, judgeName: null }} anonymousLabel="裁判 2" />);
     expect(screen.getByText("裁判 2")).toBeInTheDocument();
   });
 });

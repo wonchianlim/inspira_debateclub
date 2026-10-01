@@ -58,7 +58,7 @@
 
 ---
 
-## 第 4 步：把 31 个迁移跑到生产库
+## 第 4 步：把 33 个迁移跑到生产库
 
 ```bash
 cd /Users/chianlim/Documents/deepseek-harness/default-workspace/inspira
@@ -69,7 +69,7 @@ npx supabase login
 # 2. 链接到生产项目（会问数据库密码 —— 就是第 3 步存好的那个）
 npx supabase link --project-ref owkntjvfsrrjuithgdtq
 
-# 3. 应用全部 31 个迁移
+# 3. 应用全部 33 个迁移
 npx supabase db push
 ```
 
@@ -79,7 +79,7 @@ npx supabase db push
 - [ ] 到 Supabase 控制台的 **Table Editor** 确认表都建出来了（**35 张** —— 与本地 `db:verify` 重建后的数量一致）
 
 > ⚠️ **这一步已经在本地演练过很多次**：`npm run db:verify` 每一轮都会
-> 删库重建、从零重放全部迁移、再跑 255 条数据库用例。
+> 删库重建、从零重放全部迁移、再跑 262 条数据库用例。
 > 所以生产上出问题的概率很低，**但不要跳过确认**。
 
 ---

@@ -65,6 +65,20 @@ export type StudentBallot = {
   teamLists: { key: string; label: string; entries: string[] }[];
   /** 我的复核请求状态 */
   reviewStatus: string | null;
+  /**
+   * 本场裁判的显示名。
+   *
+   * 2026-10-01 产品负责人决定：**对学生公开**本场裁判是谁
+   * （规范 §8.7 把这件事留给 "anonymity policy"）。
+   *
+   * ⚠️ 姓名**不是**从 `ballots` 的嵌入查询里取的 —— `judge_profiles` 与 `profiles`
+   * 的 RLS 是行级的（`profiles_select_own_or_staff`），学生读不到别人的档案行，
+   * 嵌入查询会把姓名静默过滤成 NULL。因此走只返回姓名的
+   * `my_published_ballot_judges()`（见迁移 20261001090200）。
+   *
+   * 拿不到姓名时为 null，界面上退回匿名序号。
+   */
+  judgeName: string | null;
 };
 
 /** 当前学生能看到的所有已发布评分表。 */
@@ -94,6 +108,20 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
     .eq("status", "published");
 
   if (error) throw new Error(`读取评分表失败：${error.message}`);
+
+  /*
+   * 裁判姓名单独取一次（只返回姓名的函数）。
+   * ⚠️ 不要改成在 `.select()` 里嵌 `judge_profiles(profiles(display_name))` ——
+   * 那样每一行仍然受 `profiles` 的行级策略约束，学生拿到的会是 null，
+   * 而且**不会报错**：界面上只是永远显示不出裁判姓名。
+   */
+  const { data: judgeRows } = await supabase.rpc("my_published_ballot_judges");
+  const judgeNameByBallot = new Map(
+    ((judgeRows ?? []) as { ballot_id: string; judge_display_name: string | null }[]).map((row) => [
+      row.ballot_id,
+      row.judge_display_name,
+    ]),
+  );
 
   type Row = Record<string, unknown>;
   const rows = (data ?? []) as unknown as Row[];
@@ -297,6 +325,7 @@ export async function listMyPublishedBallots(): Promise<StudentBallot[]> {
       matchLists,
       teamLists,
       reviewStatus: (review?.status as string | undefined) ?? null,
+      judgeName: judgeNameByBallot.get(row.id as string) ?? null,
     });
   }
 

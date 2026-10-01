@@ -140,6 +140,30 @@ values ('dddddddd-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-0000000
 insert into public.judge_profiles (profile_id, approval_status)
 values ('aaaaaaaa-0000-0000-0000-000000000007', 'approved');
 
+-- ⚠️ 姓名显式写成人名。`profiles` 上的触发器会用邮箱兜底填 display_name，
+-- 于是"能看到姓名"的断言会变成 "stua@example.invalid" ——
+-- 那样用例看起来在验证姓名，实际上验证的是邮箱，改坏了也照样通过。
+update public.profiles set display_name = '虚构学生甲'
+  where id = 'aaaaaaaa-0000-0000-0000-000000000004';
+update public.profiles set display_name = '虚构学生乙'
+  where id = 'aaaaaaaa-0000-0000-0000-000000000005';
+
+-- ---------------------------------------------------------------------------
+-- 第三位裁判：**只用于**"学生能不能看到本场裁判姓名"这组用例。
+--
+-- ⚠️ 不能借用上面那位"纯裁判"（0007）：他没有被指派到任何比赛，
+-- 而 F-JDG-02 正是靠这一点验证"裁判读不到未被指派比赛的评分表"。
+-- 一旦让他成为某场比赛的裁判，那条用例会立刻从 PASS 变 FAIL（实测踩到过）。
+insert into auth.users (id, email)
+values ('aaaaaaaa-0000-0000-0000-000000000008','secondjudge@example.invalid');
+insert into public.user_roles (profile_id, role)
+values ('aaaaaaaa-0000-0000-0000-000000000008','judge');
+update public.profiles set display_name = '虚构裁判丁'
+  where id = 'aaaaaaaa-0000-0000-0000-000000000008';
+insert into public.judge_profiles (id, profile_id, approval_status)
+values ('dddddddd-0000-0000-0000-000000000008',
+        'aaaaaaaa-0000-0000-0000-000000000008', 'approved');
+
 -- 活动：一个正在报名（只启用 PF），一个报名已关闭
 with t as (select now() as base, (now() + interval '2 day' + interval '30 min') as starts_at)
 insert into public.events
@@ -329,6 +353,15 @@ limit 1;
 insert into public.ballot_scores (ballot_id, participation_id, score_type, score_value)
 values ('bb000000-0000-0000-0000-000000000002',
         '11111111-0000-0000-0000-000000000004', 'content', 30);
+
+-- 同一场比赛的**第二位裁判**，而且**已发布**（上面那份是草稿）。
+-- 学生甲在这场比赛里（participation 11111111-…0004 → 队伍 → 比赛 55555555-…0001），
+-- 因此他应当能看到这位裁判的姓名。
+insert into public.ballots (id, match_id, judge_id, template_id, status, published_at)
+values ('bb000000-0000-0000-0000-000000000003',
+        '55555555-0000-0000-0000-000000000001',
+        'dddddddd-0000-0000-0000-000000000008',
+        'bb000000-0000-0000-0000-000000000001', 'published', now());
 
 insert into public.pairing_proposals (id, event_id, algorithm_version, input_snapshot)
 values ('33333333-0000-0000-0000-000000000001',
@@ -546,6 +579,18 @@ insert into authz_cases (label, sub, want, sql) values
       returning 1) select count(*) from x$q$),
 ('A24 学生读自己发起的搭档请求','aaaaaaaa-0000-0000-0000-000000000004','allow',
  $q$select count(*) from public.partner_requests where requester_student_id = public.my_student_id()$q$),
+-- 2026-10-01：搭档请求的对方姓名曾经**看不到**。
+-- `profiles_select_own_or_staff` 是行级策略，学生读不到别人的档案行，
+-- 于是 PostgREST 的嵌入查询把对方整行过滤成 NULL，界面只能显示兜底值「（同学）」。
+-- 现在由 `my_partner_counterparts()` 只返回姓名与学校（不含邮箱/电话）。
+-- ⚠️ 断言**具体姓名与学校**，而不是只数行数：只数行数的话，
+--    返回"随便一个别人的名字"也会通过。
+('A24b 学生能看到搭档请求对方的姓名与学校','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.my_partner_counterparts()
+      where display_name = '虚构学生乙' and school = '虚构中学B'$q$),
+-- 与自己无关的学生调同一个函数，什么都不该拿到（函数不接受参数，无法指定要谁）
+('F-STU-45 无关学生拿不到别人搭档请求的对方姓名','aaaaaaaa-0000-0000-0000-000000000006','deny',
+ $q$select count(*) from public.my_partner_counterparts()$q$),
 ('A25 被请求方能看到发给自己的请求','aaaaaaaa-0000-0000-0000-000000000005','allow',
  $q$select count(*) from public.partner_requests$q$),
 ('F-STU-26 学生以他人名义发起搭档请求','aaaaaaaa-0000-0000-0000-000000000004','deny',
@@ -652,6 +697,31 @@ insert into authz_cases (label, sub, want, sql) values
     select count(*) from x$q$),
 
 -- ==================== 评分表（Phase 7）====================
+-- 2026-10-01 产品负责人决定：向学生公开本场裁判是谁。
+-- 姓名由 `my_published_ballot_judges()` 给出（只返回姓名，不返回档案行里的邮箱/电话），
+-- 并且只覆盖**我参与的比赛**与**已发布**的评分表。
+('A34b 学生能看到自己参与比赛的裁判姓名','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.my_published_ballot_judges()
+      where judge_display_name = '虚构裁判丁'$q$),
+-- 学生丙没有报名、没有参与任何比赛 → 一位裁判的姓名都拿不到
+('F-STU-44 没有参与比赛的学生拿不到裁判姓名','aaaaaaaa-0000-0000-0000-000000000006','deny',
+ $q$select count(*) from public.my_published_ballot_judges()$q$),
+-- ⚠️ 这一条（F-STU-04）**一直缺着**，而它写在 `docs/permissions.md` 第 280 行：
+--    「读取自己未参加比赛的已发布 ballot」→ 拒绝。
+-- 原来的策略只挡住了"未发布"，于是任何登录用户都能读**别人比赛**的已发布评分表。
+-- 夹具里原来一份已发布的评分表都没有，所以谁也没发现 ——
+-- 现在夹具里有了（bb000000-…0003，比赛 55555555-…0001），这条才可能失败。
+-- 学生丙没有参加那场比赛。
+('F-STU-04 学生读自己未参加比赛的已发布评分表','aaaaaaaa-0000-0000-0000-000000000006','deny',
+ $q$select count(*) from public.ballots where status = 'published'$q$),
+-- 同一条规则在逐项分上：`docs/permissions.md` 要求它"随 ballots 的可读性"
+('F-STU-04b 学生读自己未参加比赛评分表的逐项分','aaaaaaaa-0000-0000-0000-000000000006','deny',
+ $q$select count(*) from public.ballot_scores$q$),
+-- 反过来：名单里的学生**应当**能读到这一份（否则就等于把权限收得太死，
+-- 学生打开自己的评分表会是一片空白 —— 这同样是一种坏结果）
+('A38 名单内的学生读得到本场已发布评分表','aaaaaaaa-0000-0000-0000-000000000004','allow',
+ $q$select count(*) from public.ballots
+      where id = 'bb000000-0000-0000-0000-000000000003'$q$),
 ('A35 管理员读评分表','aaaaaaaa-0000-0000-0000-000000000002','allow',
  $q$select count(*) from public.ballots$q$),
 -- 规范第 14.3 节明文要求："students cannot read unpublished ballots"
